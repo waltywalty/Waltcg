@@ -1,0 +1,98 @@
+name: probe
+
+# Manual only. The probe spends free-tier request budget (100/day per
+# provider), so it must never fire on push or on a schedule by accident.
+on:
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: "Max requests per provider (free tier is 100/day)"
+        required: false
+        default: "90"
+      watchlist_cards:
+        description: "Watchlist size assumed for the paid-tier sizing math"
+        required: false
+        default: "250"
+
+permissions:
+  contents: write
+
+# Never let two probe runs spend budget at the same time.
+concurrency:
+  group: probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # No pip install: probe/coverage.py is stdlib-only on purpose.
+      - name: Run coverage probe
+        env:
+          TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
+          PPT_KEY: ${{ secrets.PPT_KEY }}
+          # apitcg.com issues its own key; falls back to TCGAPI_KEY if unset.
+          APITCG_KEY: ${{ secrets.APITCG_KEY }}
+          PROBE_BUDGET: ${{ inputs.budget }}
+          PROBE_WATCHLIST_CARDS: ${{ inputs.watchlist_cards }}
+          # Endpoint shapes could not be verified from the dev sandbox. If a
+          # run reports "no candidate endpoint answered", set the correct
+          # template in repo variables -- no code change needed.
+          TCGAPI_CATALOG_URLS: ${{ vars.TCGAPI_CATALOG_URLS }}
+          TCGAPI_PRICE_URLS: ${{ vars.TCGAPI_PRICE_URLS }}
+          APITCG_CATALOG_URLS: ${{ vars.APITCG_CATALOG_URLS }}
+          PPT_CARD_URLS: ${{ vars.PPT_CARD_URLS }}
+          PPT_POP_URLS: ${{ vars.PPT_POP_URLS }}
+        run: python probe/coverage.py
+
+      # probe/out/ holds raw provider responses, including price values. It is
+      # gitignored and deliberately NOT uploaded as a build artifact: artifacts
+      # on a public repo are world-downloadable. Only COVERAGE.md, which
+      # carries statuses and counts, leaves this runner.
+      - name: Commit COVERAGE.md
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add --force probe/COVERAGE.md
+
+          if git diff --cached --quiet; then
+            echo "COVERAGE.md unchanged; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "probe: refresh source coverage matrix"
+
+          for attempt in 1 2 3 4; do
+            if git push origin HEAD:"${GITHUB_REF_NAME}"; then
+              echo "pushed"
+              exit 0
+            fi
+            echo "push failed (attempt ${attempt}); rebasing and retrying"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            sleep $((2 ** attempt))
+          done
+          echo "could not push COVERAGE.md" >&2
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Coverage probe"
+            echo
+            if [ -f probe/COVERAGE.md ]; then
+              sed -n '/^## 3. Go \/ no-go/,/^## 4\./p' probe/COVERAGE.md | head -n 40
+            else
+              echo "No report produced -- see the probe step log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
