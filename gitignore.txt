@@ -1,0 +1,55 @@
+# ─── Credentials ──────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# ─── Data: nothing from a provider is ever committed ──────────
+# Licensing depends on this. Do not add exceptions.
+*.db
+*.duckdb
+*.sqlite
+*.sqlite3
+data/
+raw/
+cache/
+snapshots/
+probe/out/
+*.csv
+*.parquet
+*.feather
+
+# JSON is allowed only for config, schemas and fixtures
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!contracts/**/*.json
+!config/**/*.json
+
+# ─── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ─── Node ─────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.next/
+.vite/
+
+# ─── Editors / OS ─────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
