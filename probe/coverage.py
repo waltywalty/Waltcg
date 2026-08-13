@@ -264,6 +264,24 @@ APITCG_GAME = {"one-piece": "one-piece", "pokemon": "pokemon", "riftbound": "rif
 
 FREE_TIER_PER_DAY = 100
 
+# A provider with no key is never called. An unauthenticated request would
+# come back as a generic 401/403 and be indistinguishable from a real
+# coverage failure, which is how a missing key turns into a fake finding.
+KEY_ABSENT = "key absent"
+
+
+def fingerprint_key(key):
+    """Non-revealing identity check on a credential.
+
+    Enough to tell "the secret I set" from "some other secret" without
+    reproducing it. The prefix is withheld for short keys, where four
+    characters would be a meaningful fraction of the whole thing.
+    """
+    if not key:
+        return {"present": False, "length": 0, "prefix": None}
+    return {"present": True, "length": len(key),
+            "prefix": key[:4] if len(key) >= 8 else None}
+
 # Fill these from each provider's pricing page to get a monthly total in the
 # report. Left None deliberately: the probe cannot read a pricing page, and
 # inventing subscription costs would make the recommendation worthless.
@@ -585,7 +603,7 @@ class Provider:
 
     def status_note(self):
         if not self.key:
-            return f"no API key ({self.key_env} unset)"
+            return f"{KEY_ABSENT} ({self.key_env} unset) -- no requests made"
         if self.rate_limited:
             return "rate limited (429)"
         if self.exhausted:
@@ -618,6 +636,7 @@ class Prober:
         self.attempts = []        # (op, template, status) discovery log
         self.shapes = {}          # op -> sorted key paths
         self.safe_tokens = set()  # subscription costs, allowlisted for scrub_report
+        self.preflight_rows = []  # credential presence, filled by preflight()
         self.games = None         # step 0: tcgapi.dev /v1/games inventory
         self.tcgapi_game_slug = {}  # our game name -> catalog's slug
         # One key per provider, never shared. apitcg.com and tcgapi.dev are
@@ -633,6 +652,29 @@ class Prober:
                                                 ["bearer", "x-api-key"], "PPT_KEY"),
         }
         os.makedirs(RAW_DIR, exist_ok=True)
+
+    def preflight(self):
+        """Report credential presence before spending a single request.
+
+        The prefix goes to the run log only, never into COVERAGE.md -- that
+        file is committed to a public repo, and a permanent published fragment
+        of a live credential is a different risk from a line in a run log.
+        """
+        rows = []
+        print("preflight: credentials", file=sys.stderr)
+        for name, p in self.providers.items():
+            fp = fingerprint_key(p.key)
+            fp.update(provider=name, env=p.key_env)
+            rows.append(fp)
+            if not fp["present"]:
+                print(f"  {name:<26} {p.key_env:<12} ABSENT -- provider marked UNTESTED, "
+                      "no requests will be made", file=sys.stderr)
+            else:
+                pref = f"{fp['prefix']}..." if fp["prefix"] else "(withheld, key under 8 chars)"
+                print(f"  {name:<26} {p.key_env:<12} present  len={fp['length']:<4} "
+                      f"prefix={pref}", file=sys.stderr)
+        self.preflight_rows = rows
+        return rows
 
     # -- raw request ------------------------------------------------------
 
@@ -665,7 +707,7 @@ class Prober:
         if self.offline:
             return None, 0, "offline"
         if not p.key:
-            return None, 0, "no-key"
+            return None, 0, f"{KEY_ABSENT} ({p.key_env} unset)"
         if p.rate_limited:
             return None, 429, "provider parked after 429"
         if p.over_budget(self.budget):
@@ -757,6 +799,10 @@ class Prober:
         across 21 cards; one card's worth of evidence is enough.
         """
         p = self.providers[provider_name]
+        # Refuse before touching the template list, so a keyless provider
+        # cannot produce a 401 that later reads as a coverage result.
+        if not p.key and not self.offline:
+            return None, 0, f"{KEY_ABSENT} ({p.key_env} unset)"
         if op in p.discovery_failed:
             return None, 0, "endpoint discovery abandoned after first card"
 
@@ -785,7 +831,7 @@ class Prober:
                 if payload is not None:
                     self.shapes.setdefault(op, set()).update(key_paths(payload))
                 return payload, status, note
-            if note in ("offline", "no-key", "budget exhausted") or p.rate_limited:
+            if not_reached(note) or p.rate_limited:
                 return None, status, note
         if tried_any and op not in self.pinned:
             p.discovery_failed.add(op)
@@ -1164,8 +1210,8 @@ def probe_card(prober, card):
     return res
 
 
-NOT_REACHED = ("offline", "no-key", "budget exhausted", "provider parked after 429",
-               "429 rate limited")
+NOT_REACHED = ("offline", "no-key", KEY_ABSENT, "budget exhausted",
+               "provider parked after 429", "429 rate limited")
 
 
 def not_reached(note):
@@ -1624,6 +1670,28 @@ def build_report(rows, prober, ran_live):
       "data. Raw payloads and all prices stay in `probe/out/`, which is gitignored.")
     A("")
 
+    # preflight
+    A("## Preflight -- credentials")
+    A("")
+    A("Checked before any request. A provider with no key is **not called at all**: an "
+      "unauthenticated request returns a generic 401/403 that is indistinguishable from a "
+      "real coverage failure, which is how a missing secret becomes a fake finding.")
+    A("")
+    A("| Provider | Env var | Key | Length | Effect |")
+    A("|---|---|---|---|---|")
+    for row in (prober.preflight_rows or []):
+        if row["present"]:
+            A(f"| {row['provider']} | `{row['env']}` | present | {row['length']} | probed |")
+        else:
+            A(f"| {row['provider']} | `{row['env']}` | **absent** | -- | "
+              f"**UNTESTED -- key absent, no requests made** |")
+    A("")
+    A("Key prefixes are printed in the workflow run log for identity comparison against "
+      "GitHub Settings. They are deliberately not written here -- this file is committed to "
+      "a public repo, and a permanent published fragment of a live credential is a different "
+      "risk from a line in a run log.")
+    A("")
+
     # provider health
     A("## Provider status")
     A("")
@@ -1904,11 +1972,7 @@ def main():
 
     prober = Prober(args)
 
-    if not args.offline:
-        missing = [n for n, p in prober.providers.items() if not p.key]
-        if missing:
-            print(f"warning: no API key for {', '.join(missing)} -- "
-                  "those columns will report UNTESTED", file=sys.stderr)
+    prober.preflight()
 
     # Step 0: inventory the catalog before spending anything on cards.
     print("step 0: tcgapi.dev /v1/games", file=sys.stderr)
