@@ -234,3 +234,89 @@ Every monetary value, everywhere, is:
 - Money in a *display* string (`"$49.99/mo"` in config) is not this type and is
   not covered — the guard distinguishes our own subscription costs from observed
   card prices.
+
+---
+
+## ADR-0004 — The design brief was rewritten around uneven coverage
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `docs/CLAUDE_DESIGN_PROMPT.md`
+- **Supersedes:** the v1 brief, in full
+
+### Context
+
+The first design brief was written before Session 0 ran a single request. It
+assumed a world the probe then falsified, and it was specific enough about that
+world to have produced a design that could not be built.
+
+Three findings killed it.
+
+**Population data exists for Pokémon only.** PokémonPriceTracker is
+Pokémon-only by construction, and PSA has never exposed a population API. So
+for One Piece and Riftbound there is no population at any grade, from any
+source we can reach. That is not a gap in one panel: it is the input to the
+grade ladder's rung weights, to Model A's prior, and to Model D's entire
+regressor. The v1 brief described the ladder as a single artefact encoding
+price *and* population. For two of the three games it can only encode price.
+
+**The tcgapi catalog has no One Piece Japan entry.** Established by paginating
+`/v1/games` to the end — the whole enumeration, per ADR-0001, because a
+truncated list proves nothing about what is missing from it. tcgapi models
+language as a separate game (`55` Pokémon, `19` Pokémon Japan); there is simply
+no One Piece Japan row. A printing we track, and actively trade, is
+structurally inexpressible to that source.
+
+**The three Chinese printings are a manual tier.** Pokémon Simplified Chinese,
+Pokémon Traditional Chinese and One Piece Simplified Chinese are all official
+releases; One Piece Traditional Chinese is not. No Western source carries any
+of them. Prices come from Xianyu, Taobao, Mercari JP and SNKRDUNK, typed in by
+hand, and the EV models run on them unchanged.
+
+Counted up: four of the eight game/language combinations have no population,
+and four have no automated price at all. The degraded path is not the exception
+in this app — it is most of it.
+
+### Decision
+
+**`docs/CLAUDE_DESIGN_PROMPT.md` is replaced by the v2 brief verbatim, not
+merged.** The differences that matter:
+
+- A coverage table sits near the top, before any screen is described, stating
+  which of the eight combinations support what. Uneven coverage is framed as
+  the constraint that shapes the design rather than an error state.
+- The grade ladder's **no-population form is briefed as a first-class variant**,
+  explicitly noted as appearing about as often as the full one.
+- **Refusal is named as a design state**, alongside loading, empty, error and
+  stale — five states per screen, not four. This follows the engine, where
+  `Refusal` is a returned result type and not an exception, for the same reason:
+  "not enough evidence" has to survive into the UI intact.
+- A ninth screen, **Manual Entry**, was added, with the requirement that
+  hand-entered rows stay visually distinguishable everywhere they later appear.
+  Same engine, different provenance, different ageing.
+- **Trend Radar's Reddit sourcing is gone.** v1 briefed abnormal mention
+  velocity across Reddit, YouTube and search interest. The Reddit Data API
+  application is not approved, card-level search interest was deleted from the
+  schema for lack of a source, and a brief that names an unavailable source
+  gets a screen designed around it.
+- Arbitrage Board is marked Pokémon-only on the screen itself.
+- Provisional-versus-verified is added to the display rules, because grading
+  fees currently ship as `secondary, unverified` and that has to be visible
+  where it changes a number.
+- The name is `waltcg` throughout, and the brief points at the repo's real
+  contract files rather than uploaded copies.
+
+### Consequences
+
+- The brief now instructs the designer to stop and ask rather than invent a
+  field name. This is the same rule the schema session enforced by deleting
+  every unsourceable field: an invented field becomes an empty box on a screen
+  three weeks later, and by then something has been built on top of it.
+- v1 is not kept alongside v2. Two briefs in `docs/` is an invitation to design
+  against the wrong one; the diff lives in git and the reasoning lives here.
+- The source was a PDF, so `cmp` cannot compare it to a Markdown file directly.
+  Verified instead by normalising both to the same token stream — Markdown
+  syntax stripped, whitespace collapsed — and running `cmp` on those: 9,306
+  bytes of prose identical in order, and the coverage table identical as a word
+  multiset, the table alone because the PDF lays it out column-major and
+  Markdown row-major.
