@@ -42,9 +42,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
+import ssl
 import statistics
 import sys
 import time
@@ -515,9 +517,70 @@ def key_paths(obj, prefix="", out=None, depth=0):
 # ---------------------------------------------------------------------------
 
 
+def _proxy_for(scheme, host):
+    """Proxy URL for this request, honouring NO_PROXY. None if direct."""
+    no_proxy = (os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or "")
+    for entry in [e.strip().lower() for e in no_proxy.split(",") if e.strip()]:
+        if entry == "*" or host == entry or host.endswith("." + entry.lstrip(".")):
+            return None
+    var = ("HTTPS_PROXY", "https_proxy") if scheme == "https" else ("HTTP_PROXY", "http_proxy")
+    for v in var:
+        if os.environ.get(v):
+            return urllib.parse.urlparse(os.environ[v])
+    return None
+
+
+def send_exact(url, headers, timeout):
+    """GET `url` sending header names EXACTLY as given.
+
+    urllib cannot do this: Request.add_header() capitalises names and
+    AbstractHTTPHandler.do_open() then applies .title() to all of them, so
+    both `x-api-key` and `X-API-Key` leave the process as `X-Api-Key`. Header
+    names are case-insensitive per RFC 9110, but providers document a specific
+    spelling and not every server obeys the spec, so the probe should send
+    what the docs say and be able to prove it did. http.client passes names
+    through verbatim.
+
+    Returns (status, body_text, lowercased_response_headers).
+    """
+    u = urllib.parse.urlparse(url)
+    host, scheme = u.hostname, u.scheme
+    port = u.port or (443 if scheme == "https" else 80)
+    path = (u.path or "/") + (f"?{u.query}" if u.query else "")
+    proxy = _proxy_for(scheme, (host or "").lower())
+
+    if scheme == "https":
+        ctx = ssl.create_default_context()
+        bundle = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
+        if bundle and os.path.exists(bundle):
+            ctx.load_verify_locations(bundle)
+        if proxy:
+            conn = http.client.HTTPSConnection(proxy.hostname, proxy.port or 443,
+                                               timeout=timeout, context=ctx)
+            conn.set_tunnel(host, port)
+        else:
+            conn = http.client.HTTPSConnection(host, port, timeout=timeout, context=ctx)
+    else:
+        if proxy:
+            conn = http.client.HTTPConnection(proxy.hostname, proxy.port or 80, timeout=timeout)
+            path = url                      # absolute-form request target
+        else:
+            conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    try:
+        conn.request("GET", path, headers=headers)
+        r = conn.getresponse()
+        body = r.read().decode("utf-8", "replace")
+        return r.status, body, {k.lower(): v for k, v in r.getheaders()}
+    finally:
+        conn.close()
+
+
 class Provider:
-    def __init__(self, name, key, auth_styles, key_env):
+    def __init__(self, name, key, auth_styles, key_env, api_key_header="x-api-key"):
         self.name = name
+        # Exact spelling from THIS provider's docs. tcgapi.dev documents
+        # X-API-Key, apitcg.com documents x-api-key; send each verbatim.
+        self.api_key_header = api_key_header
         self.key = key
         self.key_env = key_env
         self.auth_styles = list(auth_styles)
@@ -538,11 +601,18 @@ class Provider:
         self.credit_breakdown = {}
         self.discovery_failed = set()   # ops whose templates are all dead
 
+    def auth_header_name(self, style=None):
+        """Exact header spelling this provider's docs specify."""
+        style = style or self.auth_style
+        if style == "bearer":
+            return "Authorization"
+        return self.api_key_header
+
     def headers(self, style=None):
         h = {"Accept": "application/json", "User-Agent": "waltcg-coverage-probe/1.0"}
         style = style or self.auth_style
         if self.key and style == "x-api-key":
-            h["X-API-Key"] = self.key
+            h[self.api_key_header] = self.key
         elif self.key and style == "bearer":
             h["Authorization"] = f"Bearer {self.key}"
         return h
@@ -644,9 +714,11 @@ class Prober:
         # leak that also produces junk 401 data. Absent key => UNTESTED.
         self.providers = {
             "tcgapi.dev": Provider("tcgapi.dev", os.environ.get("TCGAPI_KEY", "").strip(),
-                                   ["x-api-key"], "TCGAPI_KEY"),
+                                   ["x-api-key"], "TCGAPI_KEY", "X-API-Key"),
+            # apitcg.com documents a lowercase x-api-key and answers auth
+            # failures with HTTP 200, so try that spelling first.
             "apitcg.com": Provider("apitcg.com", os.environ.get("APITCG_KEY", "").strip(),
-                                   ["bearer", "x-api-key"], "APITCG_KEY"),
+                                   ["x-api-key", "bearer"], "APITCG_KEY", "x-api-key"),
             "pokemonpricetracker.com": Provider("pokemonpricetracker.com",
                                                 os.environ.get("PPT_KEY", "").strip(),
                                                 ["bearer", "x-api-key"], "PPT_KEY"),
@@ -666,14 +738,25 @@ class Prober:
             fp = fingerprint_key(p.key)
             fp.update(provider=name, env=p.key_env)
             rows.append(fp)
+            fp["auth_header"] = p.auth_header_name(p.auth_styles[0])
+            fp["auth_style"] = p.auth_styles[0]
             if not fp["present"]:
                 print(f"  {name:<26} {p.key_env:<12} ABSENT -- provider marked UNTESTED, "
                       "no requests will be made", file=sys.stderr)
             else:
                 pref = f"{fp['prefix']}..." if fp["prefix"] else "(withheld, key under 8 chars)"
                 print(f"  {name:<26} {p.key_env:<12} present  len={fp['length']:<4} "
-                      f"prefix={pref}", file=sys.stderr)
+                      f"prefix={pref}  header={fp['auth_header']!r}", file=sys.stderr)
         self.preflight_rows = rows
+
+        # Game slugs are per-provider and must not be shared: apitcg.com takes
+        # hyphenated string slugs, tcgapi.dev takes opaque numeric ids
+        # discovered from /v1/games at step 0.
+        print("preflight: game slug substitution per combo", file=sys.stderr)
+        for game, lang, label in COMBOS:
+            api = APITCG_GAME.get(game, game)
+            tcg = self.tcgapi_game_slug.get((game, lang), "(resolved at step 0)")
+            print(f"  {label:<26} apitcg.com={api!r}  tcgapi.dev={tcg!r}", file=sys.stderr)
         return rows
 
     # -- raw request ------------------------------------------------------
@@ -723,30 +806,17 @@ class Prober:
                 p.exhausted = True
                 return None, 0, "budget exhausted"
             p.requests += 1
-            req = urllib.request.Request(url, headers=p.headers(style))
+            sent = p.headers(style)
             body = ""
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                    status = r.status
-                    body = r.read().decode("utf-8", "replace")
-                    for hk in ("x-ratelimit-limit", "x-ratelimit-remaining",
-                               "ratelimit-limit", "retry-after"):
-                        if r.headers.get(hk):
-                            p.quota_headers[hk] = r.headers.get(hk)
-            except urllib.error.HTTPError as e:
-                status = e.code
-                try:
-                    body = e.read().decode("utf-8", "replace")
-                except Exception:
-                    body = ""
-                if e.code == 429:
+                status, body, resp_headers = send_exact(url, sent, self.timeout)
+                for hk in ("x-ratelimit-limit", "x-ratelimit-remaining",
+                           "ratelimit-limit", "retry-after"):
+                    if resp_headers.get(hk):
+                        p.quota_headers[hk] = resp_headers.get(hk)
+                if status == 429:
                     p.rate_limited = True
                     note = "429 rate limited"
-                    if e.headers.get("retry-after"):
-                        p.quota_headers["retry-after"] = e.headers.get("retry-after")
-            except urllib.error.URLError as e:
-                status = 0
-                note = f"network error: {e.reason}"
             except Exception as e:                     # noqa: BLE001 - never crash a run
                 status = 0
                 note = f"error: {e.__class__.__name__}: {e}"
@@ -768,13 +838,22 @@ class Prober:
 
             self._record(cache, {
                 "url": url, "provider": provider_name, "auth_style": style,
+                "auth_header_sent": p.auth_header_name(style),
                 "status": status, "fetched_at": now_iso(),
                 "note": note, "json": payload,
                 "body_head": body[:2000] if payload is None else None,
             })
 
-            if status in (401, 403) and attempt == 0 and len(p.auth_styles) > 1:
-                note = f"{status} with {style}, retrying alternate auth"
+            # Retry the alternate auth style on a 401/403 *or* on a 2xx that
+            # wraps an error object. apitcg.com answers auth failures with
+            # HTTP 200, so keying the retry on the status code alone meant the
+            # fallback never fired and every card recorded a dead template.
+            auth_rejected = (status in (401, 403)
+                             or (status and 200 <= status < 300
+                                 and classify_body(payload, status) == BODY_ERROR))
+            if auth_rejected and attempt == 0 and len(p.auth_styles) > 1:
+                note = (f"{status} with {p.auth_header_name(style)} ({style}), "
+                        "retrying alternate auth")
                 continue
             if status and 200 <= status < 300:
                 p.auth_style = style
@@ -1677,14 +1756,32 @@ def build_report(rows, prober, ran_live):
       "unauthenticated request returns a generic 401/403 that is indistinguishable from a "
       "real coverage failure, which is how a missing secret becomes a fake finding.")
     A("")
-    A("| Provider | Env var | Key | Length | Effect |")
-    A("|---|---|---|---|---|")
+    A("| Provider | Env var | Key | Length | Auth header sent | Effect |")
+    A("|---|---|---|---|---|---|")
     for row in (prober.preflight_rows or []):
+        hdr = f"`{row.get('auth_header', '--')}`"
         if row["present"]:
-            A(f"| {row['provider']} | `{row['env']}` | present | {row['length']} | probed |")
+            A(f"| {row['provider']} | `{row['env']}` | present | {row['length']} | {hdr} | "
+              "probed |")
         else:
-            A(f"| {row['provider']} | `{row['env']}` | **absent** | -- | "
+            A(f"| {row['provider']} | `{row['env']}` | **absent** | -- | {hdr} | "
               f"**UNTESTED -- key absent, no requests made** |")
+    A("")
+    A("Header names are sent with the exact spelling each provider documents "
+      "(`X-API-Key` for tcgapi.dev, `x-api-key` for apitcg.com). Names are case-insensitive "
+      "per RFC 9110, but not every server obeys that, and `urllib` silently rewrites both to "
+      "`X-Api-Key` -- so the probe uses `http.client`, which transmits them verbatim.")
+    A("")
+    A("**Game slug substitution.** The two catalogs use different identifier schemes, so they "
+      "get separate lookups -- apitcg.com takes hyphenated string slugs, tcgapi.dev takes "
+      "opaque numeric ids discovered from `/v1/games`.")
+    A("")
+    A("| Combo | apitcg.com `{game}` | tcgapi.dev `{game}` |")
+    A("|---|---|---|")
+    for game, lang, label in COMBOS:
+        tcg = prober.tcgapi_game_slug.get((game, lang))
+        A(f"| {label} | `{APITCG_GAME.get(game, game)}` | "
+          + (f"`{tcg}`" if tcg else "_no catalog entry_") + " |")
     A("")
     A("Key prefixes are printed in the workflow run log for identity comparison against "
       "GitHub Settings. They are deliberately not written here -- this file is committed to "
