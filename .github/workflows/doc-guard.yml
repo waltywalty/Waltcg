@@ -1,0 +1,76 @@
+name: doc-guard
+
+# Stops silent conversion.
+#
+# Source documents keep arriving as PDFs. A PDF gets machine-extracted into
+# Markdown, lands in docs/, and reads exactly like something that was written
+# there -- no record that a lossy step happened, so nothing downstream can
+# weigh it. Six weeks later a sentence a ligature mangled is being quoted as
+# though it were typed.
+#
+# Two things this enforces. No PDF is tracked, by extension or by magic bytes.
+# And every docs/**/*.md declares its origin in docs/PROVENANCE.md, with a
+# complete source note -- file, date, tool, verification -- whenever that
+# origin is an extraction.
+#
+# Like data-guard, this is a hard gate rather than a warning, and it runs the
+# check against a seeded scratch repository afterwards. A guard that has only
+# ever been seen passing is not evidence of anything.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-pdf-provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the guard inspects tracked files, and a shallow
+          # clone can hide a PDF added on an earlier commit of the branch.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # No secrets in this job. It reads the repository and nothing else.
+      - name: No PDFs, no undeclared PDF-derived docs
+        run: python -m audit.checks.no_pdf_provenance --verbose
+
+      - name: Guard catches what it claims to
+        # The full mutation suite lives in tests/test_pdf_provenance.py, which
+        # runs in the replay workflow's engine job. This is the fast smoke
+        # version: seed one of each violation class and require a rejection.
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d)
+          mkdir -p "$work/audit/checks" "$work/docs"
+          cp audit/checks/no_pdf_provenance.py "$work/audit/checks/"
+          touch "$work/audit/__init__.py" "$work/audit/checks/__init__.py"
+          cd "$work"
+          git init -q . && git config user.email ci@ci && git config user.name ci
+          printf '%%PDF-1.4\n' > docs/brief.pdf
+          printf '%%PDF-1.4\n' > docs/disguised.md
+          printf '# Undeclared\n' > docs/smuggled.md
+          git add -A -f >/dev/null
+          if python -m audit.checks.no_pdf_provenance; then
+            echo "FAIL: guard passed a tracked PDF and an undeclared document" >&2
+            exit 1
+          fi
+          echo "guard correctly rejected all seeded violations"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Document provenance"
+            echo
+            echo '```'
+            python -m audit.checks.no_pdf_provenance --verbose 2>&1 | tail -n 20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

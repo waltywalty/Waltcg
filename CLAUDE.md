@@ -54,6 +54,11 @@ Every derived value carries `{value, source, as_of, confidence, sample_size}` wi
 **Output shape**
 The API serves exactly `contracts/screens.schema.json`. A response that fails validation is a 500, not a warning.
 
+**Document handoffs**
+Source documents are **pasted into chat as text**, not uploaded as files. A PDF has to be machine-extracted before it can become a `.md`, and extraction is lossy in ways that do not announce themselves — ligatures, soft hyphens, unmapped glyphs, table cells silently reordered from row-major to column-major. The converted file then reads exactly like something written in the repo. Pasted text skips the conversion entirely, so there is nothing to verify.
+
+If a PDF is genuinely unavoidable: extract it, record the conversion in `docs/PROVENANCE.md` with the source file, date, tool and verification method, and never commit the PDF. `*.pdf` is gitignored and `audit/checks/no_pdf_provenance.py` hard-fails on a tracked one, on an undeclared document under `docs/`, on a partial source note, and on extraction artifacts in any docs file. It cannot detect a clean extraction declared as pasted text — the manifest makes conversion something you declare, not something inferred.
+
 ---
 
 ## Layout
@@ -72,7 +77,7 @@ web/         front end from Claude Design handoff
 audit/       integrity checks
 config/      grading.yaml, fees.yaml, crossover_rules.yaml, sentiment.yaml — all dated
 docs/        GOAL.md, AUDIT_PROTOCOL.md, DATA_SOURCES.md, OPEN_ISSUES.md,
-             hypotheses.md, decisions.md, audits/
+             hypotheses.md, decisions.md, PROVENANCE.md, audits/
 ```
 
 ---

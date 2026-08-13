@@ -33,6 +33,15 @@ probe/out/
 # response is ever copied in here, so the no-provider-data rule holds.
 !probe/fixtures/**/*.json
 
+# ─── Documents: PDFs are not a source format ──────────────────
+# Source documents arrive as pasted text. A PDF that reaches the tree gets
+# machine-extracted into Markdown and then reads exactly like something that
+# was written here, with no record that a lossy step happened. Ignored so it
+# takes a --force to commit one, and hard-failed by
+# audit/checks/no_pdf_provenance.py so the --force does not help.
+*.pdf
+*.PDF
+
 # ─── Python ───────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
