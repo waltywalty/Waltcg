@@ -497,6 +497,69 @@ class GoldenModelE(unittest.TestCase):
         self.assertIn("inconsistent", out.reason)
 
 
+class GoalD2Compliance(unittest.TestCase):
+    """docs/GOAL.md D2: every calculator emits a break-even threshold."""
+
+    def _cfg(self):
+        cfg = filled_config()
+        cfg.assumptions["pull_rate_estimates"]["by_product"]["box"] = {
+            "packs_per_box": 36, "cards_per_pack": 10,
+            "rates": {"SIR": 0.02, "IR": 0.10}, "source": "fixture",
+            "sample_size": 400}
+        return cfg
+
+    def test_models_a_b_c_emit_break_even_probability(self):
+        cfg = self._cfg()
+        a = raw_to_graded_ev("a", usd(200), "regular",
+                             {"10": usd(1000), "9": usd(200), "8": usd(100)}, cfg=cfg,
+                             grade_probs=_dist({"10": "0.5", "9": "0.4", "8": "0.1"}))
+        b = regrade_9_to_10_ev("b", usd(300),
+                               {"10": usd(1000), "9": usd(300), "below_9": usd(80)},
+                               cfg=cfg,
+                               condition_read={"centering_pct": 60, "corner_flag": "clean",
+                                               "surface_flag": "clean",
+                                               "edge_flag": "clean"})
+        c = crossover_ev("c", "psa_crossover", usd(400),
+                         {"10": usd(1000), "9": usd(300), "below_9": usd(80),
+                          "original_slab": usd(400)}, cfg=cfg, bgs_overall=9.5,
+                         subgrades={"centering": 9.5, "corners": 9.5,
+                                    "edges": 9.5, "surface": 9.5})
+        for name, r in (("A", a), ("B", b), ("C", c)):
+            self.assertTrue(r.ok, name)
+            self.assertIsNotNone(r.break_even_p_target, f"Model {name} has no threshold")
+            self.assertIsNotNone(r.margin, f"Model {name} has no margin")
+
+    def test_model_d_emits_a_break_even_price_per_row(self):
+        """The residual is the point estimate; the threshold is the fair price."""
+        cfg = self._cfg()
+        cards = [dict(card_uid=f"c{i}", game="pokemon", rarity_band="SIR", era="sv",
+                      p10_median=500, p9_median=100, p10_sample=9, p9_sample=9,
+                      pop10=100 + 10 * i, pop9=400) for i in range(6)]
+        cards[2]["p10_median"] = 250
+        out = grade_spread_residual(cards, cfg=cfg)
+        self.assertTrue(out["ok"])
+        for row in out["ranked"]:
+            self.assertIsNotNone(row.break_even_p10_median)
+            self.assertIsNotNone(row.pct_move_to_fair)
+        cheap = next(r for r in out["ranked"] if r.card_uid == "c2")
+        # The cheap card must need an UPWARD move to reach fair value.
+        self.assertGreater(cheap.pct_move_to_fair, 0)
+
+    def test_model_e_emits_a_break_even_pull_rate(self):
+        """box 150 / 36 packs = 4.16667; IR contributes .10*8 = .80;
+        break-even SIR rate = (4.16667 - .80) / 120 = 0.0280555...
+        Modelled .02, so ripping does not clear the bar."""
+        cfg = self._cfg()
+        out = sealed_ev("box", cfg=cfg, box_market_price=usd(150),
+                        value_by_rarity={"SIR": usd(120), "IR": usd(8)})
+        be = out["break_even"]
+        self.assertEqual(be["band"], "SIR")
+        self.assertAlmostEqual(float(be["break_even_pull_rate"]),
+                               (150 / 36 - 0.80) / 120, places=10)
+        self.assertLess(D(be["margin"]), 0)
+        self.assertTrue(be["attainable"])
+
+
 class PropertyTests(unittest.TestCase):
 
     def _ev_at(self, acquisition=200, p10="0.5", turnaround=50):

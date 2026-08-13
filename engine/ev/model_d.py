@@ -157,13 +157,21 @@ def grade_spread_residual(
     rows = []
     for c, xr, obs in zip(usable, x_rows, y):
         fitted = sum(b * v for b, v in zip(beta, xr))
+        # Break-even threshold: the PSA 10 median at which this card sits
+        # exactly on the fitted line and the signal disappears. exp(fitted) is
+        # the fair P10/P9 ratio, so fair P10 = P9 * exp(fitted).
+        fair_p10 = float(c["p9_median"]) * math.exp(fitted)
+        observed_p10 = float(c["p10_median"])
+        pct_move = (fair_p10 - observed_p10) / observed_p10 * 100.0
         rows.append(ScreenRow(
             card_uid=c["card_uid"],
             residual=Decimal(str(obs - fitted)).quantize(Decimal("0.000001")),
             fitted=Decimal(str(fitted)).quantize(Decimal("0.000001")),
             observed=Decimal(str(obs)).quantize(Decimal("0.000001")),
             sample_size_p10=int(c["p10_sample"]), sample_size_p9=int(c["p9_sample"]),
-            pop9=int(c["pop9"]), pop10=int(c["pop10"])))
+            pop9=int(c["pop9"]), pop10=int(c["pop10"]),
+            break_even_p10_median=Decimal(str(fair_p10)).quantize(Decimal("0.01")),
+            pct_move_to_fair=Decimal(str(pct_move)).quantize(Decimal("0.01"))))
 
     rows.sort(key=lambda r: r.residual)   # most negative first: P10 cheapest
     return {
@@ -176,6 +184,10 @@ def grade_spread_residual(
         "levels": {"rarity_band": rarities, "era": eras, "game": games},
         "n_fitted": len(usable),
         "n_suppressed": len(suppressed),
+        "break_even_definition": ("per row, break_even_p10_median is the PSA 10 median "
+                                  "at which the card sits on the fitted line and the "
+                                  "signal disappears; pct_move_to_fair is the move "
+                                  "required to get there"),
         "min_sample": min_sample,
         "window_days": window_days,
         "provenance": Provenance(

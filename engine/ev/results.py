@@ -178,6 +178,12 @@ class ScreenRow:
     pop10: int
     suppressed: bool = False
     suppression_reason: str = ""
+    # Break-even threshold for the screen (GOAL D2: every calculator emits a
+    # threshold, not only a point estimate). The residual is the point
+    # estimate; these say what the price would have to BE for the signal to
+    # disappear, which is the number you act on.
+    break_even_p10_median: Optional[Decimal] = None   # P10 price at residual 0
+    pct_move_to_fair: Optional[Decimal] = None        # % move from observed to fair
 
     def as_dict(self):
         return {"card_uid": self.card_uid, "residual": str(self.residual),
@@ -186,4 +192,8 @@ class ScreenRow:
                 "sample_size_p9": self.sample_size_p9,
                 "pop9": self.pop9, "pop10": self.pop10,
                 "suppressed": self.suppressed,
-                "suppression_reason": self.suppression_reason}
+                "suppression_reason": self.suppression_reason,
+                "break_even_p10_median": (None if self.break_even_p10_median is None
+                                          else str(self.break_even_p10_median)),
+                "pct_move_to_fair": (None if self.pct_move_to_fair is None
+                                     else str(self.pct_move_to_fair))}

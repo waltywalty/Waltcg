@@ -103,6 +103,35 @@ def sealed_ev(
     per_box = per_pack * packs
     rip_vs_buy = per_box - box_market_price
 
+    # Break-even threshold (GOAL D2: every calculator emits one, not only a
+    # point estimate). The pull rate is the least trustworthy input here, so
+    # invert on it: what rate would the highest-value band need for ripping to
+    # match the box price? Linear, so closed-form.
+    #     packs * [ p*V_top + sum(other rate_i * V_i) ] = box_price
+    #  => p* = (box_price/packs - sum_other) / V_top
+    top_band = max(rates, key=lambda b: value_by_rarity[b].amount)
+    v_top = value_by_rarity[top_band]
+    others = Money.zero(currency)
+    for band, rate in rates.items():
+        if band != top_band:
+            others = others + (value_by_rarity[band] * Decimal(str(rate)))
+    if v_top.amount > 0:
+        be_rate = ((box_market_price.amount / Decimal(packs)) - others.amount) / v_top.amount
+        modelled_rate = Decimal(str(rates[top_band]))
+        break_even = {
+            "band": top_band,
+            "break_even_pull_rate": str(be_rate),
+            "modelled_pull_rate": str(modelled_rate),
+            "margin": str(modelled_rate - be_rate),
+            "attainable": bool(0 <= be_rate <= 1),
+            "definition": (f"pull rate for {top_band} at which expected singles value per "
+                           "box equals the box market price, holding the other bands fixed"),
+        }
+    else:
+        break_even = {"band": top_band, "break_even_pull_rate": None,
+                      "attainable": False,
+                      "definition": "top band has no value; no rate makes ripping pay"}
+
     singles_cmp = None
     if singles_basket_cost is not None:
         if not isinstance(singles_basket_cost, Money):
@@ -128,6 +157,7 @@ def sealed_ev(
         "expected_singles_value_per_box": per_box.as_dict(),
         "box_market_price": box_market_price.as_dict(),
         "rip_minus_box_price": rip_vs_buy.as_dict(),
+        "break_even": break_even,
         "ripping_beats_buying_box": rip_vs_buy.amount > 0,
         "contribution_by_band": contributions,
         "singles_comparison": singles_cmp,
