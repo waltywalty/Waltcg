@@ -226,8 +226,12 @@ CARDS = [
 ENDPOINTS = {
     # Documented at tcgapi.dev. The search endpoint takes no language
     # parameter -- see probe_games() for why that matters.
+    # Paginated: the response carries meta.has_more / meta.total, and the
+    # default page is 50 entries. Absence of a game can only be claimed once
+    # every page has been read.
     "tcgapi.games": [
-        "https://api.tcgapi.dev/v1/games",
+        "https://api.tcgapi.dev/v1/games?page={page}&per_page=100",
+        "https://api.tcgapi.dev/v1/games?page={page}",
     ],
     "tcgapi.catalog": [
         "https://api.tcgapi.dev/v1/search?q={name}&game={game}",
@@ -510,6 +514,8 @@ class Provider:
         # metadata.apiCallsConsumed. Counting our own requests underestimates
         # both, so prefer whatever the provider tells us.
         self.daily_remaining = None
+        self.daily_limit = None
+        self.daily_reset = None
         self.credits_used = 0.0
         self.credit_breakdown = {}
         self.discovery_failed = set()   # ops whose templates are all dead
@@ -532,6 +538,12 @@ class Provider:
             rem = to_number(find_key(rl, "daily_remaining", "dailyRemaining"))
             if rem is not None:
                 self.daily_remaining = int(rem)
+            lim = to_number(find_key(rl, "daily_limit", "dailyLimit"))
+            if lim is not None:
+                self.daily_limit = int(lim)
+            reset = find_key(rl, "daily_reset", "dailyReset", "reset_at", want=str)
+            if reset:
+                self.daily_reset = reset
         consumed = find_key(payload, "apiCallsConsumed", "api_calls_consumed")
         if isinstance(consumed, dict):
             cost = to_number(find_key(consumed, "costPerCard", "cost_per_card",
@@ -577,10 +589,19 @@ class Provider:
         if self.rate_limited:
             return "rate limited (429)"
         if self.exhausted:
-            return "budget exhausted"
+            extra = ""
+            if self.daily_remaining is not None:
+                cap = f"/{self.daily_limit}" if self.daily_limit else ""
+                extra = f" -- provider reports {self.daily_remaining}{cap} left today"
+                if self.daily_reset:
+                    extra += f", resets {self.daily_reset}"
+            return "budget exhausted" + extra
         bits = []
         if self.daily_remaining is not None:
-            bits.append(f"provider reports {self.daily_remaining} left today")
+            cap = f"/{self.daily_limit}" if self.daily_limit else ""
+            bits.append(f"provider reports {self.daily_remaining}{cap} left today")
+        if self.daily_reset:
+            bits.append(f"resets {self.daily_reset}")
         if self.credits_used:
             bits.append(f"{self.credits_used:g} credits consumed")
         return "ok" + (" -- " + ", ".join(bits) if bits else "")
@@ -786,7 +807,15 @@ class Prober:
         if provider_name == "apitcg.com":
             ctx["game"] = APITCG_GAME.get(card["game"], card["game"])
         elif provider_name == "tcgapi.dev":
-            ctx["game"] = self.tcgapi_game_slug.get(card["game"], card["game"])
+            key = (card["game"], card["lang"])
+            if self.games and self.games.get("reached"):
+                if key not in self.tcgapi_game_slug:
+                    # Only a fully-read game list can prove a game is absent.
+                    return None, 0, (NO_GAME_ENTRY if self.games.get("complete")
+                                     else NO_GAME_ENTRY_PARTIAL)
+                ctx["game"] = self.tcgapi_game_slug[key]
+            else:
+                ctx["game"] = card["game"]
         return self.call_ctx(op, provider_name, ctx, card_slug(card))
 
 
@@ -943,6 +972,25 @@ def norm_cmp(a, b):
 LANG_HINTS = ("jp", "japan", "japanese", "ja", "cn", "chinese", "zh", "simplified",
               "traditional", "kr", "korea", "korean", "lang")
 
+# tcgapi.dev game ids are opaque integers, so our internal game names have to
+# be matched against the catalog's display names.
+GAME_NAME_TOKENS = {
+    "pokemon": ["pokemon", "pokémon"],
+    "one-piece": ["one piece"],
+    "riftbound": ["riftbound"],
+}
+LANG_TOKENS = {
+    "JP": ["japan", "japanese", " jp"],
+    "CN-S": ["simplified", "china", "chinese"],
+    "CN-T": ["traditional"],
+}
+
+# A combo with no catalog game entry never gets a request; the games list is
+# authoritative, so its absence is confirmed rather than merely unobserved.
+NO_GAME_ENTRY = "no catalog game entry for this language"
+# Same situation, but the game list was truncated, so absence is unproven.
+NO_GAME_ENTRY_PARTIAL = "no catalog game entry found, but the game list was incomplete"
+
 
 def probe_games(prober):
     """Step 0: what does tcgapi.dev actually carry, and does it model language?
@@ -954,33 +1002,66 @@ def probe_games(prober):
     language dimension in the game list either, EN/JP separation is not
     testable on this source at all.
     """
-    payload, status, note = prober.call_ctx("tcgapi.games", "tcgapi.dev", {}, "step0")
-    body_class = classify_body(payload, status)
-    out = {"status": status, "note": note, "body_class": body_class,
-           "games": [], "reached": False, "language_dimension": None,
-           "riftbound": None}
-    if body_class not in (BODY_OK, BODY_EMPTY):
-        return out
-    out["reached"] = True
+    out = {"status": 0, "note": "", "body_class": BODY_NONE, "games": [],
+           "reached": False, "language_dimension": None, "riftbound": None,
+           "complete": False, "pages": 0, "total": None}
 
-    entries = payload
-    if isinstance(payload, dict):
-        for k in ENVELOPE_KEYS:
-            if isinstance(payload.get(k), list):
-                entries = payload[k]
-                break
     games = []
-    if isinstance(entries, list):
-        for e in entries:
-            if isinstance(e, dict):
-                gid = e.get("id") or e.get("slug") or e.get("code") or e.get("key")
-                gname = e.get("name") or e.get("title") or gid
-                langs = find_key(e, "languages", "language", "locales")
-                games.append({"id": str(gid) if gid else None,
-                              "name": str(gname) if gname else None,
-                              "languages": langs if isinstance(langs, (list, str)) else None})
-            elif isinstance(e, str):
-                games.append({"id": e, "name": e, "languages": None})
+    page, MAX_PAGES = 1, 12
+    while page <= MAX_PAGES:
+        payload, status, note = prober.call_ctx("tcgapi.games", "tcgapi.dev",
+                                                {"page": page}, f"step0-p{page}")
+        body_class = classify_body(payload, status)
+        if page == 1:
+            out.update({"status": status, "note": note, "body_class": body_class})
+            if body_class not in (BODY_OK, BODY_EMPTY):
+                return out
+            out["reached"] = True
+        elif body_class not in (BODY_OK, BODY_EMPTY):
+            out["note"] = f"page {page} failed: {note}"
+            break
+        out["pages"] = page
+
+        entries = payload
+        if isinstance(payload, dict):
+            for k in ENVELOPE_KEYS:
+                if isinstance(payload.get(k), list):
+                    entries = payload[k]
+                    break
+        if isinstance(entries, list):
+            for e in entries:
+                if isinstance(e, dict):
+                    gid = e.get("id") or e.get("slug") or e.get("code") or e.get("key")
+                    gname = e.get("name") or e.get("title") or gid
+                    langs = find_key(e, "languages", "language", "locales")
+                    games.append({"id": str(gid) if gid is not None else None,
+                                  "slug": str(e["slug"]) if e.get("slug") else None,
+                                  "name": str(gname) if gname else None,
+                                  "languages": langs if isinstance(langs, (list, str)) else None})
+                elif isinstance(e, str):
+                    games.append({"id": e, "slug": e, "name": e, "languages": None})
+
+        meta = find_key(payload, "meta", "pagination")
+        has_more = None
+        if isinstance(meta, dict):
+            hm = find_key(meta, "has_more", "hasMore", "hasNextPage")
+            has_more = bool(hm) if hm is not None else None
+            tot = to_number(find_key(meta, "total", "totalCount"))
+            if tot is not None:
+                out["total"] = int(tot)
+        if has_more is False:
+            out["complete"] = True
+            break
+        if has_more is None:
+            # No pagination signal: complete only if we saw everything the
+            # response claimed, otherwise say so rather than assume.
+            out["complete"] = (out["total"] is None or len(games) >= out["total"])
+            break
+        page += 1
+    else:
+        out["note"] = f"stopped after {MAX_PAGES} pages"
+    if out["total"] is not None and len(games) >= out["total"]:
+        out["complete"] = True
     out["games"] = games
 
     blob = " ".join(filter(None, [f"{g['id']} {g['name']}" for g in games])).lower()
@@ -995,14 +1076,35 @@ def probe_games(prober):
         for g in games)
     out["language_dimension"] = bool(has_lang_field or has_lang_entries)
 
-    # Map our internal game names onto the catalog's slugs where they differ.
-    for ours in {c["game"] for c in CARDS}:
-        for g in games:
-            gid = (g["id"] or "").lower()
-            if gid and (gid == ours or gid.replace("_", "-") == ours
-                        or ours.replace("-", "") == gid.replace("-", "")):
-                prober.tcgapi_game_slug[ours] = g["id"]
+    # Map (game, language) onto the catalog's game id. The ids are opaque
+    # numbers ("55", "19"), so matching has to go through the display name --
+    # and language is modelled as SEPARATE GAME ENTRIES ("Pokemon" vs
+    # "Pokemon Japan"), not as a parameter. A combo with no entry is
+    # structurally absent from this catalog, which is a finding worth having
+    # for free rather than 21 doomed searches.
+    out["mapping"], out["unmapped"] = {}, []
+    for game, lang, label in COMBOS:
+        want = GAME_NAME_TOKENS.get(game, [game])
+        lang_toks = LANG_TOKENS.get(lang, [])
+        best = None
+        for entry in games:
+            hay = f"{entry.get('slug') or ''} {entry['name'] or ''}".lower()
+            if not any(t in hay for t in want):
+                continue
+            has_lang = any(t in hay for t in sum(LANG_TOKENS.values(), []))
+            if lang == "EN":
+                # English is the unmarked entry: reject anything language-tagged.
+                if not has_lang:
+                    best = entry
+                    break
+            elif any(t in hay for t in lang_toks):
+                best = entry
                 break
+        if best:
+            out["mapping"][f"{game}:{lang}"] = {"id": best["id"], "name": best["name"]}
+            prober.tcgapi_game_slug[(game, lang)] = best["id"]
+        else:
+            out["unmapped"].append(label)
     return out
 
 
@@ -1010,8 +1112,10 @@ def probe_card(prober, card):
     res = {"card": card, "slug": card_slug(card)}
 
     def http(payload, status, note):
-        return {"status": status, "note": note,
-                "body_class": classify_body(payload, status)}
+        # The authoritative games list having no entry for this language is a
+        # confirmed absence, equivalent to a validated empty envelope.
+        bc = BODY_EMPTY if note == NO_GAME_ENTRY else classify_body(payload, status)
+        return {"status": status, "note": note, "body_class": bc}
 
     # 1. catalog: tcgapi.dev
     payload, status, note = prober.call("tcgapi.catalog", "tcgapi.dev", card)
@@ -1558,6 +1662,37 @@ def build_report(rows, prober, ran_live):
                 "for it can ever resolve.")
         A("**Is Riftbound covered?** " + rift)
         A("")
+        A("Game ids are opaque integers and language is modelled as **separate game entries**, "
+          "not a parameter, so each combo must be mapped onto an id before any search can run:")
+        A("")
+        A("| Combo | Catalog game | id |")
+        A("|---|---|---|")
+        for game, lang, label in COMBOS:
+            m = (g.get("mapping") or {}).get(f"{game}:{lang}")
+            if m:
+                A(f"| {label} | {m['name']} | `{m['id']}` |")
+            else:
+                A(f"| {label} | **no entry** | -- |")
+        A("")
+        pages_note = (f"Read {g.get('pages')} page(s)"
+                      + (f" of {g['total']} games" if g.get("total") else "")
+                      + ("; list complete." if g.get("complete")
+                         else " -- **list incomplete**, so a missing game is not proof of "
+                              "absence."))
+        A(pages_note)
+        A("")
+        if g.get("unmapped"):
+            if g.get("complete"):
+                A("Combos with no catalog entry are never queried -- the games list is "
+                  "authoritative and fully read, so that absence is confirmed rather than "
+                  "merely unobserved: "
+                  + ", ".join(f"**{u}**" for u in g["unmapped"]) + ".")
+            else:
+                A("No catalog entry was found for "
+                  + ", ".join(f"**{u}**" for u in g["unmapped"])
+                  + ", but the game list was truncated, so these are recorded as "
+                    "`UNTESTED`, not absent.")
+            A("")
         if g["language_dimension"]:
             A("**Is there a language dimension?** Yes -- the game list distinguishes languages, "
               "so EN/JP separation is testable on this source.")
