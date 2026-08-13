@@ -287,13 +287,29 @@ def fingerprint_key(key):
 # Fill these from each provider's pricing page to get a monthly total in the
 # report. Left None deliberately: the probe cannot read a pricing page, and
 # inventing subscription costs would make the recommendation worthless.
+# PROVISIONAL. Subscription prices only, taken from docs/DATA_SOURCES.md, which
+# is itself dated 12 Aug 2026 and says to re-verify before subscribing. These
+# are OUR costs, not provider card-price data. Grading fees, tiers and
+# turnarounds are deliberately NOT populated from that document -- those come
+# from PSA/CGC/BGS's own pages, read directly, each with its own checked_on,
+# and stay null and refusing until then.
 PAID_TIERS = {
-    "tcgapi.dev": {"monthly_usd": None, "req_per_day": None,
-                   "pricing_url": "https://tcgapi.dev/pricing"},
-    "apitcg.com": {"monthly_usd": None, "req_per_day": None,
-                   "pricing_url": "https://apitcg.com/pricing"},
-    "pokemonpricetracker.com": {"monthly_usd": None, "req_per_day": None,
-                                "pricing_url": "https://www.pokemonpricetracker.com/pricing"},
+    "tcgapi.dev": {"monthly_usd": 49.99, "tier_name": "Pro", "req_per_day": None,
+                   "provisional": True, "source": "docs/DATA_SOURCES.md",
+                   "checked_on": "2026-08-12",
+                   "pricing_url": "https://tcgapi.dev/pricing",
+                   "note": "history + bulk endpoints + commercial licence"},
+    "apitcg.com": {"monthly_usd": 0, "tier_name": "free", "req_per_day": None,
+                   "provisional": True, "source": "docs/DATA_SOURCES.md",
+                   "checked_on": "2026-08-12",
+                   "pricing_url": "https://apitcg.com/pricing",
+                   "note": "free and open-source catalog"},
+    "pokemonpricetracker.com": {"monthly_usd": 99, "tier_name": "Business",
+                                "req_per_day": None, "provisional": True,
+                                "source": "docs/DATA_SOURCES.md",
+                                "checked_on": "2026-08-12",
+                                "pricing_url": "https://www.pokemonpricetracker.com/pricing",
+                                "note": "population data, 12mo history, daily CSV dump"},
 }
 
 # Production load assumptions used for the paid-tier sizing math.
@@ -1748,9 +1764,16 @@ def paid_tier_section(rows, prober):
             why = "no live run yet -- cannot judge"
         tier = PAID_TIERS.get(prov, {})
         cost = tier.get("monthly_usd")
-        cost_s = "not recorded" if cost is None else f"${cost:.0f}"
+        if cost is None:
+            cost_s = "not recorded"
+        else:
+            cost_s = f"${cost:.2f}"
+            if tier.get("provisional"):
+                cost_s += f" (provisional, {tier.get('tier_name', '')}, "
+                cost_s += f"src {tier.get('source')} {tier.get('checked_on')})"
         if cost is not None:
             prober.safe_tokens.add(cost_s)
+            prober.safe_tokens.add(f"${cost:.2f}")
         lines.append(f"| {prov} | {used_for} | {cost_cell} | {need} | {enough} | "
                      f"**{buy}** | {cost_s} |")
         decisions.append((prov, buy, why, cost, cap_cards, unit_label))
@@ -1771,7 +1794,7 @@ def paid_tier_section(rows, prober):
             "(The probe reads card data, not pricing pages, and guessed subscription costs would "
             "make this recommendation worthless.)")
     else:
-        total_s = f"${sum(known):.0f}"
+        total_s = f"${sum(known):.2f}"
         prober.safe_tokens.add(total_s)
         lines.append(f"**Monthly total: {total_s}.**")
     lines.append("")

@@ -41,7 +41,7 @@ The shape of the market: the primary sources have all closed, and a layer of pai
 
 **apitcg.com** — free, open-source card catalog covering One Piece, Pokémon, Digimon, Gundam, Union Arena and **Riftbound**. Your cross-check for card metadata and, importantly, **artist attribution**, which you need for the artist-premium feature and which the price APIs don't reliably carry. Also useful for JP One Piece card data.
 
-**PriceCharting** — the broadest grade coverage anywhere: PSA, BGS, CGC, SGC, TAG and ACE, with full price history and recent sold listings. Paid subscription; token from Subscription ▸ API/Download, passed as a `t` query parameter. **Read the ToS carefully** — PriceCharting claims ownership of its price data and restricts redistribution. Personal research and internal use are fine. Exposing that data publicly requires either their top-tier plan or written permission. Your app is private and single-user, which keeps you inside the line — but it's a reason not to publish the repo or put a public API in front of it.
+**PriceCharting** — the broadest grade coverage anywhere: PSA, BGS, CGC, SGC, TAG and ACE, with full price history and recent sold listings. Paid subscription; token from Subscription ▸ API/Download, passed as a `t` query parameter. **Read the ToS carefully** — PriceCharting claims ownership of its price data and restricts redistribution. Personal research and internal use are fine. Exposing that data publicly requires either their top-tier plan or written permission. Your app is private and single-user, which keeps you inside the line — but it's a reason never to commit their price data or put a public API in front of it. The code may be public; their data may not be.
 
 **Cardmarket-derived APIs** — several third parties now resell Cardmarket (EU) pricing with Riftbound and One Piece coverage, some bundling eBay graded-slab sold medians with sample sizes. Useful as a **third opinion** for the cross-source divergence check in Layer 2 of the audit. EUR-denominated, so exercise your FX layer.
 
@@ -94,7 +94,7 @@ Everything here changed in 2026. Verify current values at build time and re-veri
 
 ## 4. Licensing and conduct
 
-- Keep the repo **private**. Do not publish a public API, do not resell, do not redistribute price data.
+- **No provider data is ever committed. Code may be public; data never is.** Do not publish a public API, do not resell, do not redistribute price data. Enforced by CI on every push — repository visibility is not a control.
 - PriceCharting's terms restrict downstream exposure of their price data specifically.
 - Reddit's free tier is non-commercial only; commercial use requires approval and a negotiated agreement with a large minimum.
 - Respect `robots.txt` and rate limits on anything scraped. Cache aggressively — you are not doing anything that needs minute-level freshness on a 90-day trade.

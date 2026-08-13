@@ -1,0 +1,64 @@
+name: data-guard
+
+# Enforces the rule that replaced "keep the repo private":
+#   No provider data is ever committed. Code may be public; data never is.
+#
+# Repository visibility is not a control -- it can be flipped from settings, it
+# does not survive a fork, and it says nothing about what is already in the
+# history. This job is the control. It is a hard gate: it fails the build, it
+# does not warn.
+#
+# Coverage note. GitHub deliberately does NOT re-trigger workflows for pushes
+# authenticated with the default GITHUB_TOKEN, to prevent recursion. The probe
+# workflow commits probe/COVERAGE.md with that token, so a push-triggered job
+# alone would never see those commits. That gap is closed by running the same
+# check inside probe.yml immediately before it commits -- see the "Data guard"
+# step there. Between the two, every commit is checked: human pushes here,
+# workflow pushes at their source.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-provider-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the guard inspects tracked files, and a shallow
+          # clone can hide a file added on an earlier commit of the branch.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # No secrets in this job. It reads the repository and nothing else.
+      - name: No provider data committed
+        run: python -m audit.checks.no_provider_data --verbose
+
+      - name: Guard catches what it claims to
+        # A gate that cannot fail is not a gate. Prove the three rules fire on
+        # a scratch repository before trusting the clean result above.
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d)
+          mkdir -p "$work/audit/checks" "$work/probe/fixtures" "$work/ingest"
+          cp audit/checks/no_provider_data.py "$work/audit/checks/"
+          touch "$work/audit/__init__.py" "$work/audit/checks/__init__.py"
+          cd "$work"
+          git init -q . && git config user.email ci@ci && git config user.name ci
+          echo 'card,price' > prices.csv
+          echo '{"marketPrice": 1.23, "salesByGrade": {}}' > ingest/cache.json
+          printf '# r\nsold for $5200\n' > probe/COVERAGE.md
+          echo '{"salesByGrade": {}}' > probe/fixtures/sneaky.json
+          git add -A -f >/dev/null
+          if python -m audit.checks.no_provider_data; then
+            echo "FAIL: guard passed a repository full of violations" >&2
+            exit 1
+          fi
+          echo "guard correctly rejected all seeded violations"

@@ -1,4 +1,4 @@
-# GOAL — WaFT Cards
+# GOAL — waltcg
 
 > Place at `docs/GOAL.md`. Referenced by `CLAUDE.md`. When you invoke `/goal`, Claude Code reads this file and works toward it, stopping at gates rather than at token limits.
 
@@ -19,16 +19,16 @@ The project is done when **all** of the following are true. Not most. All.
 ### D1 — Data spine
 - [ ] Point-in-time store holds ≥90 consecutive days of daily snapshots for every tracked card, with zero silent gaps (gaps are recorded as explicit `missing` rows, never interpolated away).
 - [ ] Every row carries `observed_at` (when the engine saw it) distinct from `as_of` (what date the value refers to). These are never the same column.
-- [ ] Card identity resolver scores ≥98% precision and ≥90% recall against the 200-card hand-labelled test set spanning all 4 game/language combinations.
+- [ ] Card identity resolver scores ≥98% precision and ≥90% recall against the 200-card hand-labelled test set spanning all 8 game/language combinations (One Piece EN/JP/CN-S, Pokémon EN/JP/CN-S/CN-T, Riftbound EN).
 - [ ] EN and JP printings of the same art resolve to **different** `card_uid`s. A test asserts this.
 - [ ] FX: every monetary value stores `(amount, currency, fx_rate_used, fx_as_of)`. No bare floats. A test asserts no unit-less money anywhere in the schema.
 
 ### D2 — Calculators (no learned parameters)
-- [ ] **Model A — Raw → graded EV.** Inputs: raw acquisition cost, tax, inbound shipping, grading tier fee, supplies, insured return shipping, marketplace + payment fees, outbound shipping, grade probability vector. Outputs: EV, ROI, annualised ROI net of turnaround lockup, downside case, and **break-even P(target grade)**.
+- [ ] **Model A — Raw → graded EV.** Inputs: raw acquisition cost, tax, inbound shipping, grading tier fee, supplies, insured return shipping, marketplace + payment fees, outbound shipping, grade probability vector. Outputs: EV, ROI, annualised ROI over turnaround plus expected days-to-sell, downside case, and **break-even P(target grade)**.
 - [ ] **Model B — PSA 9 → PSA 10 regrade EV.** Uses a *conditional* upgrade prior, not base gem rate. Requires an explicit user condition read to move off the conservative default. Refuses to output a recommendation without it.
 - [ ] **Model C — Cross-grader crossover.** Models the PSA minimum-grade crossover path (downside capped at fees + lockup) separately from crack-and-resubmit (downside includes grade risk). Encodes a BGS-subgrade rules table.
 - [ ] **Model D — Grade-spread residual screen.** Regresses `log(P10/P9)` on `log(pop9/pop10)` plus game/rarity/era controls; ranks by residual. Suppresses any card whose grade-level comp sample is below a configurable minimum (default: 5 sales in 90 days).
-- [ ] **Model E — Sealed / obtainment EV.** Pull-rate-weighted expected pack/box value vs. box price vs. singles cost. Obtainment taxonomy classified per card.
+- [ ] **Model E — Sealed EV.** Pull-rate-weighted expected pack/box value vs. box price vs. singles cost. (Obtainment taxonomy is D3 scope, not a calculator concern.)
 - [ ] Every calculator passes hand-computed golden fixtures. Every calculator emits a break-even threshold, not only a point estimate.
 - [ ] Grading fees, tiers and turnaround live in a **dated config file**, not in code. Config carries an `effective_from` date and the engine warns when config is >60 days stale.
 
@@ -80,7 +80,7 @@ These override any instruction to move faster.
 4. **No synthetic data past the fixture stage.** Fixtures exist to design against and are deleted from the runtime path in P1.
 5. **The score does not ship enabled without passing D6.** No exceptions, no "just for now," no manual override flag.
 6. **The Track Record screen cannot be removed.** It is the only thing standing between this and a confidence-generating machine.
-7. **Private repo, personal use.** Several upstream sources restrict redistribution of price data. Do not publish, do not expose a public API, do not resell.
+7. **No provider data is ever committed. Code may be public; data never is.** Several upstream sources restrict redistribution of price data. Do not expose a public API, do not resell, and never commit provider payloads, price values or cached responses. Enforced by CI on every push — repository settings are not a control.
 
 ---
 

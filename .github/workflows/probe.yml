@@ -85,6 +85,17 @@ jobs:
       # gitignored and deliberately NOT uploaded as a build artifact: artifacts
       # on a public repo are world-downloadable. Only COVERAGE.md, which
       # carries statuses and counts, leaves this runner.
+      # Pushes made with GITHUB_TOKEN do not re-trigger workflows, so
+      # data-guard.yml would never see this commit. Run the same gate here,
+      # before anything is committed, so workflow-authored commits are checked
+      # at their source. Code may be public; data never is.
+      - name: Data guard (no provider data may be committed)
+        run: |
+          set -euo pipefail
+          git add --intent-to-add --force probe/COVERAGE.md 2>/dev/null || true
+          [ -f probe/STRUCTURE.md ] && git add --intent-to-add --force probe/STRUCTURE.md || true
+          python -m audit.checks.no_provider_data --verbose
+
       - name: Commit COVERAGE.md
         run: |
           set -euo pipefail

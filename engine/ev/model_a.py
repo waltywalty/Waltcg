@@ -153,6 +153,17 @@ def raw_to_graded_ev(
 
     probs = grade_probs.probs
 
+    # AUDIT_PROTOCOL Layer 1: sum(grade_probs) == 1 +/- 1e-9. A distribution
+    # that does not sum to 1 silently rescales every expectation computed from
+    # it, and the error is invisible in the output.
+    prob_total = sum(probs.values(), Decimal(0))
+    if abs(prob_total - Decimal(1)) > Decimal("1e-9"):
+        return Refusal(
+            MODEL, "grade probabilities do not sum to 1",
+            f"they sum to {prob_total}; a distribution off by more than 1e-9 rescales "
+            "every expectation downstream and the error does not show in the result",
+            subject=card_uid)
+
     # Universal-claim rule (see docs/decisions.md ADR-0001). An EV is a claim
     # about EVERY branch the distribution puts mass on. A grade with weight but
     # no comp is not worth zero -- it is unknown, and silently treating it as
@@ -219,7 +230,9 @@ def raw_to_graded_ev(
 
     return EVResult(
         model=MODEL, subject=card_uid,
-        break_even_p_target=be["p"], target_grade=str(target_grade),
+        break_even_p_target=be["p"],
+        break_even_attainable=bool(be.get("attainable")),
+        break_even_note=be.get("reason", ""), target_grade=str(target_grade),
         modelled_p_target=probs.get(str(target_grade)),
         ev=ev, roi=roi, annualised_roi=ann, horizon_days=horizon,
         costs=costs, downside_case=downside, grade_distribution=grade_probs,

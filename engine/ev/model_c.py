@@ -164,6 +164,10 @@ def crossover_ev(
     p10 = _rule_prob(cfg, rule, "p_psa_10", rule_index)
     p9 = _rule_prob(cfg, rule, "p_psa_9", rule_index)
     pbelow = _rule_prob(cfg, rule, "p_psa_below_9", rule_index)
+    rule_total = p10 + p9 + pbelow
+    if abs(rule_total - Decimal(1)) > Decimal("1e-9"):
+        return Refusal(MODEL, "crossover rule probabilities do not sum to 1",
+                       f"rule {rule_id!r} sums to {rule_total}", subject=card_uid)
     flags = red_flags(subgrades)
 
     batch = int(batch_size or cfg.get("grading.submission_costs.default_batch_size"))
@@ -281,7 +285,9 @@ def crossover_ev(
 
     return EVResult(
         model=f"{MODEL}[{path}]", subject=card_uid,
-        break_even_p_target=be["p"], target_grade=target,
+        break_even_p_target=be["p"],
+        break_even_attainable=bool(be.get("attainable")),
+        break_even_note=be.get("reason", ""), target_grade=target,
         modelled_p_target=probs.get(target),
         ev=ev, roi=roi, annualised_roi=(annualised(roi, horizon) if roi is not None else None),
         horizon_days=horizon, costs=costs, branches=branches,

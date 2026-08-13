@@ -238,7 +238,9 @@ def regrade_9_to_10_ev(
 
     return EVResult(
         model=MODEL, subject=card_uid,
-        break_even_p_target=be["p"], target_grade="10", modelled_p_target=p10,
+        break_even_p_target=be["p"],
+        break_even_attainable=bool(be.get("attainable")),
+        break_even_note=be.get("reason", ""), target_grade="10", modelled_p_target=p10,
         ev=ev, roi=roi, annualised_roi=ann, horizon_days=horizon,
         costs=costs, grade_distribution=dist, branches=branches,
         downside_case=branches[2],

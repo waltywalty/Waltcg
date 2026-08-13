@@ -21,14 +21,14 @@ Private, single-user TCG opportunity engine. One Piece TCG (EN + JP), Pokémon T
 
 1. **No look-ahead.** Any value used at an evaluation timestamp must have `observed_at <= evaluation_timestamp`. Enforced by `tests/test_lookahead.py` on 500 pairs. Never bypass the shared query wrapper.
 2. **No naked money.** Every monetary value is `{amount, currency, fx_rate_used, fx_as_of}`. No bare floats. Ever.
-3. **EN and JP printings are different cards.** Different `card_uid`, different price series, never merged in a join, an aggregation, or a UI grouping.
+3. **Every language printing is a different card.** EN, JP, CN-S and CN-T each get their own `card_uid`, price series, and population. Never merged in a join, an aggregation, or a UI grouping.
 4. **Grading fees, tiers and turnaround live in dated config**, never in code. PSA changed tier pricing in Feb 2026 and paused its Value tiers in June 2026; anything hardcoded is already wrong.
 5. **Pop-report gem rate is biased upward.** People submit their best copies. Always apply `assumptions.submission_selection_haircut` to P(10) for a randomly-acquired raw card — once, never twice.
 6. **P(10 | already graded 9) is not the base gem rate.** Model B uses a conditional prior and refuses to output a number without an explicit user condition read.
 7. **The composite score ships disabled** (`SCORE_ENABLED=false`) until it beats all three benchmarks out-of-sample after Benjamini-Hochberg correction, against a pre-registration committed *before* the backtest ran. No re-tuning against the same holdout.
 8. **The Track Record screen is permanent.** It cannot be removed, collapsed, or made optional. The worst five calls are always visible.
 9. **No synthetic data past P1.** Fixtures exist to design against; delete them from the runtime path.
-10. **Private repo.** Several upstream sources restrict redistribution. No public API, no publishing, no resale.
+10. **No provider data is ever committed. Code may be public; data never is.** Several upstream sources restrict redistribution. No public API, no resale, and no provider payloads, price values or cached responses in the repository. Enforced by CI on every push, including pushes made by workflows — repository visibility is not a control.
 
 ---
 
@@ -38,7 +38,7 @@ Private, single-user TCG opportunity engine. One Piece TCG (EN + JP), Pokémon T
 ```
 card_uid = {game}:{set_code}:{number}:{variant}:{language}
 game     ∈ {optcg, pkmn, riftbound}
-language ∈ {EN, JP}
+language ∈ {EN, JP, CN-S, CN-T}
 ```
 External IDs live in `card_xref` with `confidence` and `resolved_by ∈ {exact, fuzzy, manual}`. Anything fuzzy below 0.9 confidence is excluded from all signals.
 

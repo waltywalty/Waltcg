@@ -112,6 +112,11 @@ class EVResult:
     break_even_p_target: Optional[Decimal]
     target_grade: str
     modelled_p_target: Optional[Decimal] = None
+    # AUDIT_PROTOCOL Layer 1: break_even_p is in [0,1] or the result says
+    # plainly that no probability works. An out-of-range number on its own is
+    # not an answer.
+    break_even_attainable: bool = True
+    break_even_note: str = ""
 
     ev: Optional[Money] = None
     roi: Optional[Decimal] = None
@@ -149,6 +154,8 @@ class EVResult:
             "target_grade": self.target_grade,
             "modelled_p_target": (None if self.modelled_p_target is None
                                   else str(self.modelled_p_target)),
+            "break_even_attainable": self.break_even_attainable,
+            "break_even_note": self.break_even_note,
             "margin": None if self.margin is None else str(self.margin),
             "ev": None if self.ev is None else self.ev.as_dict(),
             "roi": None if self.roi is None else str(self.roi),

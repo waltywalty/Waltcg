@@ -83,9 +83,9 @@
       "NEEDS_VALUE": "What to do when neither card nor set has population data: must be the string 'refuse'. Guessing a grade distribution is how a break-even probability becomes fiction.",
       "source": null
     },
-    "unvalidated": false,
-    "ui_chip_required": false,
-    "beyond_goal_enumeration": true
+    "unvalidated": true,
+    "ui_chip_required": true,
+    "chip_rationale": "Prior strength materially moves P(10) for thin-population cards, which moves the break-even probability. A judgement, not a methodology floor."
   },
   "pull_rate_estimates": {
     "_NEEDS_VALUE": "Model E inputs. ALL of these are flagged low_confidence by construction: community pull-rate data is self-reported, survivorship-biased toward hits, and rarely states a denominator. Model E stamps every result with this flag and it cannot be turned off.",
@@ -113,9 +113,9 @@
     "value": null,
     "NEEDS_VALUE": "Expected days from listing to settled sale. Feeds annualised ROI together with grading turnaround. Overridable per venue in config/fees.yaml.",
     "source": null,
-    "unvalidated": false,
-    "ui_chip_required": false,
-    "beyond_goal_enumeration": true
+    "unvalidated": true,
+    "ui_chip_required": true,
+    "chip_rationale": "A guess that drives annualised ROI directly; a wrong days-to-sell rescales every annualised figure in the app."
   },
   "tax": {
     "acquisition_tax_pct": {
@@ -130,7 +130,8 @@
     },
     "unvalidated": false,
     "ui_chip_required": false,
-    "beyond_goal_enumeration": true
+    "beyond_goal_enumeration": true,
+    "chip_rationale": "factual or a methodology floor, not a market guess -- no chip by decision 8"
   },
   "min_comp_sample_size": {
     "value": 5,
@@ -144,7 +145,8 @@
     "source": "waltcg methodology decision",
     "unvalidated": false,
     "ui_chip_required": false,
-    "beyond_goal_enumeration": true
+    "beyond_goal_enumeration": true,
+    "chip_rationale": "factual or a methodology floor, not a market guess -- no chip by decision 8"
   },
   "fx": {
     "rate_source": {
@@ -159,7 +161,8 @@
     },
     "unvalidated": false,
     "ui_chip_required": false,
-    "beyond_goal_enumeration": true
+    "beyond_goal_enumeration": true,
+    "chip_rationale": "factual or a methodology floor, not a market guess -- no chip by decision 8"
   },
   "_goal_reconciliation": {
     "reconciled_on": "2026-08-13",
@@ -178,9 +181,25 @@
     ],
     "entries_beyond_goal_note": "Methodology parameters, not market guesses. GOAL does not forbid them and D2 requires the behaviour several of them parameterise. Flagged so the divergence from GOAL's enumerated three is visible rather than assumed.",
     "open_disagreements": [
-      "GOAL D2 lists 'Obtainment taxonomy classified per card' under Model E. The engine's Model E does not classify obtainment; the taxonomy is a D3 concern and has no registry entry yet. Recorded as a gap, not resolved.",
-      "GOAL D2 specifies Model A's annualised ROI as 'net of turnaround lockup'. The build instruction specified turnaround PLUS expected days-to-sell, which is the stricter reading and is what is implemented. Flagged rather than silently narrowed to GOAL's wording."
-    ]
+      "RESOLVED 2026-08-13: obtainment taxonomy moved out of D2/Model E into D3 in GOAL.",
+      "RESOLVED 2026-08-13: GOAL D2 annualised ROI wording tightened to 'turnaround plus expected days-to-sell', matching the shipped code."
+    ],
+    "chip_decision": {
+      "decided_on": "2026-08-13",
+      "chips": [
+        "submission_selection_haircut",
+        "regrade_conditional_prior",
+        "pull_rate_estimates",
+        "empirical_bayes",
+        "days_to_sell"
+      ],
+      "no_chip": [
+        "tax",
+        "fx",
+        "min_comp_sample_size"
+      ],
+      "note": "GOAL D7 names three; two more added by decision 8 because prior strength and days-to-sell are market judgements that move headline numbers."
+    }
   },
   "obtainment_taxonomy": {
     "_NEEDS_VALUE": "GOAL D2 (Model E) and D3 require every card classified into an obtainment taxonomy. Not implemented in engine/ev -- recorded here so the gap is tracked rather than forgotten.",

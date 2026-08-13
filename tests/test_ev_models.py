@@ -22,6 +22,7 @@ from engine.ev import (Config, ConfigIncomplete, FxRate, Money, Refusal,  # noqa
                        crossover_ev, grade_spread_residual, raw_to_graded_ev,
                        regrade_9_to_10_ev, sealed_ev, shrunk_grade_distribution)
 from engine.ev.money import money_sum  # noqa: E402
+from engine.ev.breakeven import net_proceeds  # noqa: E402
 
 D = Decimal
 TODAY = dt.date(2026, 8, 13)
@@ -558,6 +559,130 @@ class GoalD2Compliance(unittest.TestCase):
                                (150 / 36 - 0.80) / 120, places=10)
         self.assertLess(D(be["margin"]), 0)
         self.assertTrue(be["attainable"])
+
+
+class AuditLayer1(unittest.TestCase):
+    """AUDIT_PROTOCOL Layer 1 requirements not covered elsewhere. Merge-blocking."""
+
+    def test_break_even_p_is_bounded_or_declared_impossible(self):
+        """In [0,1], or the result says plainly that no probability works."""
+        cfg = filled_config()
+        # Profitable case: bounded and attainable.
+        ok = raw_to_graded_ev("bounded", usd(200), "regular",
+                              {"10": usd(1000), "9": usd(200), "8": usd(100)}, cfg=cfg,
+                              grade_probs=_dist({"10": "0.5", "9": "0.4", "8": "0.1"}))
+        self.assertTrue(ok.break_even_attainable)
+        self.assertGreaterEqual(ok.break_even_p_target, 0)
+        self.assertLessEqual(ok.break_even_p_target, 1)
+
+        # Hopeless case: acquisition far above what a 10 could ever net.
+        bad = raw_to_graded_ev("impossible", usd(5000), "regular",
+                               {"10": usd(600), "9": usd(400), "8": usd(300)}, cfg=cfg,
+                               grade_probs=_dist({"10": "0.1", "9": "0.6", "8": "0.3"}))
+        self.assertFalse(bad.break_even_attainable)
+        self.assertTrue(bad.break_even_note)
+        self.assertIn("cannot pay for itself", bad.break_even_note)
+
+        # The contract, stated as one assertion over both.
+        for r in (ok, bad):
+            p = r.break_even_p_target
+            self.assertTrue(
+                p is None or (0 <= p <= 1) or not r.break_even_attainable,
+                f"{r.subject}: p={p} out of range without declaring impossibility")
+
+    def test_target_worth_no_more_than_alternatives_is_impossible_at_any_p(self):
+        """When a 10 nets no more than a 9, no probability rescues the trade."""
+        cfg = filled_config()
+        r = raw_to_graded_ev("flat-comps", usd(200), "regular",
+                             {"10": usd(200), "9": usd(200)}, cfg=cfg,
+                             grade_probs=_dist({"10": "0.5", "9": "0.5"}))
+        self.assertFalse(r.break_even_attainable)
+        self.assertIsNone(r.break_even_p_target)
+        self.assertIn("no probability", r.break_even_note)
+
+    def test_grade_probs_must_sum_to_one(self):
+        """sum(grade_probs) == 1 +/- 1e-9, else refuse."""
+        cfg = filled_config()
+        bad = raw_to_graded_ev("bad-dist", usd(200), "regular",
+                               {"10": usd(1000), "9": usd(200)}, cfg=cfg,
+                               grade_probs=_dist({"10": "0.5", "9": "0.3"}))
+        self.assertIsInstance(bad, Refusal)
+        self.assertIn("sum to 1", bad.reason)
+
+        # Just inside tolerance is accepted.
+        edge = raw_to_graded_ev("edge-dist", usd(200), "regular",
+                                {"10": usd(1000), "9": usd(200)}, cfg=cfg,
+                                grade_probs=_dist({"10": "0.5", "9": "0.4999999999"}))
+        self.assertTrue(edge.ok)
+
+    def test_shrunk_distribution_always_sums_to_one(self):
+        d = shrunk_grade_distribution(
+            card_pop={"10": 40, "9": 55, "8": 5}, set_pop={"10": 100, "9": 800, "8": 100},
+            prior_strength=20, selection_haircut="0.7", min_card_pop_for_own_prior=10)
+        self.assertLess(abs(d.total() - D(1)), D("1e-9"))
+
+    def test_fee_stack_applied_exactly_once_in_both_directions(self):
+        """Never zero times, never twice. The invisible error.
+
+        Comp 1000, fvf 10%, payment 2%, fixed 3, outbound 5.
+        Applied ONCE:  1000*0.88 - 3 - 5 = 872
+        Applied TWICE: 872*0.88 - 3 - 5 = 759.36   (would look plausible)
+        Applied ZERO:  1000                        (would look plausible)
+        """
+        once = net_proceeds(usd(1000), D("0.10"), D("0.02"), usd(3), usd(5))
+        self.assertEqual(once.quantized().amount, D("872.00"))
+
+        twice = net_proceeds(once, D("0.10"), D("0.02"), usd(3), usd(5))
+        self.assertNotEqual(once.quantized().amount, twice.quantized().amount)
+        self.assertEqual(twice.quantized().amount, D("759.36"))
+
+        self.assertNotEqual(once.quantized().amount, D("1000.00"))  # not zero times
+
+        # And end-to-end through Model A: the modelled proceeds for a single
+        # grade must equal the single-application figure exactly.
+        cfg = filled_config()
+        cfg.fees["marketplaces"]["ebay"].update(
+            {"final_value_fee_pct": 0.10, "payment_pct": 0.02, "payment_fixed": 3})
+        r = raw_to_graded_ev("fee-once", usd(100), "regular", {"10": usd(1000)}, cfg=cfg,
+                             grade_probs=_dist({"10": "1.0"}),
+                             outbound_shipping=usd(5))
+        # costs 100 + 1 + 1 + 20 + 2 = 124; proceeds 872; EV = 748
+        self.assertEqual(r.costs.total().quantized().amount, D("124.00"))
+        self.assertEqual(r.ev.quantized().amount, D("748.00"))
+
+    def test_hkd_acquisition_gbp_sale_full_fx_round_trip(self):
+        """Layer 1 golden: HKD buy, GBP sale. The September situation.
+
+        HKD->GBP at 0.1 : 8000 HKD = 800 GBP exactly.
+        Costs 800 + 1 + 1 + 20 + 2 = 824.
+        Keep 90%: comps 2000/900/400 -> net 1800/810/360.
+        Probs .4/.5/.1 => 720 + 405 + 36 = 1161. EV = 1161 - 824 = 337.
+        Round trip back to HKD must return exactly 8000.
+        """
+        cfg = filled_config()
+        cfg.grading["meta"]["currency"] = "GBP"
+        cfg.fees["marketplaces"]["ebay"]["currency"] = "GBP"
+        cfg.fees["meta"]["home_currency"] = "GBP"
+
+        rate = FxRate("HKD", "GBP", D("0.1"), as_of="2026-09-01", source="test")
+        hkd = Money("8000", "HKD")
+        gbp = hkd.to("GBP", rate)
+        self.assertEqual(gbp.amount, D("800.0"))
+        self.assertEqual(gbp.currency, "GBP")
+
+        back = gbp.to("HKD", rate.inverted())
+        self.assertEqual(back.amount, D("8000"))       # exact round trip
+
+        def g(x):
+            return Money(str(x), "GBP")
+
+        r = raw_to_graded_ev("golden/hkd-gbp", gbp, "regular",
+                             {"10": g(2000), "9": g(900), "8": g(400)}, cfg=cfg,
+                             grade_probs=_dist({"10": "0.4", "9": "0.5", "8": "0.1"}))
+        self.assertTrue(r.ok)
+        self.assertEqual(r.costs.total().currency, "GBP")
+        self.assertEqual(r.costs.total().quantized().amount, D("824.00"))
+        self.assertEqual(r.ev.quantized().amount, D("337.00"))
 
 
 class PropertyTests(unittest.TestCase):
