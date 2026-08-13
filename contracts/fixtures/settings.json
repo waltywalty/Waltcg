@@ -1,0 +1,271 @@
+{
+  "_fixture": true,
+  "screen": "settings",
+  "generated_at": "2026-08-13T09:00:00Z",
+  "schema_version": 1,
+  "warnings": [
+    "25 config entries are unverified; 8 PSA entries need primary verification"
+  ],
+  "assumptions": [
+    {
+      "id": "submission_selection_haircut",
+      "description": "Multiplier applied to P(10) taken from a population report, with the removed mass reassigned to P(9). Population reports count cards people CHOSE to submit after pre-screening, so P(10 | submitted) ov",
+      "current_value": null,
+      "unit": "multiplier in (0,1]",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Log every card actually submitted and its result. After ~30 submissions, realised P(10) divided by the population gem rate is the number. Split by game and era before trusting it.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "regrade_conditional_prior",
+      "description": "P(10 | the card is already in a PSA 9 slab) with no condition read supplied. NOT the base gem rate: PSA examined this card and declined a 10, so the base rate double-counts information the grader alre",
+      "current_value": null,
+      "unit": "probability",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Log every 9 resubmitted and its outcome. This calibrates slowly because few are submitted; until n>=20 treat the default as a floor, not an estimate.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "regrade_downgrade_probability",
+      "description": "P(a resubmitted 9 comes back below 9). Non-zero by construction: a different grader on a different day can see the card less generously, and the original slab no longer exists in that branch.",
+      "current_value": null,
+      "unit": "probability",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Same submission log as regrade_conditional_prior; count downgrades separately.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "regrade_condition_adjustments",
+      "description": "Multipliers applied to regrade_conditional_prior once the user supplies a complete condition read (centering, corners, surface, edges). Absent a complete read, Model B returns a refusal rather than a ",
+      "current_value": null,
+      "unit": "map of multipliers",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Requires outcome data segmented by condition read, which needs a larger submission log than the base prior. Lowest-priority calibration.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "pull_rate_estimates",
+      "description": "Per-set hit rates per pack, by rarity band, feeding Model E. Community-sourced: self-reported, survivorship-biased toward posted hits, and usually quoted without a denominator. Model E stamps every re",
+      "current_value": null,
+      "unit": "map of set -> rarity band -> probability per pack",
+      "confidence": "low",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Only your own opened-product log produces a trustworthy number, and the sample needed is larger than you will ever open. Treat Model E rankings as indicative and its magnitudes as unreliable, permanently.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "marketplace_fee_schedule",
+      "description": "Which fee schedule applies per venue, and the assumption that the schedule in config/fees.yaml matches what is actually charged. Fees are banded, apply to different bases per venue (eBay charges on it",
+      "current_value": "config/fees.yaml",
+      "unit": "reference to config/fees.yaml",
+      "confidence": "low",
+      "source": "config/fees.yaml (provisional, secondary/unverified, checked 2026-08-13)",
+      "last_reviewed": "2026-08-13",
+      "calibration_plan": "Reconcile against a real settled payout every quarter: take one actual sale, compute the expected fee from config, compare to what was withheld. A discrepancy means the schedule moved.",
+      "ui_chip_required": false,
+      "editable": false
+    },
+    {
+      "id": "grading_fee_schedule",
+      "description": "Grader tier fees, minimums and turnarounds, and the assumption that config/grading.yaml still matches the grader's own page. PSA paused its four Value tiers on 2026-06-02 against a backlog reported ne",
+      "current_value": "config/grading.yaml",
+      "unit": "reference to config/grading.yaml",
+      "confidence": "low",
+      "source": "config/grading.yaml (provisional, secondary/unverified, checked 2026-08-13)",
+      "last_reviewed": "2026-08-13",
+      "calibration_plan": "Re-read each grader's own pricing page quarterly and on any announcement. PSA entries carry needs_primary_verification because secondary sources disagree on Value tier pricing, backlog size and membership cost.",
+      "ui_chip_required": false,
+      "editable": false
+    },
+    {
+      "id": "empirical_bayes_prior_strength",
+      "description": "Beta-Binomial prior strength in pseudo-cards: how many set-level observations the prior is worth when shrinking a single card's population distribution toward its set. Materially moves P(10) for thin-",
+      "current_value": null,
+      "unit": "pseudo-cards",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Backtest shrinkage strength against realised grade outcomes once the submission log exists. Until then this is a modelling choice, not a measurement.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "empirical_bayes_min_card_pop",
+      "description": "Below this total population, a card's own grade distribution is ignored entirely and the set-level distribution is used. Stops a card with 3 tens out of 4 graded from implying a 75% gem rate.",
+      "current_value": null,
+      "unit": "cards",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Sensitivity-test the threshold against the same outcome log; the right value is where out-of-sample error stops improving.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "days_to_sell",
+      "description": "Expected days from listing to settled sale. Feeds annualised ROI together with grading turnaround; a wrong value rescales every annualised figure in the app.",
+      "current_value": null,
+      "unit": "calendar days",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Measure directly from your own sales: median days from list to payout, per venue. This is the easiest entry here to calibrate and should be done first.",
+      "ui_chip_required": true,
+      "editable": true
+    },
+    {
+      "id": "acquisition_tax_pct",
+      "description": "Sales tax or VAT paid on acquisition, as a decimal fraction. Zero is a valid value and must be entered as 0, never left null.",
+      "current_value": null,
+      "unit": "decimal fraction",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Factual, not a judgement: read it off your own receipts for the region you buy in. Listed here because it is an input the models refuse without.",
+      "ui_chip_required": false,
+      "editable": true
+    },
+    {
+      "id": "min_comp_sample_size",
+      "description": "Minimum graded sale comps in the window before a card may appear in a screen. Model D suppresses any card where either grade's sample is below it. A screen built on three sales is noise wearing a suit",
+      "current_value": "5",
+      "unit": "sales in 90 days",
+      "confidence": "medium",
+      "source": "waltcg methodology decision",
+      "last_reviewed": "2026-08-13",
+      "calibration_plan": "Methodology floor rather than a market observation, so it has a real default. Revisit only if the suppressed fraction of the universe proves unworkable -- and measure that fraction before changing it.",
+      "ui_chip_required": false,
+      "editable": true
+    },
+    {
+      "id": "fx_rate_source",
+      "description": "Which FX reference rate is authoritative, and the assumption that a daily reference rate is close enough to the rate actually realised on conversion. Every converted amount stores the rate used and th",
+      "current_value": null,
+      "unit": "named rate source",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Compare the stored rate against the rate actually received on a real conversion, quarterly. The gap is fx_conversion_spread, not error.",
+      "ui_chip_required": false,
+      "editable": true
+    },
+    {
+      "id": "fx_conversion_spread",
+      "description": "Spread paid on an actual currency conversion, over and above the reference rate, and separate from a marketplace's own conversion charge. Zero is a valid value and must be entered as 0.",
+      "current_value": null,
+      "unit": "decimal fraction",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": null,
+      "calibration_plan": "Read off a real conversion: (rate received / reference rate) - 1.",
+      "ui_chip_required": false,
+      "editable": true
+    }
+  ],
+  "fee_schedules": [
+    {
+      "venue": "ebay",
+      "currency": "USD",
+      "summary": "13.25% on item + shipping + tax; $0.30 under $10 / $0.40 over; half rate at or above $1000 up to $7500, 2.35% above",
+      "source": "secondary, unverified",
+      "checked_on": "2026-08-13",
+      "confidence": "low",
+      "usable": true
+    },
+    {
+      "venue": "mercari_us",
+      "currency": "USD",
+      "summary": "10% + 2.9% + $0.50; fee base not stated by the source",
+      "source": "secondary, unverified",
+      "checked_on": "2026-08-13",
+      "confidence": "low",
+      "usable": false
+    },
+    {
+      "venue": "cardmarket",
+      "currency": null,
+      "summary": "not populated",
+      "source": null,
+      "checked_on": null,
+      "confidence": "unvalidated",
+      "usable": false
+    }
+  ],
+  "grading_tiers": [
+    {
+      "grader": "PSA",
+      "tier": "regular",
+      "fee": {
+        "amount": "79.99",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "turnaround_business_days": 60,
+      "availability": "open",
+      "availability_note": "ACTIVE per secondary source, 2026-08-13",
+      "source": "secondary, unverified",
+      "checked_on": "2026-08-13",
+      "confidence": "low",
+      "needs_primary_verification": true
+    },
+    {
+      "grader": "PSA",
+      "tier": "value",
+      "fee": null,
+      "turnaround_business_days": null,
+      "availability": "paused",
+      "availability_note": "Paused since 2026-06-02, no reinstatement date",
+      "source": "secondary, unverified",
+      "checked_on": "2026-08-13",
+      "confidence": "low",
+      "needs_primary_verification": true
+    },
+    {
+      "grader": "CGC",
+      "tier": "economy",
+      "fee": {
+        "amount": "15.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "turnaround_business_days": null,
+      "availability": "open",
+      "availability_note": null,
+      "source": "secondary, unverified",
+      "checked_on": "2026-08-13",
+      "confidence": "low",
+      "needs_primary_verification": false
+    }
+  ],
+  "fx_rates": [
+    {
+      "pair": "USDJPY",
+      "rate": "147.20",
+      "as_of": "2026-08-13T09:00:00Z",
+      "source": "alpha_vantage"
+    },
+    {
+      "pair": "GBPUSD",
+      "rate": "1.2840",
+      "as_of": "2026-08-13T09:00:00Z",
+      "source": "alpha_vantage"
+    }
+  ],
+  "score_enabled": false
+}

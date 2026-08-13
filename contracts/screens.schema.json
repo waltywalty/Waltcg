@@ -1,0 +1,1787 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://waltcg.local/contracts/screens.schema.json",
+  "title": "waltcg screen payloads",
+  "description": "The exact response payload for each of the eight screens. The API serves exactly this; a response that fails validation is a 500, not a warning. Every field here has a named upstream source in contracts/SOURCE_MAP.md -- fields with no reachable source were deleted rather than stubbed, and the deletions are listed at the bottom of that file.",
+  "$defs": {
+    "currency": {
+      "type": "string",
+      "enum": [
+        "USD",
+        "JPY",
+        "GBP",
+        "EUR",
+        "CNY",
+        "HKD"
+      ],
+      "description": "ISO code. The UI shows symbol AND code; there is no symbol-only display."
+    },
+    "decimal_string": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+      "description": "A decimal carried as a string. Never a JSON number: binary floats lose cents, and 0.1+0.2 must not become 0.30000000000000004 in a money field."
+    },
+    "money": {
+      "type": "object",
+      "description": "No naked money, ever. A monetary value that cannot state its currency and the FX used to reach it is not a monetary value.",
+      "properties": {
+        "amount": {
+          "$ref": "#/$defs/decimal_string"
+        },
+        "currency": {
+          "$ref": "#/$defs/currency"
+        },
+        "fx_rate_used": {
+          "description": "Null ONLY when the amount is already in its native currency and no conversion happened. Null never means 'unknown'.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/decimal_string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fx_as_of": {
+          "description": "As-of date of fx_rate_used. Null if and only if fx_rate_used is null.",
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "amount",
+        "currency",
+        "fx_rate_used",
+        "fx_as_of"
+      ],
+      "additionalProperties": false
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unvalidated"
+      ]
+    },
+    "derived_value": {
+      "type": "object",
+      "description": "Any value the engine computed rather than observed. Carries what it came from and how much to trust it.",
+      "properties": {
+        "value": {
+          "description": "Null means the engine refused or had nothing to compute from. `unavailable_reason` then says which.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/decimal_string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "description": "Named upstream source or 'engine:<model>'. Must appear in SOURCE_MAP.md."
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "sample_size": {
+          "description": "Null means sample size is not a meaningful concept for this value, NOT that it is unknown.",
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assumption_ids": {
+          "$ref": "#/$defs/assumption_ids"
+        },
+        "unavailable_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/unavailable_reason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "source",
+        "as_of",
+        "confidence",
+        "sample_size"
+      ],
+      "additionalProperties": false
+    },
+    "assumption_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Ids of entries in contracts/assumptions.json this value depends on. Drives the UI assumption chip. Empty array means genuinely no assumption, never 'not checked'.",
+      "default": []
+    },
+    "unavailable_reason": {
+      "type": "string",
+      "enum": [
+        "no_source_for_this_game",
+        "no_source_for_this_language",
+        "sample_below_minimum",
+        "source_unreachable",
+        "awaiting_manual_entry",
+        "engine_refused_insufficient_evidence",
+        "config_incomplete"
+      ],
+      "description": "Why a nullable field is null. The UI renders a designed empty state naming the reason -- never a blank or a zero."
+    },
+    "staleness": {
+      "type": "object",
+      "description": "GOAL D7: stale data renders visibly degraded. The API decides staleness; the UI does not compute it from timestamps.",
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "age_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "is_stale": {
+          "type": "boolean"
+        },
+        "threshold_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "price",
+            "population",
+            "sentiment",
+            "fx",
+            "config"
+          ]
+        }
+      },
+      "required": [
+        "as_of",
+        "age_seconds",
+        "is_stale",
+        "threshold_seconds",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "game": {
+      "type": "string",
+      "enum": [
+        "optcg",
+        "pkmn",
+        "riftbound"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "EN",
+        "JP",
+        "CN-S",
+        "CN-T"
+      ]
+    },
+    "card_ref": {
+      "type": "object",
+      "description": "Identity only. EN and JP printings are different cards and never share a card_uid -- see contracts/card_uid.md.",
+      "properties": {
+        "card_uid": {
+          "type": "string",
+          "pattern": "^(optcg|pkmn|riftbound):[^:]+:[^:]+:[^:]+:(EN|JP|CN-S|CN-T)$"
+        },
+        "game": {
+          "$ref": "#/$defs/game"
+        },
+        "set_code": {
+          "type": "string"
+        },
+        "number": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string"
+        },
+        "language": {
+          "$ref": "#/$defs/language"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rarity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artist": {
+          "description": "apitcg.com. The price feeds do not carry it reliably.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "card_uid",
+        "game",
+        "set_code",
+        "number",
+        "variant",
+        "language",
+        "name",
+        "rarity",
+        "artist",
+        "image_url"
+      ],
+      "additionalProperties": false
+    },
+    "grade_rung": {
+      "type": "object",
+      "description": "One rung of the grade ladder. Price sets horizontal extent, population sets weight. Population is Pokemon-only -- see SOURCE_MAP.",
+      "properties": {
+        "grade": {
+          "type": "string",
+          "enum": [
+            "raw",
+            "8",
+            "9",
+            "10"
+          ]
+        },
+        "price": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "price_meta": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "population": {
+          "$ref": "#/$defs/derived_value"
+        }
+      },
+      "required": [
+        "grade",
+        "price",
+        "price_meta",
+        "population"
+      ],
+      "additionalProperties": false
+    },
+    "grade_ladder": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/grade_rung"
+      },
+      "minItems": 1,
+      "description": "The signature element. Ordered raw -> 8 -> 9 -> 10."
+    },
+    "play_type": {
+      "type": "string",
+      "enum": [
+        "raw_to_10",
+        "nine_to_10",
+        "crossover",
+        "grade_gap",
+        "thin_float",
+        "trending_early"
+      ]
+    },
+    "envelope": {
+      "type": "object",
+      "description": "Every screen response shares this outer shape.",
+      "properties": {
+        "screen": {
+          "type": "string"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings"
+      ]
+    },
+    "mover_row": {
+      "type": "object",
+      "properties": {
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "ladder": {
+          "$ref": "#/$defs/grade_ladder"
+        },
+        "change_pct_24h": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        }
+      },
+      "required": [
+        "card",
+        "ladder",
+        "change_pct_24h",
+        "staleness"
+      ],
+      "additionalProperties": false
+    },
+    "screen_home": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "home"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "portfolio_value": {
+          "$ref": "#/$defs/money"
+        },
+        "portfolio_value_meta": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "day_change": {
+          "$ref": "#/$defs/money"
+        },
+        "day_change_pct": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "open_alert_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "top_movers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mover_row"
+          },
+          "maxItems": 3
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "portfolio_value",
+        "portfolio_value_meta",
+        "day_change",
+        "day_change_pct",
+        "open_alert_count",
+        "top_movers",
+        "staleness"
+      ],
+      "additionalProperties": false
+    },
+    "signal_row": {
+      "type": "object",
+      "description": "Headline number differs by play type but always arrives as a derived_value, so heterogeneous rows scan as one list.",
+      "properties": {
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "play_type": {
+          "$ref": "#/$defs/play_type"
+        },
+        "headline": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "headline_label": {
+          "type": "string"
+        },
+        "ladder": {
+          "$ref": "#/$defs/grade_ladder"
+        },
+        "assumption_ids": {
+          "$ref": "#/$defs/assumption_ids"
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        }
+      },
+      "required": [
+        "card",
+        "play_type",
+        "headline",
+        "headline_label",
+        "ladder",
+        "assumption_ids",
+        "staleness"
+      ],
+      "additionalProperties": false
+    },
+    "screen_signals": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "signals"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/signal_row"
+          }
+        },
+        "filtered_by": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/play_type"
+          }
+        },
+        "suppressed_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rows withheld for comp sample below minimum. Shown so suppression is visible, never silent."
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "rows",
+        "filtered_by",
+        "suppressed_count"
+      ],
+      "additionalProperties": false
+    },
+    "price_point": {
+      "type": "object",
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "format": "date"
+        },
+        "grade": {
+          "type": "string",
+          "enum": [
+            "raw",
+            "8",
+            "9",
+            "10"
+          ]
+        },
+        "price": {
+          "$ref": "#/$defs/money"
+        }
+      },
+      "required": [
+        "as_of",
+        "grade",
+        "price"
+      ],
+      "additionalProperties": false
+    },
+    "buy_route": {
+      "type": "object",
+      "description": "landed_cost is null where the venue has no reachable price API -- the link still works, the price does not.",
+      "properties": {
+        "venue": {
+          "type": "string",
+          "enum": [
+            "tcgplayer",
+            "cardmarket",
+            "ebay",
+            "xianyu",
+            "mercari_jp",
+            "snkrdunk",
+            "local_manual"
+          ]
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "landed_cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "landed_cost_meta": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "entry_method": {
+          "type": "string",
+          "enum": [
+            "api",
+            "manual"
+          ]
+        }
+      },
+      "required": [
+        "venue",
+        "url",
+        "landed_cost",
+        "landed_cost_meta",
+        "entry_method"
+      ],
+      "additionalProperties": false
+    },
+    "obtainment": {
+      "type": "object",
+      "description": "How this card enters the world. Manually classified: no upstream source publishes this taxonomy.",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "booster",
+            "box_topper",
+            "promo_event",
+            "promo_retailer",
+            "tournament_prize",
+            "starter_deck",
+            "online_code",
+            "region_exclusive",
+            "unknown"
+          ]
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "organiser_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "meta": {
+          "$ref": "#/$defs/derived_value"
+        }
+      },
+      "required": [
+        "category",
+        "detail",
+        "organiser_url",
+        "meta"
+      ],
+      "additionalProperties": false
+    },
+    "screen_card_detail": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "card_detail"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "ladder": {
+          "$ref": "#/$defs/grade_ladder"
+        },
+        "price_history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/price_point"
+          }
+        },
+        "population_total": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "population_by_grade": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/derived_value"
+          }
+        },
+        "obtainment": {
+          "$ref": "#/$defs/obtainment"
+        },
+        "buy_routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/buy_route"
+          }
+        },
+        "language_variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/card_ref"
+          },
+          "description": "Other language printings of the same art. Separate cards, separate prices; never merged in the UI."
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "card",
+        "ladder",
+        "price_history",
+        "population_total",
+        "population_by_grade",
+        "obtainment",
+        "buy_routes",
+        "language_variants",
+        "staleness"
+      ],
+      "additionalProperties": false
+    },
+    "condition_read": {
+      "type": "object",
+      "description": "The user's own read. Model B refuses to move off its conservative prior without a complete one.",
+      "properties": {
+        "centering_pct": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/decimal_string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "corner_flag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "surface_flag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "edge_flag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "centering_pct",
+        "corner_flag",
+        "surface_flag",
+        "edge_flag"
+      ],
+      "additionalProperties": false
+    },
+    "refusal": {
+      "description": "Non-null when the engine declined. A refusal is a legitimate result and must reach the screen intact.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "missing": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "reason",
+            "detail",
+            "missing"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "screen_grading_lab": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "grading_lab"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "acquisition_cost": {
+          "$ref": "#/$defs/money"
+        },
+        "grader": {
+          "type": "string",
+          "enum": [
+            "PSA",
+            "CGC",
+            "BGS",
+            "SGC",
+            "TAG"
+          ]
+        },
+        "tier": {
+          "type": "string"
+        },
+        "condition_read": {
+          "$ref": "#/$defs/condition_read"
+        },
+        "break_even_p_target": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "break_even_attainable": {
+          "type": "boolean"
+        },
+        "break_even_note": {
+          "type": "string"
+        },
+        "modelled_p_target": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "pop_implied_p_target": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "ev": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "roi": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "annualised_roi": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "horizon_days": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "downside_case": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cost_breakdown": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/money"
+          }
+        },
+        "refusal": {
+          "$ref": "#/$defs/refusal"
+        },
+        "assumption_ids": {
+          "$ref": "#/$defs/assumption_ids"
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "card",
+        "acquisition_cost",
+        "grader",
+        "tier",
+        "condition_read",
+        "break_even_p_target",
+        "break_even_attainable",
+        "break_even_note",
+        "modelled_p_target",
+        "pop_implied_p_target",
+        "ev",
+        "roi",
+        "annualised_roi",
+        "horizon_days",
+        "downside_case",
+        "cost_breakdown",
+        "refusal",
+        "assumption_ids",
+        "staleness"
+      ],
+      "additionalProperties": false
+    },
+    "friction_stack": {
+      "type": "object",
+      "description": "Every deduction between gross and net, itemised. A spread whose frictions you cannot see is not a spread.",
+      "properties": {
+        "marketplace_fee": {
+          "$ref": "#/$defs/money"
+        },
+        "payment_fee": {
+          "$ref": "#/$defs/money"
+        },
+        "shipping": {
+          "$ref": "#/$defs/money"
+        },
+        "grading_fee": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fx_spread": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tax": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "marketplace_fee",
+        "payment_fee",
+        "shipping",
+        "grading_fee",
+        "fx_spread",
+        "tax"
+      ],
+      "additionalProperties": false
+    },
+    "arbitrage_row": {
+      "type": "object",
+      "properties": {
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "path": {
+          "type": "string",
+          "enum": [
+            "psa_crossover",
+            "crack_resubmit",
+            "cross_market"
+          ],
+          "description": "psa_crossover downside is capped at fees and lockup; crack_resubmit carries full grade risk. Different trades; must not render alike."
+        },
+        "buy_venue": {
+          "type": "string"
+        },
+        "sell_venue": {
+          "type": "string"
+        },
+        "gross_spread": {
+          "$ref": "#/$defs/money"
+        },
+        "net_spread": {
+          "$ref": "#/$defs/money"
+        },
+        "friction": {
+          "$ref": "#/$defs/friction_stack"
+        },
+        "net_margin_pct": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "assumption_ids": {
+          "$ref": "#/$defs/assumption_ids"
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        }
+      },
+      "required": [
+        "card",
+        "path",
+        "buy_venue",
+        "sell_venue",
+        "gross_spread",
+        "net_spread",
+        "friction",
+        "net_margin_pct",
+        "assumption_ids",
+        "staleness"
+      ],
+      "additionalProperties": false
+    },
+    "screen_arbitrage_board": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "arbitrage_board"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arbitrage_row"
+          }
+        },
+        "sorted_by": {
+          "type": "string",
+          "enum": [
+            "net_margin_pct",
+            "net_spread"
+          ]
+        },
+        "suppressed_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "rows",
+        "sorted_by",
+        "suppressed_count"
+      ],
+      "additionalProperties": false
+    },
+    "trend_excerpt": {
+      "type": "object",
+      "description": "Link plus short paraphrase. Source text is never reproduced in bulk.",
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": [
+            "youtube",
+            "google_trends"
+          ]
+        },
+        "url": {
+          "type": "string"
+        },
+        "paraphrase": {
+          "type": "string",
+          "maxLength": 280
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "platform",
+        "url",
+        "paraphrase",
+        "as_of"
+      ],
+      "additionalProperties": false
+    },
+    "trend_row": {
+      "type": "object",
+      "properties": {
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "double_demeaned_z": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "own_baseline_z": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "game_baseline_z": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "youtube",
+              "google_trends"
+            ]
+          },
+          "description": "Which platforms contributed. An array, not named per-platform fields, so adding a platform later is data rather than a schema change."
+        },
+        "excerpts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trend_excerpt"
+          }
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        }
+      },
+      "required": [
+        "card",
+        "double_demeaned_z",
+        "own_baseline_z",
+        "game_baseline_z",
+        "sources",
+        "excerpts",
+        "staleness"
+      ],
+      "additionalProperties": false
+    },
+    "screen_trend_radar": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "trend_radar"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trend_row"
+          }
+        },
+        "window_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "backfilled_excluded": {
+          "type": "boolean",
+          "description": "Always true in production. Backfilled sentiment is excluded from every backtest and flagged here so the exclusion is visible."
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "rows",
+        "window_days",
+        "backfilled_excluded"
+      ],
+      "additionalProperties": false
+    },
+    "ledger_entry": {
+      "type": "object",
+      "description": "Immutable at fire time. Never edited; corrections are new rows.",
+      "properties": {
+        "alert_id": {
+          "type": "string"
+        },
+        "fired_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "thesis": {
+          "type": "string"
+        },
+        "price_at_alert": {
+          "$ref": "#/$defs/money"
+        },
+        "excess_return_7d": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "excess_return_30d": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "excess_return_90d": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "assumption_ids": {
+          "$ref": "#/$defs/assumption_ids"
+        }
+      },
+      "required": [
+        "alert_id",
+        "fired_at",
+        "card",
+        "rule",
+        "thesis",
+        "price_at_alert",
+        "excess_return_7d",
+        "excess_return_30d",
+        "excess_return_90d",
+        "assumption_ids"
+      ],
+      "additionalProperties": false
+    },
+    "screen_track_record": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "track_record"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "hit_rate_7d": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "hit_rate_30d": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "hit_rate_90d": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "median_excess_return": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "scored_alert_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "acting_threshold_met": {
+          "type": "boolean",
+          "description": "False below 50 scored alerts. Do not act with real money until true."
+        },
+        "worst_five": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ledger_entry"
+          },
+          "maxItems": 5,
+          "description": "Permanently visible. Never collapsed, never behind a toggle."
+        },
+        "recent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ledger_entry"
+          }
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "hit_rate_7d",
+        "hit_rate_30d",
+        "hit_rate_90d",
+        "median_excess_return",
+        "scored_alert_count",
+        "acting_threshold_met",
+        "worst_five",
+        "recent"
+      ],
+      "additionalProperties": false
+    },
+    "assumption_entry_view": {
+      "type": "object",
+      "description": "Mirror of contracts/assumptions.json for the editable registry screen.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "current_value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/decimal_string"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_reviewed": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "calibration_plan": {
+          "type": "string"
+        },
+        "ui_chip_required": {
+          "type": "boolean"
+        },
+        "editable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "current_value",
+        "unit",
+        "confidence",
+        "source",
+        "last_reviewed",
+        "calibration_plan",
+        "ui_chip_required",
+        "editable"
+      ],
+      "additionalProperties": false
+    },
+    "fee_schedule_view": {
+      "type": "object",
+      "properties": {
+        "venue": {
+          "type": "string"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/currency"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checked_on": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "usable": {
+          "type": "boolean",
+          "description": "False when a required field is null and the engine refuses this venue."
+        }
+      },
+      "required": [
+        "venue",
+        "currency",
+        "summary",
+        "source",
+        "checked_on",
+        "confidence",
+        "usable"
+      ],
+      "additionalProperties": false
+    },
+    "grading_tier_view": {
+      "type": "object",
+      "properties": {
+        "grader": {
+          "type": "string"
+        },
+        "tier": {
+          "type": "string"
+        },
+        "fee": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "turnaround_business_days": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "availability": {
+          "type": "string",
+          "enum": [
+            "open",
+            "paused",
+            "waitlist",
+            "discontinued"
+          ]
+        },
+        "availability_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checked_on": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "needs_primary_verification": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "grader",
+        "tier",
+        "fee",
+        "turnaround_business_days",
+        "availability",
+        "availability_note",
+        "source",
+        "checked_on",
+        "confidence",
+        "needs_primary_verification"
+      ],
+      "additionalProperties": false
+    },
+    "screen_settings": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "properties": {
+        "screen": {
+          "const": "settings"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assumption_entry_view"
+          }
+        },
+        "fee_schedules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fee_schedule_view"
+          }
+        },
+        "grading_tiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/grading_tier_view"
+          }
+        },
+        "fx_rates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pair": {
+                "type": "string"
+              },
+              "rate": {
+                "$ref": "#/$defs/decimal_string"
+              },
+              "as_of": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pair",
+              "rate",
+              "as_of",
+              "source"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "score_enabled": {
+          "type": "boolean",
+          "description": "Ships false. Cannot be enabled until the score beats all three benchmarks out-of-sample after BH correction."
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "assumptions",
+        "fee_schedules",
+        "grading_tiers",
+        "fx_rates",
+        "score_enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/screen_home"
+    },
+    {
+      "$ref": "#/$defs/screen_signals"
+    },
+    {
+      "$ref": "#/$defs/screen_card_detail"
+    },
+    {
+      "$ref": "#/$defs/screen_grading_lab"
+    },
+    {
+      "$ref": "#/$defs/screen_arbitrage_board"
+    },
+    {
+      "$ref": "#/$defs/screen_trend_radar"
+    },
+    {
+      "$ref": "#/$defs/screen_track_record"
+    },
+    {
+      "$ref": "#/$defs/screen_settings"
+    }
+  ]
+}

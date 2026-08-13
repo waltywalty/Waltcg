@@ -1,0 +1,156 @@
+{
+  "_fixture": true,
+  "screen": "grading_lab",
+  "generated_at": "2026-08-13T09:00:00Z",
+  "schema_version": 1,
+  "warnings": [
+    "PSA Regular fee is provisional and needs primary verification"
+  ],
+  "card": {
+    "card_uid": "pkmn:sv3:223/197:sir:EN",
+    "game": "pkmn",
+    "set_code": "sv3",
+    "number": "223/197",
+    "variant": "sir",
+    "language": "EN",
+    "name": "Charizard ex",
+    "rarity": "Special Illustration Rare",
+    "artist": "takuyoa",
+    "image_url": null
+  },
+  "acquisition_cost": {
+    "amount": "140.00",
+    "currency": "USD",
+    "fx_rate_used": null,
+    "fx_as_of": null
+  },
+  "grader": "PSA",
+  "tier": "regular",
+  "condition_read": {
+    "centering_pct": "60",
+    "corner_flag": "clean",
+    "surface_flag": "clean",
+    "edge_flag": "clean"
+  },
+  "break_even_p_target": {
+    "value": "0.412",
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "medium",
+    "sample_size": null,
+    "unit": "probability",
+    "assumption_ids": [
+      "grading_fee_schedule",
+      "marketplace_fee_schedule"
+    ]
+  },
+  "break_even_attainable": true,
+  "break_even_note": "",
+  "modelled_p_target": {
+    "value": "0.286",
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "low",
+    "sample_size": 7360,
+    "unit": "probability",
+    "assumption_ids": [
+      "submission_selection_haircut",
+      "empirical_bayes_prior_strength"
+    ]
+  },
+  "pop_implied_p_target": {
+    "value": "0.249",
+    "source": "pokemonpricetracker",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "medium",
+    "sample_size": 7360,
+    "unit": "probability",
+    "assumption_ids": [
+      "submission_selection_haircut"
+    ]
+  },
+  "ev": {
+    "amount": "-38.40",
+    "currency": "USD",
+    "fx_rate_used": null,
+    "fx_as_of": null
+  },
+  "roi": {
+    "value": "-0.152",
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "medium",
+    "sample_size": null,
+    "unit": "ratio",
+    "assumption_ids": []
+  },
+  "annualised_roi": {
+    "value": "-0.418",
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "medium",
+    "sample_size": null,
+    "unit": "ratio",
+    "assumption_ids": []
+  },
+  "horizon_days": 114,
+  "downside_case": {
+    "amount": "-96.20",
+    "currency": "USD",
+    "fx_rate_used": null,
+    "fx_as_of": null
+  },
+  "cost_breakdown": {
+    "acquisition": {
+      "amount": "140.00",
+      "currency": "USD",
+      "fx_rate_used": null,
+      "fx_as_of": null
+    },
+    "tax": {
+      "amount": "0.00",
+      "currency": "USD",
+      "fx_rate_used": null,
+      "fx_as_of": null
+    },
+    "inbound_shipping": {
+      "amount": "1.20",
+      "currency": "USD",
+      "fx_rate_used": null,
+      "fx_as_of": null
+    },
+    "supplies": {
+      "amount": "0.85",
+      "currency": "USD",
+      "fx_rate_used": null,
+      "fx_as_of": null
+    },
+    "grading_fee": {
+      "amount": "79.99",
+      "currency": "USD",
+      "fx_rate_used": null,
+      "fx_as_of": null
+    },
+    "return_shipping": {
+      "amount": "2.50",
+      "currency": "USD",
+      "fx_rate_used": null,
+      "fx_as_of": null
+    }
+  },
+  "refusal": null,
+  "assumption_ids": [
+    "submission_selection_haircut",
+    "empirical_bayes_prior_strength",
+    "grading_fee_schedule",
+    "marketplace_fee_schedule",
+    "days_to_sell"
+  ],
+  "staleness": {
+    "as_of": "2026-08-13T09:00:00Z",
+    "age_seconds": 172800,
+    "is_stale": false,
+    "threshold_seconds": 604800,
+    "kind": "population"
+  }
+}

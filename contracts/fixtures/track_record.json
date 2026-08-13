@@ -1,0 +1,372 @@
+{
+  "_fixture": true,
+  "screen": "track_record",
+  "generated_at": "2026-08-13T09:00:00Z",
+  "schema_version": 1,
+  "warnings": [
+    "31 scored alerts: below the 50 needed before acting with real money"
+  ],
+  "hit_rate_7d": {
+    "value": "0.516",
+    "source": "engine:ledger",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "medium",
+    "sample_size": 31,
+    "unit": "ratio",
+    "assumption_ids": []
+  },
+  "hit_rate_30d": {
+    "value": "0.452",
+    "source": "engine:ledger",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "medium",
+    "sample_size": 31,
+    "unit": "ratio",
+    "assumption_ids": []
+  },
+  "hit_rate_90d": {
+    "value": "0.387",
+    "source": "engine:ledger",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "low",
+    "sample_size": 31,
+    "unit": "ratio",
+    "assumption_ids": []
+  },
+  "median_excess_return": {
+    "value": "0.021",
+    "source": "engine:ledger",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "low",
+    "sample_size": 31,
+    "unit": "ratio",
+    "assumption_ids": []
+  },
+  "scored_alert_count": 31,
+  "acting_threshold_met": false,
+  "worst_five": [
+    {
+      "alert_id": "a-0007",
+      "fired_at": "2026-05-02T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:P:P-001:promo:EN",
+        "game": "optcg",
+        "set_code": "P",
+        "number": "P-001",
+        "variant": "promo",
+        "language": "EN",
+        "name": "Monkey.D.Luffy",
+        "rarity": "Promo",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "grade_gap",
+      "thesis": "P10 cheap vs pop gap",
+      "price_at_alert": {
+        "amount": "310.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "excess_return_7d": {
+        "value": "-0.084",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_30d": {
+        "value": "-0.191",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_90d": {
+        "value": "-0.263",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "assumption_ids": [
+        "min_comp_sample_size"
+      ]
+    },
+    {
+      "alert_id": "a-0012",
+      "fired_at": "2026-05-02T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:VDT:VDT-017:base:EN",
+        "game": "riftbound",
+        "set_code": "VDT",
+        "number": "VDT-017",
+        "variant": "base",
+        "language": "EN",
+        "name": "Lee Sin",
+        "rarity": "Epic",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "trending_early",
+      "thesis": "Velocity spike pre-price",
+      "price_at_alert": {
+        "amount": "42.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "excess_return_7d": {
+        "value": "-0.052",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_30d": {
+        "value": "-0.140",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_90d": {
+        "value": "-0.244",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "assumption_ids": []
+    },
+    {
+      "alert_id": "a-0019",
+      "fired_at": "2026-05-02T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "SR Parallel",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "Thin float, high gem rate",
+      "price_at_alert": {
+        "amount": "180.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "excess_return_7d": {
+        "value": "-0.031",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_30d": {
+        "value": "-0.098",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_90d": {
+        "value": "-0.187",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ]
+    },
+    {
+      "alert_id": "a-0003",
+      "fired_at": "2026-05-02T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-301",
+        "variant": "overnumbered",
+        "language": "EN",
+        "name": "Jinx",
+        "rarity": "Overnumbered",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "thin_float",
+      "thesis": "Overnumbered scarcity",
+      "price_at_alert": {
+        "amount": "76.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "excess_return_7d": {
+        "value": "-0.020",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_30d": {
+        "value": "-0.077",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_90d": {
+        "value": "-0.152",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "assumption_ids": []
+    },
+    {
+      "alert_id": "a-0022",
+      "fired_at": "2026-05-02T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+        "game": "pkmn",
+        "set_code": "SM-P",
+        "number": "070/SM-P",
+        "variant": "promo",
+        "language": "JP",
+        "name": "Eevee (Yu Nagaba)",
+        "rarity": "Promo",
+        "artist": "Yu Nagaba",
+        "image_url": null
+      },
+      "rule": "crossover",
+      "thesis": "BGS 9.5 balanced subgrades",
+      "price_at_alert": {
+        "amount": "540.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "excess_return_7d": {
+        "value": "-0.014",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_30d": {
+        "value": "-0.061",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_90d": {
+        "value": "-0.121",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "assumption_ids": [
+        "grading_fee_schedule"
+      ]
+    }
+  ],
+  "recent": [
+    {
+      "alert_id": "a-0031",
+      "fired_at": "2026-05-02T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "Break-even P below pop-implied",
+      "price_at_alert": {
+        "amount": "140.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "excess_return_7d": {
+        "value": "0.012",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_30d": {
+        "value": "0.043",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "excess_return_90d": {
+        "value": "0.088",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "high",
+        "sample_size": null,
+        "unit": "ratio",
+        "assumption_ids": []
+      },
+      "assumption_ids": [
+        "submission_selection_haircut",
+        "grading_fee_schedule"
+      ]
+    }
+  ]
+}

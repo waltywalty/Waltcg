@@ -1,0 +1,444 @@
+{
+  "_fixture": true,
+  "screen": "signals",
+  "generated_at": "2026-08-13T09:00:00Z",
+  "schema_version": 1,
+  "warnings": [],
+  "rows": [
+    {
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "play_type": "raw_to_10",
+      "headline": {
+        "value": "0.412",
+        "source": "engine:model_a",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 27,
+        "unit": "probability",
+        "assumption_ids": [
+          "submission_selection_haircut",
+          "empirical_bayes_prior_strength",
+          "grading_fee_schedule",
+          "marketplace_fee_schedule"
+        ]
+      },
+      "headline_label": "break-even P(10)",
+      "ladder": [
+        {
+          "grade": "raw",
+          "price": {
+            "amount": "140",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "140",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": null,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        },
+        {
+          "grade": "8",
+          "price": {
+            "amount": "190",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "190",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": 410,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        },
+        {
+          "grade": "9",
+          "price": {
+            "amount": "320",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "320",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": 5120,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        },
+        {
+          "grade": "10",
+          "price": {
+            "amount": "1180",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "1180",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": 1830,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        }
+      ],
+      "assumption_ids": [
+        "submission_selection_haircut",
+        "empirical_bayes_prior_strength",
+        "grading_fee_schedule"
+      ],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 1800,
+        "is_stale": false,
+        "threshold_seconds": 86400,
+        "kind": "price"
+      }
+    },
+    {
+      "card": {
+        "card_uid": "pkmn:sv3:108/108:sar:JP",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "108/108",
+        "variant": "sar",
+        "language": "JP",
+        "name": "Lizardon ex",
+        "rarity": "SAR",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "play_type": "grade_gap",
+      "headline": {
+        "value": "-0.284",
+        "source": "engine:model_d",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 14,
+        "unit": "log residual",
+        "assumption_ids": []
+      },
+      "headline_label": "spread residual",
+      "ladder": [
+        {
+          "grade": "raw",
+          "price": {
+            "amount": "210",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "210",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": null,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        },
+        {
+          "grade": "8",
+          "price": {
+            "amount": "260",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "260",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": 120,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        },
+        {
+          "grade": "9",
+          "price": {
+            "amount": "430",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "430",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": 1980,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        },
+        {
+          "grade": "10",
+          "price": {
+            "amount": "1490",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "1490",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": 640,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": []
+          }
+        }
+      ],
+      "assumption_ids": [
+        "min_comp_sample_size"
+      ],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 3600,
+        "is_stale": false,
+        "threshold_seconds": 86400,
+        "kind": "price"
+      }
+    },
+    {
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-042:signature:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-042",
+        "variant": "signature",
+        "language": "EN",
+        "name": "Viktor",
+        "rarity": "Signature",
+        "artist": null,
+        "image_url": null
+      },
+      "play_type": "trending_early",
+      "headline": {
+        "value": "2.71",
+        "source": "engine:trend",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 9,
+        "unit": "z-score",
+        "assumption_ids": []
+      },
+      "headline_label": "velocity z",
+      "ladder": [
+        {
+          "grade": "raw",
+          "price": {
+            "amount": "64",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "64",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": null,
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game"
+          }
+        },
+        {
+          "grade": "8",
+          "price": null,
+          "price_meta": {
+            "value": null,
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": null,
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game"
+          }
+        },
+        {
+          "grade": "9",
+          "price": null,
+          "price_meta": {
+            "value": null,
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": null,
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game"
+          }
+        },
+        {
+          "grade": "10",
+          "price": null,
+          "price_meta": {
+            "value": null,
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": []
+          },
+          "population": {
+            "value": null,
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game"
+          }
+        }
+      ],
+      "assumption_ids": [],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 7200,
+        "is_stale": false,
+        "threshold_seconds": 604800,
+        "kind": "sentiment"
+      }
+    }
+  ],
+  "filtered_by": [
+    "raw_to_10",
+    "grade_gap",
+    "trending_early"
+  ],
+  "suppressed_count": 11
+}

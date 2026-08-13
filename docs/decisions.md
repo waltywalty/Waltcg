@@ -125,3 +125,112 @@ Two guards are deliberately redundant. `catalog == NONE` already implies every
 source answered, so requiring `confirmed_empty` from each is belt-and-braces —
 but the two conditions coincide only under the current classifier, and the
 weaker one is the one that failed in production. The redundancy stays.
+
+---
+
+## ADR-0002 — `card_uid` is derived from the printing, not from any provider
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `resolve/`, `contracts/`, `store/`
+
+### Context
+
+Every card needs one stable identifier. The obvious candidate is a provider's id
+— tcgapi has one, apitcg has one, TCGplayer had one. Using someone else's key is
+free and immediate.
+
+Three facts make it wrong here.
+
+**Providers partition differently from us.** tcgapi.dev models language as a
+*separate game entry*: Pokémon is game `55` and Pokémon Japan is game `19`. Its
+identifier therefore encodes language inside the game, and it has no entry at all
+for One Piece Japan — a printing that exists and that we track. A store keyed on
+its ids literally cannot express part of our universe.
+
+**Publishers reuse collector numbers across languages.** Bandai prints
+`OP01-121` in English, Japanese and Simplified Chinese. Any scheme keyed on the
+printed number alone merges three assets that trade in three separate markets.
+
+**Providers close.** TCGplayer's API stopped accepting new applicants after the
+eBay acquisition. Anything keyed on their ids would have needed a full re-key of
+all history.
+
+### Decision
+
+```
+card_uid = {game}:{set_code}:{number}:{variant}:{language}
+game     ∈ {optcg, pkmn, riftbound}
+language ∈ {EN, JP, CN-S, CN-T}
+```
+
+Derived entirely from what is physically printed on the card. Built only by
+`resolve.identity.card_uid()`, which refuses provider identifiers by name.
+External ids live in `card_xref` with `confidence` and `resolved_by`, never
+inside the uid.
+
+**Invariant: no two language printings ever share a `card_uid`.** Enforced by
+the constructor, by `tests/test_resolver.py`, and by the schema regex.
+
+### Consequences
+
+- Resolution is now work we own. A card must be matched to each provider's id
+  once, with a confidence, and anything fuzzy below 0.9 is excluded from signals.
+- Cards no source carries — the Chinese printings — still get identity, history
+  and manual prices. An id-keyed store could not have represented them.
+- The uid is long and human-readable, which is a feature in a debugging context
+  and irrelevant in an index.
+- One wrinkle found by the tests: a provider slug can coincide with an internal
+  code (apitcg calls Riftbound `riftbound`, so do we). Coincident tokens are
+  accepted; only unambiguously-external ones are rejected. Rejecting them would
+  have rejected a legitimate internal code, which the first test run did.
+
+---
+
+## ADR-0003 — Money is an object, never a number
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** everything that touches a price
+
+### Context
+
+A bare number cannot say what it is. `12400` is ¥12,400 or $12,400 depending on
+context that lives in a variable name, a column header, or someone's memory. The
+cost of getting that wrong is not proportional to the error — it is the exchange
+rate, which for JPY/USD is roughly two orders of magnitude. This has already
+happened once on this desk, at a factor of 7.8 in position sizing.
+
+JSON numbers make it worse: they are IEEE 754 binary floats, and cents do not
+survive them. `0.1 + 0.2` is famously not `0.3`, and a fee stack is a chain of
+exactly those additions.
+
+### Decision
+
+Every monetary value, everywhere, is:
+
+```json
+{"amount": "412.55", "currency": "USD", "fx_rate_used": null, "fx_as_of": null}
+```
+
+- `amount` is a **string**, not a JSON number. Parsed to `Decimal`.
+- All four keys are required. `fx_rate_used` and `fx_as_of` are null together
+  and set together — null means "no conversion happened", never "unknown".
+- Cross-currency arithmetic raises `TypeError`. There is no implicit FX.
+- The `Money` constructor **rejects Python floats outright**: a float has already
+  lost precision and accepting one would launder the loss.
+- FX round-trips are exact by provenance, not recomputation. Converting 15000 JPY
+  to USD and back returns exactly 15000 — verified on a rate where plain Decimal
+  arithmetic drifts.
+
+### Consequences
+
+- The contract is noisier. A price is four keys instead of one. This is the
+  point: the noise is the information.
+- Every screen can render currency symbol *and* code without inferring either,
+  which GOAL D7 requires and which a bare number cannot support.
+- Tests walk the entire fixture tree asserting no bare number sits under a
+  monetary field, and that every `amount` is a string matching a decimal pattern.
+- Money in a *display* string (`"$49.99/mo"` in config) is not this type and is
+  not covered — the guard distinguishes our own subscription costs from observed
+  card prices.

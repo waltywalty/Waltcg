@@ -49,8 +49,8 @@ def required_paths(grader: str, tier: str, venue: str) -> list:
         f"fees.marketplaces.{venue}.payment_fixed",
         f"fees.marketplaces.{venue}.currency",
         "fees.region_defaults.default_days_to_sell",
-        "assumptions.regrade_conditional_prior.value",
-        "assumptions.regrade_conditional_prior.p_downgrade_below_9.value",
+        "assumptions.regrade_conditional_prior.current_value",
+        "assumptions.regrade_downgrade_probability.current_value",
     ]
 
 
@@ -73,7 +73,7 @@ def _validate_condition_read(condition_read) -> Optional[Refusal]:
     return None
 
 
-ADJ_ROOT = "assumptions.regrade_conditional_prior.conditional_adjustments"
+ADJ_ROOT = "assumptions.regrade_condition_adjustments.current_value"
 CLEAN_WORDS = ("clean", "ok", "true", "yes")
 
 
@@ -106,7 +106,7 @@ def _adjustment_keys(condition_read: dict) -> list:
 
 def _adjusted_prior(cfg: Config, condition_read: dict):
     """Apply condition multipliers to the conservative default prior."""
-    p = cfg.decimal("assumptions.regrade_conditional_prior.value")
+    p = cfg.decimal("assumptions.regrade_conditional_prior.current_value")
     applied = []
     for key in _adjustment_keys(condition_read):
         m = cfg.decimal(f"{ADJ_ROOT}.{key}")
@@ -158,7 +158,7 @@ def regrade_9_to_10_ev(
                        f"{grader} tier {tier!r} is {availability!r}", subject=card_uid)
 
     p10, applied = _adjusted_prior(cfg, condition_read)
-    p_below9 = cfg.decimal("assumptions.regrade_conditional_prior.p_downgrade_below_9.value")
+    p_below9 = cfg.decimal("assumptions.regrade_downgrade_probability.current_value")
     if p10 + p_below9 > 1:
         return Refusal(MODEL, "inconsistent prior",
                        f"P(10)={p10} and P(<9)={p_below9} sum above 1", subject=card_uid)

@@ -84,10 +84,10 @@ def grade_spread_residual(
     log(P10/P9), which is dimensionless, and never reports a monetary amount.
     """
     if min_sample is None:
-        min_sample = cfg.get("assumptions.min_comp_sample_size.value")
+        min_sample = cfg.get("assumptions.min_comp_sample_size.current_value")
         if min_sample is None:
             return Refusal(MODEL, "no minimum sample size configured",
-                           missing=["assumptions.min_comp_sample_size.value"])
+                           missing=["assumptions.min_comp_sample_size.current_value"])
     min_sample = int(min_sample)
     window_days = int(window_days or cfg.get("assumptions.min_comp_sample_size.window_days") or 90)
 

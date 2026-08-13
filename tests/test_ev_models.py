@@ -59,21 +59,19 @@ def filled_config(**overrides) -> Config:
     }
     assumptions = {
         "meta": {"verified_on": "2026-08-01", "staleness_warn_days": 60},
-        "submission_selection_haircut": {"value": 1.0},
-        "regrade_conditional_prior": {
-            "value": 0.10,
-            "conditional_adjustments": {
-                "centering_pct_ge_60_40": 1.0, "centering_pct_ge_55_45": 1.5,
-                "corner_flag_clean": 1.2, "surface_flag_clean": 1.2,
-                "edge_flag_clean": 1.0, "any_flag_dirty": 0.5},
-            "p_downgrade_below_9": {"value": 0.05}},
-        "empirical_bayes": {"prior_strength_cards": {"value": 20},
-                            "min_card_pop_for_own_prior": {"value": 10},
-                            "fallback_when_no_set_data": {"value": "refuse"}},
-        "tax": {"acquisition_tax_pct": {"value": 0.0}},
-        "min_comp_sample_size": {"value": 5, "window_days": 90},
-        "days_to_sell": {"value": 30},
-        "pull_rate_estimates": {"by_product": {}},
+        "submission_selection_haircut": {"current_value": 1.0},
+        "regrade_conditional_prior": {"current_value": 0.10},
+        "regrade_downgrade_probability": {"current_value": 0.05},
+        "regrade_condition_adjustments": {"current_value": {
+            "centering_pct_ge_60_40": 1.0, "centering_pct_ge_55_45": 1.5,
+            "corner_flag_clean": 1.2, "surface_flag_clean": 1.2,
+            "edge_flag_clean": 1.0, "any_flag_dirty": 0.5}},
+        "empirical_bayes_prior_strength": {"current_value": 20},
+        "empirical_bayes_min_card_pop": {"current_value": 10},
+        "acquisition_tax_pct": {"current_value": 0.0},
+        "min_comp_sample_size": {"current_value": 5, "window_days": 90},
+        "days_to_sell": {"current_value": 30},
+        "pull_rate_estimates": {"current_value": {}},
     }
     crossover = {
         "meta": {"verified_on": "2026-08-01", "staleness_warn_days": 60, "sample_size": 200},
@@ -275,7 +273,7 @@ class GoldenRefusals(unittest.TestCase):
         for path in ("grading.submission_costs.inbound_shipping",
                      "grading.submission_costs.supplies_per_card",
                      "grading.submission_costs.default_batch_size",
-                     "assumptions.tax.acquisition_tax_pct.value",
+                     "assumptions.acquisition_tax_pct.current_value",
                      "fees.region_defaults.default_days_to_sell"):
             self.assertIn(path, missing, f"{path} should still be refusing")
         self.assertIn("refusing to compute", str(ctx.exception))
@@ -484,7 +482,7 @@ class GoldenModelE(unittest.TestCase):
 
     def test_low_confidence_flag_is_immutable(self):
         cfg = filled_config()
-        cfg.assumptions["pull_rate_estimates"]["by_product"]["sv3-booster-box"] = {
+        cfg.assumptions["pull_rate_estimates"]["current_value"]["sv3-booster-box"] = {
             "packs_per_box": 36, "cards_per_pack": 10,
             "rates": {"SIR": 0.02, "IR": 0.10}, "source": "community thread",
             "sample_size": 400}
@@ -501,7 +499,7 @@ class GoldenModelE(unittest.TestCase):
 
     def test_rates_summing_above_one_refuses(self):
         cfg = filled_config()
-        cfg.assumptions["pull_rate_estimates"]["by_product"]["bad"] = {
+        cfg.assumptions["pull_rate_estimates"]["current_value"]["bad"] = {
             "packs_per_box": 36, "cards_per_pack": 10,
             "rates": {"A": 0.7, "B": 0.5}, "source": "x", "sample_size": 1}
         out = sealed_ev("bad", cfg=cfg, box_market_price=usd(150),
@@ -515,7 +513,7 @@ class GoalD2Compliance(unittest.TestCase):
 
     def _cfg(self):
         cfg = filled_config()
-        cfg.assumptions["pull_rate_estimates"]["by_product"]["box"] = {
+        cfg.assumptions["pull_rate_estimates"]["current_value"]["box"] = {
             "packs_per_box": 36, "cards_per_pack": 10,
             "rates": {"SIR": 0.02, "IR": 0.10}, "source": "fixture",
             "sample_size": 400}

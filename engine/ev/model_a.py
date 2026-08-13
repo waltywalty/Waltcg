@@ -52,10 +52,10 @@ def required_paths(grader: str, tier: str, venue: str, schedule: bool = False) -
         "grading.submission_costs.default_batch_size",
         f"fees.marketplaces.{venue}.currency",
         "fees.region_defaults.default_days_to_sell",
-        "assumptions.submission_selection_haircut.value",
-        "assumptions.tax.acquisition_tax_pct.value",
-        "assumptions.empirical_bayes.prior_strength_cards.value",
-        "assumptions.empirical_bayes.min_card_pop_for_own_prior.value",
+        "assumptions.submission_selection_haircut.current_value",
+        "assumptions.acquisition_tax_pct.current_value",
+        "assumptions.empirical_bayes_prior_strength.current_value",
+        "assumptions.empirical_bayes_min_card_pop.current_value",
     ]
 
 
@@ -119,10 +119,10 @@ def raw_to_graded_ev(
     if grade_probs is None:
         grade_probs = shrunk_grade_distribution(
             card_pop, set_pop,
-            prior_strength=cfg.get("assumptions.empirical_bayes.prior_strength_cards.value"),
-            selection_haircut=cfg.get("assumptions.submission_selection_haircut.value"),
+            prior_strength=cfg.get("assumptions.empirical_bayes_prior_strength.current_value"),
+            selection_haircut=cfg.get("assumptions.submission_selection_haircut.current_value"),
             min_card_pop_for_own_prior=cfg.get(
-                "assumptions.empirical_bayes.min_card_pop_for_own_prior.value"),
+                "assumptions.empirical_bayes_min_card_pop.current_value"),
             target_grade=target_grade, subject=card_uid)
         if isinstance(grade_probs, Refusal):
             return grade_probs
@@ -132,7 +132,7 @@ def raw_to_graded_ev(
     if batch < 1:
         return Refusal(MODEL, "invalid batch size", f"batch_size={batch}", subject=card_uid)
 
-    tax_pct = cfg.decimal("assumptions.tax.acquisition_tax_pct.value")
+    tax_pct = cfg.decimal("assumptions.acquisition_tax_pct.current_value")
     fee_per_card = Money(str(cfg.decimal(
         f"grading.graders.{grader}.tiers.{tier}.fee")), currency)
     inbound_total = Money(str(cfg.decimal("grading.submission_costs.inbound_shipping")), currency)

@@ -206,7 +206,8 @@ class Config:
                 needs = bool(node.get("needs_primary_verification"))
                 unverified_src = (isinstance(src, str)
                                   and src.strip().lower() in UNVERIFIED_SOURCES)
-                low_conf = (isinstance(conf, str) and conf.strip().lower() == "low")
+                low_conf = (isinstance(conf, str)
+                            and conf.strip().lower() in ("low", "unvalidated"))
                 if unverified_src or low_conf or needs:
                     found.append(UnverifiedWarning(
                         config_kind=which, path=path or "(root)", source=src,

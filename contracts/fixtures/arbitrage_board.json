@@ -1,0 +1,176 @@
+{
+  "_fixture": true,
+  "screen": "arbitrage_board",
+  "generated_at": "2026-08-13T09:00:00Z",
+  "schema_version": 1,
+  "warnings": [],
+  "rows": [
+    {
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "path": "psa_crossover",
+      "buy_venue": "ebay",
+      "sell_venue": "ebay",
+      "gross_spread": {
+        "amount": "310.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "net_spread": {
+        "amount": "176.40",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "friction": {
+        "marketplace_fee": {
+          "amount": "41.18",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "payment_fee": {
+          "amount": "0.40",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "shipping": {
+          "amount": "12.00",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "grading_fee": {
+          "amount": "79.99",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "fx_spread": null,
+        "tax": null
+      },
+      "net_margin_pct": {
+        "value": "14.90",
+        "source": "engine:model_c",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 22,
+        "unit": "percent",
+        "assumption_ids": [
+          "grading_fee_schedule",
+          "marketplace_fee_schedule"
+        ]
+      },
+      "assumption_ids": [
+        "grading_fee_schedule",
+        "marketplace_fee_schedule"
+      ],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 1800,
+        "is_stale": false,
+        "threshold_seconds": 86400,
+        "kind": "price"
+      }
+    },
+    {
+      "card": {
+        "card_uid": "pkmn:sv3:108/108:sar:JP",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "108/108",
+        "variant": "sar",
+        "language": "JP",
+        "name": "Lizardon ex",
+        "rarity": "SAR",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "path": "cross_market",
+      "buy_venue": "mercari_jp",
+      "sell_venue": "ebay",
+      "gross_spread": {
+        "amount": "240.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "net_spread": {
+        "amount": "91.60",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "friction": {
+        "marketplace_fee": {
+          "amount": "31.80",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "payment_fee": {
+          "amount": "0.40",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "shipping": {
+          "amount": "24.00",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "grading_fee": null,
+        "fx_spread": {
+          "amount": "8.20",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "tax": {
+          "amount": "84.00",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        }
+      },
+      "net_margin_pct": {
+        "value": "9.10",
+        "source": "engine:model_c",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 6,
+        "unit": "percent",
+        "assumption_ids": [
+          "marketplace_fee_schedule",
+          "fx_conversion_spread"
+        ]
+      },
+      "assumption_ids": [
+        "marketplace_fee_schedule",
+        "fx_conversion_spread"
+      ],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 43200,
+        "is_stale": false,
+        "threshold_seconds": 86400,
+        "kind": "price"
+      }
+    }
+  ],
+  "sorted_by": "net_margin_pct",
+  "suppressed_count": 4
+}

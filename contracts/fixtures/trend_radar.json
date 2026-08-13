@@ -1,0 +1,132 @@
+{
+  "_fixture": true,
+  "screen": "trend_radar",
+  "generated_at": "2026-08-13T09:00:00Z",
+  "schema_version": 1,
+  "warnings": [
+    "Reddit is not a source: Data API access is pending approval"
+  ],
+  "rows": [
+    {
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-042:signature:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-042",
+        "variant": "signature",
+        "language": "EN",
+        "name": "Viktor",
+        "rarity": "Signature",
+        "artist": null,
+        "image_url": null
+      },
+      "double_demeaned_z": {
+        "value": "2.71",
+        "source": "engine:trend",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 9,
+        "unit": "z-score",
+        "assumption_ids": []
+      },
+      "own_baseline_z": {
+        "value": "3.10",
+        "source": "youtube",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 9,
+        "unit": "z-score",
+        "assumption_ids": []
+      },
+      "game_baseline_z": {
+        "value": "0.39",
+        "source": "youtube",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 128,
+        "unit": "z-score",
+        "assumption_ids": []
+      },
+      "sources": [
+        "youtube"
+      ],
+      "excerpts": [
+        {
+          "platform": "youtube",
+          "url": "https://youtube.com/watch?v=fixture",
+          "paraphrase": "Opening video featuring the signature treatment; view velocity above the set baseline.",
+          "as_of": "2026-08-13T09:00:00Z"
+        }
+      ],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 7200,
+        "is_stale": false,
+        "threshold_seconds": 604800,
+        "kind": "sentiment"
+      }
+    },
+    {
+      "card": {
+        "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+        "game": "pkmn",
+        "set_code": "SM-P",
+        "number": "070/SM-P",
+        "variant": "promo",
+        "language": "JP",
+        "name": "Eevee (Yu Nagaba)",
+        "rarity": "Promo",
+        "artist": "Yu Nagaba",
+        "image_url": null
+      },
+      "double_demeaned_z": {
+        "value": "1.42",
+        "source": "engine:trend",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "unit": "z-score",
+        "assumption_ids": []
+      },
+      "own_baseline_z": {
+        "value": "1.80",
+        "source": "youtube",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "unit": "z-score",
+        "assumption_ids": []
+      },
+      "game_baseline_z": {
+        "value": "0.38",
+        "source": "google_trends",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 90,
+        "unit": "z-score",
+        "assumption_ids": []
+      },
+      "sources": [
+        "youtube",
+        "google_trends"
+      ],
+      "excerpts": [
+        {
+          "platform": "google_trends",
+          "url": "https://trends.google.com/fixture",
+          "paraphrase": "Search interest for the illustrator rising at set level; card-level series unavailable.",
+          "as_of": "2026-08-13T09:00:00Z"
+        }
+      ],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 10800,
+        "is_stale": false,
+        "threshold_seconds": 604800,
+        "kind": "sentiment"
+      }
+    }
+  ],
+  "window_days": 28,
+  "backfilled_excluded": true
+}

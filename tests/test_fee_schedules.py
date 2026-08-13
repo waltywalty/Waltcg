@@ -149,10 +149,10 @@ class MercariUsRefuses(unittest.TestCase):
             {"inbound_shipping": 10, "return_shipping_insured": 20,
              "supplies_per_card": 1, "default_batch_size": 10})
         cfg.fees["region_defaults"]["default_days_to_sell"] = 30
-        cfg.assumptions["tax"]["acquisition_tax_pct"]["value"] = 0
-        cfg.assumptions["submission_selection_haircut"]["value"] = 1.0
-        cfg.assumptions["empirical_bayes"]["prior_strength_cards"]["value"] = 20
-        cfg.assumptions["empirical_bayes"]["min_card_pop_for_own_prior"]["value"] = 10
+        cfg.assumptions["acquisition_tax_pct"]["current_value"] = 0
+        cfg.assumptions["submission_selection_haircut"]["current_value"] = 1.0
+        cfg.assumptions["empirical_bayes_prior_strength"]["current_value"] = 20
+        cfg.assumptions["empirical_bayes_min_card_pop"]["current_value"] = 10
         cfg.fees["marketplaces"]["mercari_us"]["currency"] = "USD"
         from engine.ev.results import GradeDistribution
         from engine.ev import ConfigIncomplete
@@ -230,10 +230,10 @@ class GradingConfigValues(unittest.TestCase):
             {"inbound_shipping": 10, "return_shipping_insured": 20,
              "supplies_per_card": 1, "default_batch_size": 10})
         cfg.fees["region_defaults"]["default_days_to_sell"] = 30
-        cfg.assumptions["tax"]["acquisition_tax_pct"]["value"] = 0
-        cfg.assumptions["submission_selection_haircut"]["value"] = 1.0
-        cfg.assumptions["empirical_bayes"]["prior_strength_cards"]["value"] = 20
-        cfg.assumptions["empirical_bayes"]["min_card_pop_for_own_prior"]["value"] = 10
+        cfg.assumptions["acquisition_tax_pct"]["current_value"] = 0
+        cfg.assumptions["submission_selection_haircut"]["current_value"] = 1.0
+        cfg.assumptions["empirical_bayes_prior_strength"]["current_value"] = 20
+        cfg.assumptions["empirical_bayes_min_card_pop"]["current_value"] = 10
         cfg.grading["graders"]["PSA"]["tiers"]["value"]["fee"] = 25
         cfg.grading["graders"]["PSA"]["tiers"]["value"]["turnaround_business_days"] = 90
         cfg.grading["graders"]["PSA"]["tiers"]["value"]["min_cards"] = 20
@@ -258,7 +258,7 @@ class GradingConfigValues(unittest.TestCase):
         for path in ("grading.submission_costs.inbound_shipping",
                      "grading.submission_costs.supplies_per_card",
                      "grading.submission_costs.default_batch_size",
-                     "assumptions.tax.acquisition_tax_pct.value"):
+                     "assumptions.acquisition_tax_pct.current_value"):
             self.assertIs(self.cfg.get(path), MISSING, path)
 
     def test_deliberately_unpopulated_marketplaces_stay_null(self):

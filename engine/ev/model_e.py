@@ -42,12 +42,12 @@ def sealed_ev(
 
     `value_by_rarity` maps rarity_band -> Money, the expected sale value of one
     hit in that band. Pull rates come from
-    assumptions.pull_rate_estimates.by_product[product_id].
+    assumptions.pull_rate_estimates.current_value[product_id].
     """
     if not isinstance(box_market_price, Money):
         raise TypeError("box_market_price must be Money, not a bare number")
 
-    root = f"assumptions.pull_rate_estimates.by_product.{product_id}"
+    root = f"assumptions.pull_rate_estimates.current_value.{product_id}"
     cfg.require([
         "grading.meta.currency",
         f"{root}.packs_per_box",
