@@ -37,15 +37,17 @@ jobs:
       # No pip install: probe/coverage.py is stdlib-only on purpose.
       - name: Run coverage probe
         env:
+          # One key per provider. These are unrelated companies -- a missing
+          # key makes its columns UNTESTED, it never borrows another's.
           TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
-          PPT_KEY: ${{ secrets.PPT_KEY }}
-          # apitcg.com issues its own key; falls back to TCGAPI_KEY if unset.
           APITCG_KEY: ${{ secrets.APITCG_KEY }}
+          PPT_KEY: ${{ secrets.PPT_KEY }}
           PROBE_BUDGET: ${{ inputs.budget }}
           PROBE_WATCHLIST_CARDS: ${{ inputs.watchlist_cards }}
           # Endpoint shapes could not be verified from the dev sandbox. If a
           # run reports "no candidate endpoint answered", set the correct
           # template in repo variables -- no code change needed.
+          TCGAPI_GAMES_URLS: ${{ vars.TCGAPI_GAMES_URLS }}
           TCGAPI_CATALOG_URLS: ${{ vars.TCGAPI_CATALOG_URLS }}
           TCGAPI_PRICE_URLS: ${{ vars.TCGAPI_PRICE_URLS }}
           APITCG_CATALOG_URLS: ${{ vars.APITCG_CATALOG_URLS }}

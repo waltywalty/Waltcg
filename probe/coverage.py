@@ -218,23 +218,24 @@ CARDS = [
 # answers first. Override any list with a comma-separated env var to skip
 # discovery entirely once the real shape is known:
 #
-#   TCGAPI_CATALOG_URLS, TCGAPI_PRICE_URLS, APITCG_CATALOG_URLS,
-#   PPT_CARD_URLS, PPT_POP_URLS
+#   TCGAPI_GAMES_URLS, TCGAPI_CATALOG_URLS, TCGAPI_PRICE_URLS,
+#   APITCG_CATALOG_URLS, PPT_CARD_URLS, PPT_POP_URLS
 #
 # Placeholders: {game} {lang} {name} {number} {set} {set_code} {id}
 
 ENDPOINTS = {
+    # Documented at tcgapi.dev. The search endpoint takes no language
+    # parameter -- see probe_games() for why that matters.
+    "tcgapi.games": [
+        "https://api.tcgapi.dev/v1/games",
+    ],
     "tcgapi.catalog": [
-        "https://api.tcgapi.dev/v1/{game}/cards?search={name}&language={lang}",
-        "https://api.tcgapi.dev/v1/cards?game={game}&search={name}&language={lang}",
-        "https://tcgapi.dev/api/v1/{game}/cards?search={name}&language={lang}",
-        "https://api.tcgapi.dev/v1/{game}/cards?name={name}&lang={lang}",
+        "https://api.tcgapi.dev/v1/search?q={name}&game={game}",
     ],
     "tcgapi.price": [
-        "https://api.tcgapi.dev/v1/{game}/cards/{id}/prices",
-        "https://api.tcgapi.dev/v1/prices?game={game}&cardId={id}",
-        "https://api.tcgapi.dev/v1/{game}/prices/{id}",
-        "https://tcgapi.dev/api/v1/{game}/cards/{id}/prices",
+        "https://api.tcgapi.dev/v1/prices?card_id={id}",
+        "https://api.tcgapi.dev/v1/prices?cardId={id}",
+        "https://api.tcgapi.dev/v1/prices?id={id}",
     ],
     "apitcg.catalog": [
         "https://apitcg.com/api/{game}/cards?name={name}",
@@ -391,6 +392,66 @@ def to_number(v):
     return None
 
 
+ENVELOPE_KEYS = ("data", "results", "cards", "items", "records", "matches")
+ERROR_KEYS = ("error", "errors", "detail", "exception", "fault")
+
+# Body classes. Only CONFIRMED_EMPTY may ever be read as evidence of absence.
+BODY_OK = "ok"                          # valid envelope, at least one record
+BODY_EMPTY = "confirmed-empty"          # valid envelope, zero-length data array
+BODY_ERROR = "error-body"               # 2xx wrapping an error object
+BODY_UNKNOWN = "unrecognised-shape"     # cannot prove anything either way
+BODY_NONE = "no-response"
+
+
+def classify_body(payload, status):
+    """Decide whether a response proves presence, proves absence, or neither.
+
+    A 200 is not a result. The last run inferred "no Chinese printings exist"
+    from apitcg.com bodies that were actually {"error": ...} auth failures, so
+    absence is now only ever read off a well-formed envelope whose data array
+    is genuinely zero-length. Everything else is inconclusive.
+    """
+    if payload is None:
+        return BODY_NONE
+    if not (status and 200 <= status < 300):
+        return BODY_ERROR
+    if isinstance(payload, list):
+        return BODY_OK if payload else BODY_EMPTY
+    if not isinstance(payload, dict):
+        return BODY_UNKNOWN
+
+    # An error object anywhere at the top level disqualifies the body, even
+    # when the transport said 200.
+    for k, v in payload.items():
+        if _norm_key(k) in {_norm_key(e) for e in ERROR_KEYS} and v not in (None, "", [], {}, False):
+            return BODY_ERROR
+    code = to_number(payload.get("statusCode") or payload.get("status_code"))
+    if code is not None and code >= 400:
+        return BODY_ERROR
+
+    for k in ENVELOPE_KEYS:
+        if k in payload:
+            inner = payload[k]
+            if isinstance(inner, list):
+                return BODY_OK if inner else BODY_EMPTY
+            if isinstance(inner, dict):
+                return BODY_OK if inner else BODY_EMPTY
+            if inner is None:
+                return BODY_EMPTY
+    # A bare card object is a positive result.
+    if any(_norm_key(k) in {"id", "cardid", "name"} for k in payload):
+        return BODY_OK
+    # Some endpoints answer with a count and nothing else.
+    total = to_number(find_key(payload, "total", "totalCount", "count"))
+    if total is not None:
+        return BODY_OK if total > 0 else BODY_EMPTY
+    return BODY_UNKNOWN
+
+
+def proves_absence(body_class):
+    return body_class == BODY_EMPTY
+
+
 def first_record(payload):
     """Pull the most likely single card record out of a search response."""
     if payload is None:
@@ -433,9 +494,10 @@ def key_paths(obj, prefix="", out=None, depth=0):
 
 
 class Provider:
-    def __init__(self, name, key, auth_styles):
+    def __init__(self, name, key, auth_styles, key_env):
         self.name = name
         self.key = key
+        self.key_env = key_env
         self.auth_styles = list(auth_styles)
         self.auth_style = self.auth_styles[0] if self.auth_styles else None
         self.requests = 0
@@ -443,26 +505,85 @@ class Provider:
         self.exhausted = False
         self.errors = []
         self.quota_headers = {}
+        # Providers meter differently: tcgapi.dev reports rate_limit.daily_
+        # remaining, pokemonpricetracker charges several credits per card via
+        # metadata.apiCallsConsumed. Counting our own requests underestimates
+        # both, so prefer whatever the provider tells us.
+        self.daily_remaining = None
+        self.credits_used = 0.0
+        self.credit_breakdown = {}
+        self.discovery_failed = set()   # ops whose templates are all dead
 
     def headers(self, style=None):
         h = {"Accept": "application/json", "User-Agent": "waltcg-coverage-probe/1.0"}
         style = style or self.auth_style
         if self.key and style == "x-api-key":
-            h["x-api-key"] = self.key
+            h["X-API-Key"] = self.key
         elif self.key and style == "bearer":
             h["Authorization"] = f"Bearer {self.key}"
-        elif self.key and style == "query":
-            pass
         return h
+
+    def note_usage(self, payload):
+        """Read the provider's own metering out of a response body."""
+        if not isinstance(payload, (dict, list)):
+            return
+        rl = find_key(payload, "rate_limit", "rateLimit")
+        if isinstance(rl, dict):
+            rem = to_number(find_key(rl, "daily_remaining", "dailyRemaining"))
+            if rem is not None:
+                self.daily_remaining = int(rem)
+        consumed = find_key(payload, "apiCallsConsumed", "api_calls_consumed")
+        if isinstance(consumed, dict):
+            cost = to_number(find_key(consumed, "costPerCard", "cost_per_card",
+                                      "total", "cost"))
+            if cost is not None:
+                self.credits_used += cost
+            for k, v in consumed.items():
+                if _norm_key(k) in ("costpercard", "cost_per_card", "total", "cost"):
+                    continue
+                n = to_number(v)
+                if n is not None:
+                    self.credit_breakdown[k] = self.credit_breakdown.get(k, 0) + n
+        elif consumed is not None:
+            n = to_number(consumed)
+            if n is not None:
+                self.credits_used += n
+
+    def cost_per_card(self, n_cards):
+        """Measured cost of one card, in whatever unit this provider bills.
+
+        Returns (cost, unit). Credits are what matters where a provider bills
+        them: pokemonpricetracker charges several per card across
+        cards/ebay/history, so a 100/day allowance is nothing like 100 cards.
+        """
+        if not n_cards:
+            return None, None
+        if self.credits_used:
+            return self.credits_used / n_cards, "credits"
+        if self.requests:
+            return self.requests / n_cards, "requests"
+        return None, None
+
+    def over_budget(self, budget, reserve=5):
+        if self.daily_remaining is not None:
+            return self.daily_remaining <= reserve
+        if self.credits_used:
+            return self.credits_used >= budget
+        return self.requests >= budget
 
     def status_note(self):
         if not self.key:
-            return "no API key in env"
+            return f"no API key ({self.key_env} unset)"
         if self.rate_limited:
             return "rate limited (429)"
         if self.exhausted:
-            return "local request budget exhausted"
-        return "ok"
+            return "budget exhausted"
+        bits = []
+        if self.daily_remaining is not None:
+            bits.append(f"provider reports {self.daily_remaining} left today")
+        if self.credits_used:
+            bits.append(f"{self.credits_used:g} credits consumed")
+        return "ok" + (" -- " + ", ".join(bits) if bits else "")
 
 
 class Prober:
@@ -476,18 +597,19 @@ class Prober:
         self.attempts = []        # (op, template, status) discovery log
         self.shapes = {}          # op -> sorted key paths
         self.safe_tokens = set()  # subscription costs, allowlisted for scrub_report
+        self.games = None         # step 0: tcgapi.dev /v1/games inventory
+        self.tcgapi_game_slug = {}  # our game name -> catalog's slug
+        # One key per provider, never shared. apitcg.com and tcgapi.dev are
+        # unrelated companies; sending one's key to the other is a credential
+        # leak that also produces junk 401 data. Absent key => UNTESTED.
         self.providers = {
             "tcgapi.dev": Provider("tcgapi.dev", os.environ.get("TCGAPI_KEY", "").strip(),
-                                   ["x-api-key", "bearer"]),
-            # apitcg.com issues its own key; fall back to TCGAPI_KEY so a
-            # single-key setup still gets tried rather than silently skipped.
-            "apitcg.com": Provider("apitcg.com",
-                                   (os.environ.get("APITCG_KEY")
-                                    or os.environ.get("TCGAPI_KEY", "")).strip(),
-                                   ["x-api-key", "bearer"]),
+                                   ["x-api-key"], "TCGAPI_KEY"),
+            "apitcg.com": Provider("apitcg.com", os.environ.get("APITCG_KEY", "").strip(),
+                                   ["bearer", "x-api-key"], "APITCG_KEY"),
             "pokemonpricetracker.com": Provider("pokemonpricetracker.com",
                                                 os.environ.get("PPT_KEY", "").strip(),
-                                                ["bearer", "x-api-key"]),
+                                                ["bearer", "x-api-key"], "PPT_KEY"),
         }
         os.makedirs(RAW_DIR, exist_ok=True)
 
@@ -525,7 +647,7 @@ class Prober:
             return None, 0, "no-key"
         if p.rate_limited:
             return None, 429, "provider parked after 429"
-        if p.requests >= self.budget:
+        if p.over_budget(self.budget):
             p.exhausted = True
             return None, 0, "budget exhausted"
 
@@ -534,7 +656,7 @@ class Prober:
         for attempt, style in enumerate(p.auth_styles if p.auth_style is None
                                         else [p.auth_style] + [s for s in p.auth_styles
                                                                if s != p.auth_style]):
-            if p.requests >= self.budget:
+            if p.over_budget(self.budget):
                 p.exhausted = True
                 return None, 0, "budget exhausted"
             p.requests += 1
@@ -572,6 +694,14 @@ class Prober:
                 payload = None
                 if status and 200 <= status < 300:
                     note = "200 but body was not JSON"
+            # Read the provider's own metering before deciding anything else.
+            p.note_usage(payload)
+            if status and 200 <= status < 300:
+                bc = classify_body(payload, status)
+                if bc == BODY_ERROR:
+                    note = "200 carrying an error object -- treated as failure"
+                elif bc == BODY_UNKNOWN:
+                    note = "200 with unrecognised shape -- cannot confirm empty"
 
             self._record(cache, {
                 "url": url, "provider": provider_name, "auth_style": style,
@@ -597,6 +727,50 @@ class Prober:
 
     # -- operation with endpoint discovery --------------------------------
 
+    def call_ctx(self, op, provider_name, ctx, label=""):
+        """Run one operation, discovering the endpoint shape at most once.
+
+        If every template for an op fails on the first card, the op is marked
+        dead for that provider and skipped for the rest of the run. The last
+        run burned 84 of 100 tcgapi requests retrying four dead templates
+        across 21 cards; one card's worth of evidence is enough.
+        """
+        p = self.providers[provider_name]
+        if op in p.discovery_failed:
+            return None, 0, "endpoint discovery abandoned after first card"
+
+        env_override = os.environ.get(op.replace(".", "_").upper() + "_URLS")
+        templates = ([t.strip() for t in env_override.split(",") if t.strip()]
+                     if env_override else list(ENDPOINTS[op]))
+        if op in self.pinned:
+            templates = [self.pinned[op]]
+
+        tried_any = False
+        for tmpl in templates:
+            missing = [ph for ph in ("id", "number") if "{%s}" % ph in tmpl and not ctx.get(ph)]
+            if missing:
+                continue
+            try:
+                url = tmpl.format(**ctx)
+            except KeyError:
+                continue
+            tried_any = True
+            payload, status, note = self.fetch(provider_name, url)
+            body_class = classify_body(payload, status)
+            self.attempts.append({"op": op, "template": tmpl, "status": status,
+                                  "note": note, "card": label, "body": body_class})
+            if status and 200 <= status < 300 and body_class != BODY_ERROR:
+                self.pinned.setdefault(op, tmpl)
+                if payload is not None:
+                    self.shapes.setdefault(op, set()).update(key_paths(payload))
+                return payload, status, note
+            if note in ("offline", "no-key", "budget exhausted") or p.rate_limited:
+                return None, status, note
+        if tried_any and op not in self.pinned:
+            p.discovery_failed.add(op)
+            return None, 0, "no candidate endpoint answered (op abandoned)"
+        return None, 0, "no candidate endpoint answered"
+
     def call(self, op, provider_name, card, extra=None):
         ctx = {
             "game": card["game"],
@@ -611,33 +785,9 @@ class Prober:
         }
         if provider_name == "apitcg.com":
             ctx["game"] = APITCG_GAME.get(card["game"], card["game"])
-
-        env_override = os.environ.get(op.replace(".", "_").upper() + "_URLS")
-        templates = ([t.strip() for t in env_override.split(",") if t.strip()]
-                     if env_override else list(ENDPOINTS[op]))
-        if op in self.pinned:
-            templates = [self.pinned[op]]
-
-        for tmpl in templates:
-            if "{id}" in tmpl and not ctx["id"]:
-                continue
-            if "{number}" in tmpl and not ctx["number"]:
-                continue
-            try:
-                url = tmpl.format(**ctx)
-            except KeyError:
-                continue
-            payload, status, note = self.fetch(provider_name, url)
-            self.attempts.append({"op": op, "template": tmpl, "status": status,
-                                  "note": note, "card": card_slug(card)})
-            if status and 200 <= status < 300:
-                self.pinned.setdefault(op, tmpl)
-                if payload is not None:
-                    self.shapes.setdefault(op, set()).update(key_paths(payload))
-                return payload, status, note
-            if note in ("offline", "no-key", "budget exhausted") or self.providers[provider_name].rate_limited:
-                return None, status, note
-        return None, 0, "no candidate endpoint answered"
+        elif provider_name == "tcgapi.dev":
+            ctx["game"] = self.tcgapi_game_slug.get(card["game"], card["game"])
+        return self.call_ctx(op, provider_name, ctx, card_slug(card))
 
 
 # ---------------------------------------------------------------------------
@@ -790,18 +940,88 @@ def norm_cmp(a, b):
     return "AGREE" if (sa == sb or sa in sb or sb in sa) else "DISAGREE"
 
 
+LANG_HINTS = ("jp", "japan", "japanese", "ja", "cn", "chinese", "zh", "simplified",
+              "traditional", "kr", "korea", "korean", "lang")
+
+
+def probe_games(prober):
+    """Step 0: what does tcgapi.dev actually carry, and does it model language?
+
+    Two questions, both cheap to answer and both able to invalidate the rest of
+    the run: (a) is Riftbound in the catalog at all, and (b) are there separate
+    per-language game entries, or is this one English-only catalog? The
+    documented /v1/search takes no language parameter, so if there is no
+    language dimension in the game list either, EN/JP separation is not
+    testable on this source at all.
+    """
+    payload, status, note = prober.call_ctx("tcgapi.games", "tcgapi.dev", {}, "step0")
+    body_class = classify_body(payload, status)
+    out = {"status": status, "note": note, "body_class": body_class,
+           "games": [], "reached": False, "language_dimension": None,
+           "riftbound": None}
+    if body_class not in (BODY_OK, BODY_EMPTY):
+        return out
+    out["reached"] = True
+
+    entries = payload
+    if isinstance(payload, dict):
+        for k in ENVELOPE_KEYS:
+            if isinstance(payload.get(k), list):
+                entries = payload[k]
+                break
+    games = []
+    if isinstance(entries, list):
+        for e in entries:
+            if isinstance(e, dict):
+                gid = e.get("id") or e.get("slug") or e.get("code") or e.get("key")
+                gname = e.get("name") or e.get("title") or gid
+                langs = find_key(e, "languages", "language", "locales")
+                games.append({"id": str(gid) if gid else None,
+                              "name": str(gname) if gname else None,
+                              "languages": langs if isinstance(langs, (list, str)) else None})
+            elif isinstance(e, str):
+                games.append({"id": e, "name": e, "languages": None})
+    out["games"] = games
+
+    blob = " ".join(filter(None, [f"{g['id']} {g['name']}" for g in games])).lower()
+    out["riftbound"] = "riftbound" in blob or "rift" in blob
+
+    # A language dimension can show up either as a per-game languages field or
+    # as separate per-language game entries.
+    has_lang_field = any(g["languages"] for g in games)
+    has_lang_entries = any(
+        any(h in (g["id"] or "").lower().split("-") + (g["name"] or "").lower().split()
+            for h in LANG_HINTS)
+        for g in games)
+    out["language_dimension"] = bool(has_lang_field or has_lang_entries)
+
+    # Map our internal game names onto the catalog's slugs where they differ.
+    for ours in {c["game"] for c in CARDS}:
+        for g in games:
+            gid = (g["id"] or "").lower()
+            if gid and (gid == ours or gid.replace("_", "-") == ours
+                        or ours.replace("-", "") == gid.replace("-", "")):
+                prober.tcgapi_game_slug[ours] = g["id"]
+                break
+    return out
+
+
 def probe_card(prober, card):
     res = {"card": card, "slug": card_slug(card)}
+
+    def http(payload, status, note):
+        return {"status": status, "note": note,
+                "body_class": classify_body(payload, status)}
 
     # 1. catalog: tcgapi.dev
     payload, status, note = prober.call("tcgapi.catalog", "tcgapi.dev", card)
     res["tcgapi_catalog"] = extract_catalog(payload)
-    res["tcgapi_catalog"]["http"] = {"status": status, "note": note}
+    res["tcgapi_catalog"]["http"] = http(payload, status, note)
 
     # 2. catalog: apitcg.com
     payload, status, note = prober.call("apitcg.catalog", "apitcg.com", card)
     res["apitcg_catalog"] = extract_catalog(payload)
-    res["apitcg_catalog"]["http"] = {"status": status, "note": note}
+    res["apitcg_catalog"]["http"] = http(payload, status, note)
 
     # agreement between the two catalogs
     a, b = res["tcgapi_catalog"], res["apitcg_catalog"]
@@ -815,23 +1035,26 @@ def probe_card(prober, card):
     else:
         payload, status, note = None, 0, "no card id resolved"
     res["price"] = extract_raw_price(payload)
-    res["price"]["http"] = {"status": status, "note": note}
+    res["price"]["http"] = http(payload, status, note)
 
     # 4. graded comps + population from pokemonpricetracker
     payload, status, note = prober.call("ppt.card", "pokemonpricetracker.com", card)
     res["graded"] = extract_graded(payload)
-    res["graded"]["http"] = {"status": status, "note": note}
+    res["graded"]["http"] = http(payload, status, note)
     res["pop"] = extract_population(payload)
-    res["pop"]["http"] = {"status": status, "note": note}
+    res["pop"]["http"] = http(payload, status, note)
 
-    # only spend a second PPT call if population was missing from the card doc
-    if res["pop"]["totalPopulation"] is None and status and 200 <= status < 300:
+    # Only spend a second PPT call if the first produced a usable body without
+    # population. Each PPT card costs several credits, so never spend one
+    # chasing a response that already failed.
+    if (res["pop"]["totalPopulation"] is None
+            and classify_body(payload, status) == BODY_OK):
         ppt_id = find_key(payload, "id", "cardId") if payload else None
         p2, s2, n2 = prober.call("ppt.pop", "pokemonpricetracker.com", card,
                                  {"id": ppt_id if isinstance(ppt_id, str) else ""})
         if p2 is not None:
             res["pop"] = extract_population(p2)
-            res["pop"]["http"] = {"status": s2, "note": n2}
+            res["pop"]["http"] = http(p2, s2, n2)
 
     res["status"] = score_card(res)
     return res
@@ -846,9 +1069,25 @@ def not_reached(note):
     return any(note == n or note.startswith(n) for n in NOT_REACHED)
 
 
+def usable(rec):
+    """Did this source give us an answer we can reason about at all?
+
+    A 2xx wrapping an error object, an unrecognised shape, or no response is
+    not an answer. Only BODY_OK and BODY_EMPTY carry information.
+    """
+    bc = (rec.get("http") or {}).get("body_class")
+    return bc in (BODY_OK, BODY_EMPTY)
+
+
+def confirmed_empty(rec):
+    return (rec.get("http") or {}).get("body_class") == BODY_EMPTY
+
+
 def score_card(res):
     a, b = res["tcgapi_catalog"], res["apitcg_catalog"]
-    untested_catalog = (not_reached(a["http"]["note"]) and not_reached(b["http"]["note"]))
+    # Never infer absence from a request that failed. If neither catalog gave
+    # a usable body, the answer is "we do not know", not "the card is absent".
+    untested_catalog = not (usable(a) or usable(b))
 
     # catalog
     if untested_catalog:
@@ -866,7 +1105,7 @@ def score_card(res):
     # raw price. A missing card id is only a real NONE if the catalog lookup
     # actually happened -- otherwise the price endpoint was never reached.
     pr = res["price"]
-    if not_reached(pr["http"]["note"]):
+    if not_reached(pr["http"]["note"]) or not usable(pr):
         price = UNTESTED
     elif pr["http"]["note"] == "no card id resolved" and catalog == UNTESTED:
         price = UNTESTED
@@ -882,7 +1121,7 @@ def score_card(res):
     gstat = {}
     for grade in ("psa10", "psa9", "psa8"):
         e = g["grades"].get(grade) or {}
-        if not_reached(g["http"]["note"]):
+        if not_reached(g["http"]["note"]) or not usable(g):
             gstat[grade] = UNTESTED
         elif e.get("count") == 0:
             # The field exists but nothing sold. That is a schema hit, not a
@@ -897,7 +1136,7 @@ def score_card(res):
 
     # population
     p = res["pop"]
-    if not_reached(p["http"]["note"]):
+    if not_reached(p["http"]["note"]) or not usable(p):
         pop = UNTESTED
     else:
         have = [p["populationByGrader"] is not None,
@@ -907,18 +1146,16 @@ def score_card(res):
 
     counts = [e.get("count") for e in g["grades"].values() if e.get("count") is not None]
 
-    # "The source answered and has no such card" is a finding. "We never got an
-    # answer" is not. Only the first justifies reporting an absence.
-    def answered(rec):
-        s = (rec.get("http") or {}).get("status") or 0
-        return 200 <= s < 300
-
+    # "The source answered with a well-formed, zero-length result" is a
+    # finding. A 2xx carrying {"error": ...} is not -- that was the bug that
+    # let an apitcg auth failure masquerade as proof that Chinese printings do
+    # not exist. Absence now requires a validated empty envelope.
     return {"catalog": catalog, "price": price, "pop": pop,
             "psa10": gstat["psa10"], "psa9": gstat["psa9"], "psa8": gstat["psa8"],
             "graded_sales_total": sum(counts) if counts else None,
             "catalog_absent_confirmed": (catalog == NONE
-                                         and (answered(a) or answered(b))),
-            "graded_absent_confirmed": (gstat["psa10"] == NONE and answered(g))}
+                                         and (confirmed_empty(a) or confirmed_empty(b))),
+            "graded_absent_confirmed": (gstat["psa10"] == NONE and confirmed_empty(g))}
 
 
 # ---------------------------------------------------------------------------
@@ -1072,12 +1309,14 @@ def verdict_for(row):
     # A predicted absence that the sources confirm is a routing decision, not
     # a failure: these cards move to the manual-entry tier.
     if row["expected_none"] and row["catalog"] == NONE:
-        confirmed = ("confirmed by %d/%d empty 2xx responses"
-                     % (row["catalog_absent_confirmed"], row["n_cards"])
-                     if row["catalog_absent_confirmed"] else
-                     "sources did not answer; absence assumed, not confirmed")
-        return "MANUAL TIER", ("no Western source carries this printing -- hypothesis held (%s); "
-                               "raw prices entered by hand from Xianyu/Taobao" % confirmed)
+        if not row["catalog_absent_confirmed"]:
+            return "INCONCLUSIVE", ("predicted absent, but no source returned a valid empty "
+                                    "result -- the requests failed rather than came back empty, "
+                                    "so absence is not established")
+        return "MANUAL TIER", ("no Western source carries this printing -- hypothesis held "
+                               "(confirmed by %d/%d validated empty result envelopes); raw "
+                               "prices entered by hand from Xianyu/Taobao"
+                               % (row["catalog_absent_confirmed"], row["n_cards"]))
     if row["catalog"] == NONE:
         return "NO GO", "catalog resolution fails -- cards cannot be identified"
     if row["separation"] == NONE:
@@ -1168,13 +1407,28 @@ def paid_tier_section(rows, prober):
     if any(r["verdict"] == "MANUAL TIER" for r in rows):
         lines.append("Manual-tier cards are excluded from this math -- they consume no API "
                      "budget, which is the one upside of hand-entry.\n")
-    lines.append("| Provider | Needed for | Projected req/day | Free tier enough? | Buy? | Monthly |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| Provider | Needed for | Cost/card | Projected /day | Free tier enough? "
+                 "| Buy? | Monthly |")
+    lines.append("|---|---|---|---|---|---|---|")
 
+    n_probed = sum(r["n_cards"] for r in rows)
     decisions = []
     for prov, per_card in CALLS_PER_CARD.items():
-        need = WATCHLIST_CARDS * per_card * REFRESHES_PER_DAY
+        pv = prober.providers[prov]
+        # A provider that abandoned discovery or got parked never ran a
+        # representative card, so its measured rate is an artefact.
+        if pv.discovery_failed or pv.rate_limited:
+            measured, unit = None, None
+        else:
+            measured, unit = pv.cost_per_card(n_probed)
+        if measured:
+            per_card_cost, unit_label = measured, unit
+        else:
+            per_card_cost, unit_label = per_card, "requests (assumed)"
+        need = int(round(WATCHLIST_CARDS * per_card_cost * REFRESHES_PER_DAY))
         enough = "yes" if need <= FREE_TIER_PER_DAY else "no"
+        cost_cell = f"{per_card_cost:.3g} {unit_label}"
+        cap_cards = (int(FREE_TIER_PER_DAY // per_card_cost) if per_card_cost else 0)
         if prov == "tcgapi.dev":
             used_for = "catalog + raw/per-condition price (every combo)"
             buy = "BUY" if raw_needed else "SKIP"
@@ -1205,15 +1459,16 @@ def paid_tier_section(rows, prober):
         cost_s = "not recorded" if cost is None else f"${cost:.0f}"
         if cost is not None:
             prober.safe_tokens.add(cost_s)
-        lines.append(f"| {prov} | {used_for} | {need} | {enough} | **{buy}** | {cost_s} |")
-        decisions.append((prov, buy, why, cost))
+        lines.append(f"| {prov} | {used_for} | {cost_cell} | {need} | {enough} | "
+                     f"**{buy}** | {cost_s} |")
+        decisions.append((prov, buy, why, cost, cap_cards, unit_label))
 
-    known = [c for _, b, _, c in decisions if b == "BUY" and c is not None]
-    unknown_buys = [p for p, b, _, c in decisions if b == "BUY" and c is None]
+    known = [c for _, b, _, c, _, _ in decisions if b == "BUY" and c is not None]
+    unknown_buys = [p for p, b, _, c, _, _ in decisions if b == "BUY" and c is None]
     lines.append("")
     if all_untested:
         lines.append("**Monthly total: pending the first live run.**")
-    elif not any(b == "BUY" for _, b, _, _ in decisions):
+    elif not any(b == "BUY" for _, b, _, _, _, _ in decisions):
         lines.append("**Monthly total: nothing to buy.** No provider clears the bar for a paid "
                      "plan on this run -- see the per-provider calls below.")
     elif unknown_buys:
@@ -1228,8 +1483,12 @@ def paid_tier_section(rows, prober):
         prober.safe_tokens.add(total_s)
         lines.append(f"**Monthly total: {total_s}.**")
     lines.append("")
-    for prov, buy, why, _ in decisions:
+    for prov, buy, why, _, cap_cards, unit_label in decisions:
         lines.append(f"- **{prov} -- {buy}.** {why}.")
+        if cap_cards and "credits" in unit_label:
+            lines.append(f"  Measured against consumed credits, the {FREE_TIER_PER_DAY}/day "
+                         f"free tier covers about **{cap_cards} cards/day**, not "
+                         f"{FREE_TIER_PER_DAY}.")
     if not any_go and not all_untested and not inconclusive:
         lines.append("")
         lines.append("- Overall: nothing here justifies a graded-data subscription yet. Buy the raw "
@@ -1269,6 +1528,52 @@ def build_report(rows, prober, ran_live):
     for p in prober.providers.values():
         A(f"| {p.name} | {p.requests} | {p.status_note()} |")
     A("")
+
+    # 0 catalog inventory
+    A("## 0. Catalog inventory -- tcgapi.dev `/v1/games`")
+    A("")
+    g = prober.games or {}
+    if not g:
+        A("_Step 0 did not run._")
+        A("")
+    elif not g.get("reached"):
+        A(f"**Not reached** -- HTTP {g.get('status') or '--'}, body `{g.get('body_class')}`"
+          f"{(': ' + g['note']) if g.get('note') else ''}. Everything below this line is "
+          "therefore unverified against the real catalog.")
+        A("")
+    else:
+        games = g["games"]
+        A(f"The catalog carries **{len(games)} games**:")
+        A("")
+        A("| id | name | languages field |")
+        A("|---|---|---|")
+        for entry in games:
+            A("| `{i}` | {n} | {l} |".format(
+                i=entry["id"] or "--", n=entry["name"] or "--",
+                l=(", ".join(entry["languages"]) if isinstance(entry["languages"], list)
+                   else (entry["languages"] or "--"))))
+        A("")
+        rift = ("Yes." if g["riftbound"] else
+                "**No** -- Riftbound does not appear in the catalog, so no tcgapi.dev row "
+                "for it can ever resolve.")
+        A("**Is Riftbound covered?** " + rift)
+        A("")
+        if g["language_dimension"]:
+            A("**Is there a language dimension?** Yes -- the game list distinguishes languages, "
+              "so EN/JP separation is testable on this source.")
+        else:
+            A("**Is there a language dimension? No.** The game list has no per-language entries "
+              "and no `languages` field, and the documented `/v1/search` takes no language "
+              "parameter. **EN/JP separation is not testable on tcgapi.dev** -- it is an "
+              "English-language catalog.")
+            A("")
+            A("> **Scope decision required.** If tcgapi.dev is the only raw-price feed and it "
+              "cannot express a Japanese printing, then Japanese cards have no automated raw "
+              "price and move into the manual-entry tier alongside Chinese. That roughly "
+              "doubles the hand-entry load and is a decision about what this tool covers, not "
+              "a bug to fix in the probe. The alternative is a second raw-price source that "
+              "does model language.")
+        A("")
 
     # 1 matrix
     A("## 1. Coverage matrix")
@@ -1365,6 +1670,10 @@ def build_report(rows, prober, ran_live):
             outcome = ("**held** -- absence confirmed by empty 2xx responses"
                        if r["catalog_absent_confirmed"] else
                        "**held, weakly** -- sources never answered, so absence is assumed")
+        elif (prober.games or {}).get("language_dimension") is False:
+            outcome = ("**not established** -- a record matched by name, but the catalog has "
+                       "no language dimension, so that is the English record, not proof of a "
+                       "Chinese printing")
         else:
             outcome = "**refuted** -- a Western source does carry this printing"
         A("| {c} | NONE | {cat} | {g} | {n}/{t} cards | {o} |".format(
@@ -1465,6 +1774,14 @@ def main():
         if missing:
             print(f"warning: no API key for {', '.join(missing)} -- "
                   "those columns will report UNTESTED", file=sys.stderr)
+
+    # Step 0: inventory the catalog before spending anything on cards.
+    print("step 0: tcgapi.dev /v1/games", file=sys.stderr)
+    prober.games = probe_games(prober)
+    if prober.games["reached"]:
+        print(f"  {len(prober.games['games'])} games; riftbound="
+              f"{prober.games['riftbound']}; language dimension="
+              f"{prober.games['language_dimension']}", file=sys.stderr)
 
     results = []
     for card in CARDS:
