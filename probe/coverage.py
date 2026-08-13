@@ -87,12 +87,12 @@ def roll_up(statuses):
 
 
 # ---------------------------------------------------------------------------
-# Cards under test -- 3 per combo, 15 total
+# Cards under test -- 3 per Western combo, 2 per Chinese combo, 21 total
 # ---------------------------------------------------------------------------
 #
 # Selection rule: recognisable chase cards with real secondary-market depth,
-# and -- deliberately -- the SAME card across EN and JP wherever the printing
-# exists in both. That makes the EN/JP separation test sharp: if a source
+# and -- deliberately -- the SAME card across every language in which the
+# printing exists. That makes the separation test sharp: if a source
 # hands back one id (or one price) for both printings, it has collapsed them.
 # `pair` links the two printings of one card.
 #
@@ -109,7 +109,16 @@ COMBOS = [
     ("pokemon", "EN", "Pokemon EN"),
     ("pokemon", "JP", "Pokemon JP"),
     ("riftbound", "EN", "Riftbound EN"),
+    # Chinese-language editions. All three are confirmed official releases;
+    # see CHINESE_TIER_NOTE for what was checked and what does not exist.
+    ("pokemon", "CN-S", "Pokemon CN-Simplified"),
+    ("pokemon", "CN-T", "Pokemon CN-Traditional"),
+    ("one-piece", "CN-S", "One Piece CN-Simplified"),
 ]
+
+# Combos we predict the Western sources cannot serve at all. Stated up front so
+# a NONE row reads as a confirmed result rather than an unexplained hole.
+EXPECTED_NONE = {"pokemon:CN-S", "pokemon:CN-T", "one-piece:CN-S"}
 
 CARDS = [
     # -- One Piece EN ------------------------------------------------------
@@ -167,6 +176,36 @@ CARDS = [
     dict(game="riftbound", lang="EN", pair="rift-leesin",
          name="Lee Sin", set="Origins", set_code="OGN",
          number=None, rarity_hint="Legend", number_unverified=True),
+
+    # -- Pokemon Simplified Chinese (launched 28 Oct 2022, Pokemon Shanghai) --
+    # Simplified sets track the SV-era Japanese releases with a C suffix.
+    # Collector numbers unverified, so these resolve by name + set.
+    dict(game="pokemon", lang="CN-S", api_lang="zh-Hans", pair="pkm-charizard-ex-sir",
+         name="Charizard ex", set="Ruler of the Black Flame (Simplified)", set_code="csv3C",
+         number=None, rarity_hint="SAR", number_unverified=True),
+    dict(game="pokemon", lang="CN-S", api_lang="zh-Hans", pair="pkm-umbreon-ex-terastal",
+         name="Umbreon ex", set="Terastal Gathering", set_code="csv9.5C",
+         number=None, rarity_hint="SAR", number_unverified=True),
+
+    # -- Pokemon Traditional Chinese (launched 9 Oct 2019, Taiwan / Hong Kong)
+    # Caught up to Japan set-for-set after the initial compilations, so the
+    # JP chase cards have direct Traditional counterparts.
+    dict(game="pokemon", lang="CN-T", api_lang="zh-Hant", pair="pkm-umbreon-vmax",
+         name="Umbreon VMAX", set="Eevee Heroes (Traditional)", set_code="CS-s6a",
+         number=None, rarity_hint="SA", number_unverified=True),
+    dict(game="pokemon", lang="CN-T", api_lang="zh-Hant", pair="pkm-charizard-ex-sir",
+         name="Charizard ex", set="Ruler of the Black Flame (Traditional)", set_code="CS-sv3",
+         number=None, rarity_hint="SAR", number_unverified=True),
+
+    # -- One Piece Simplified Chinese (released Nov 2022) -------------------
+    # Bandai numbers the Simplified printings with the same OP codes, so these
+    # are the same collapse test as the EN/JP pair, one language further out.
+    dict(game="one-piece", lang="CN-S", api_lang="zh-Hans", pair="op-luffy-sec",
+         name="Monkey.D.Luffy", set="ROMANCE DAWN (Simplified)", set_code="OP01",
+         number="OP01-121", rarity_hint="SEC"),
+    dict(game="one-piece", lang="CN-S", api_lang="zh-Hans", pair="op-ace-sr",
+         name="Portgas.D.Ace", set="PARAMOUNT WAR (Simplified)", set_code="OP02",
+         number="OP02-013", rarity_hint="SR"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -239,6 +278,52 @@ CALLS_PER_CARD = {"tcgapi.dev": 2, "apitcg.com": 1, "pokemonpricetracker.com": 2
 
 MIN_SAMPLE = 5          # median 90d graded sales below this is inadequate
 SAMPLE_WINDOW_DAYS = 90
+
+# Which Chinese-language editions actually exist, checked before adding combos
+# rather than assumed. Verified August 2026.
+CHINESE_TIER_NOTE = """\
+### Which Chinese editions exist
+
+Checked before adding these combos, not assumed:
+
+- **Pokemon Simplified Chinese -- exists.** Announced September 2022 by Pokemon
+  Shanghai Toy Ltd and launched 28 October 2022, the first Simplified Chinese
+  printing of the TCG. Opened with three *Sun & Moon: Crossing the Sky* sets;
+  SV-era sets now track the Japanese releases with a `C` suffix (e.g. `csv9.5C`,
+  Terastal Gathering).
+- **Pokemon Traditional Chinese -- exists.** Launched 9 October 2019 for Taiwan
+  and Hong Kong, opening with *All Stars Collection* (`AC1a`). Early sets were
+  compilations to catch up with Japan; since then it tracks Japanese sets
+  one-for-one, so the JP chase cards have direct counterparts.
+- **One Piece Simplified Chinese -- exists.** Released November 2022, with its
+  own anniversary sets and Simplified-exclusive promos. Bandai reuses the `OP`
+  collector codes, so a Simplified printing is the same id-collision test as
+  the EN/JP pair, one language further out.
+- **One Piece Traditional Chinese -- does not exist.** Bandai's own Asian
+  regional rules list the Japanese and Simplified Chinese versions as the
+  editions sold across Japan, Hong Kong, Taiwan, Singapore, Malaysia,
+  Indonesia, the Philippines, Thailand and China. Hong Kong and Taiwan are
+  served by those two, not by a Traditional Chinese localisation. No combo
+  added.
+
+### Hypothesis
+
+All three Chinese combos are expected to return `NONE` from every Western
+source. tcgapi.dev and apitcg.com are built around the EN and JP printings, and
+pokemonpricetracker tracks Western graded comps. A `NONE` here is a **result**
+that routes the combo, not a coverage gap to be chased.
+
+### Manual-entry tier
+
+Chinese cards are expected to become a manual-entry tier: raw prices are
+supplied by hand from Xianyu and Taobao, and the EV models run on them
+unchanged. Nothing downstream needs to know where the raw price came from --
+grading EV, grade-spread screening and interest trend all take a raw price and
+a population distribution as inputs, and none of them care whether that price
+arrived over HTTP or by hand. What is lost is refresh rate and an as-of
+timestamp that updates itself, so manual rows should carry their own entry date
+and be treated as staler than API-sourced rows.
+"""
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -515,7 +600,9 @@ class Prober:
     def call(self, op, provider_name, card, extra=None):
         ctx = {
             "game": card["game"],
-            "lang": card["lang"],
+            # api_lang carries the code a provider is likely to accept
+            # (zh-Hans / zh-Hant); lang is our own display label.
+            "lang": card.get("api_lang") or card["lang"],
             "name": urllib.parse.quote(card["name"]),
             "number": urllib.parse.quote(card.get("number") or ""),
             "set": urllib.parse.quote(card.get("set") or ""),
@@ -819,9 +906,19 @@ def score_card(res):
         pop = FULL if all(have) else (PARTIAL if any(have) else NONE)
 
     counts = [e.get("count") for e in g["grades"].values() if e.get("count") is not None]
+
+    # "The source answered and has no such card" is a finding. "We never got an
+    # answer" is not. Only the first justifies reporting an absence.
+    def answered(rec):
+        s = (rec.get("http") or {}).get("status") or 0
+        return 200 <= s < 300
+
     return {"catalog": catalog, "price": price, "pop": pop,
             "psa10": gstat["psa10"], "psa9": gstat["psa9"], "psa8": gstat["psa8"],
-            "graded_sales_total": sum(counts) if counts else None}
+            "graded_sales_total": sum(counts) if counts else None,
+            "catalog_absent_confirmed": (catalog == NONE
+                                         and (answered(a) or answered(b))),
+            "graded_absent_confirmed": (gstat["psa10"] == NONE and answered(g))}
 
 
 # ---------------------------------------------------------------------------
@@ -849,51 +946,53 @@ def source_label(cards_res, kind):
     return "+".join(sorted(srcs)) if srcs else "--"
 
 
-def enjp_separation(by_pair, game, lang, results_by_slug):
-    """Do EN and JP printings of the same card get distinct ids and prices?"""
-    verdicts = []
-    detail = []
+def _resolved_id(entry):
+    return entry["tcgapi_catalog"].get("id") or entry["apitcg_catalog"].get("id")
+
+
+def language_separation(by_pair, game, lang):
+    """Does this language's printing stay distinct from every other language's?
+
+    Generalised beyond EN/JP: with Chinese printings in the set, a card can
+    collide with any other language, so each counterpart is checked in turn.
+    """
+    verdicts, detail = [], []
     for pair, entries in by_pair.items():
-        langs = {e["card"]["lang"]: e for e in entries if e["card"]["game"] == game}
-        if lang not in langs or len(langs) < 2:
+        same_game = [e for e in entries if e["card"]["game"] == game]
+        mine = [e for e in same_game if e["card"]["lang"] == lang]
+        others = [e for e in same_game if e["card"]["lang"] != lang]
+        if not mine or not others:
             continue
-        en, jp = langs.get("EN"), langs.get("JP")
-        if not en or not jp:
-            continue
-        ids = []
-        prices = []
-        for e in (en, jp):
-            cid = e["tcgapi_catalog"].get("id") or e["apitcg_catalog"].get("id")
-            ids.append(cid)
-            prices.append(e["price"].get("raw_price"))
-        if all(i is None for i in ids):
-            verdicts.append(UNTESTED)
-            detail.append(f"{pair}: neither printing resolved")
-            continue
-        if any(i is None for i in ids):
-            verdicts.append(PARTIAL)
-            detail.append(f"{pair}: only one printing resolved")
-            continue
-        distinct_id = ids[0] != ids[1]
-        # distinct prices only meaningful if both sides priced
-        if prices[0] is not None and prices[1] is not None:
-            distinct_price = prices[0] != prices[1]
-        else:
-            distinct_price = None
-        if distinct_id and distinct_price:
-            verdicts.append(FULL)
-            detail.append(f"{pair}: distinct ids, distinct prices")
-        elif distinct_id and distinct_price is None:
-            verdicts.append(PARTIAL)
-            detail.append(f"{pair}: distinct ids, price missing one side")
-        elif distinct_id and not distinct_price:
-            verdicts.append(PARTIAL)
-            detail.append(f"{pair}: distinct ids but identical price")
-        else:
-            verdicts.append(NONE)
-            detail.append(f"{pair}: SAME id for EN and JP -- printings collapsed")
+        me = mine[0]
+        my_id, my_price = _resolved_id(me), me["price"].get("raw_price")
+        for other in others:
+            ol = other["card"]["lang"]
+            o_id, o_price = _resolved_id(other), other["price"].get("raw_price")
+            if my_id is None and o_id is None:
+                verdicts.append(UNTESTED)
+                detail.append(f"{pair} vs {ol}: neither printing resolved")
+            elif my_id is None or o_id is None:
+                verdicts.append(PARTIAL)
+                detail.append(f"{pair} vs {ol}: only one printing resolved")
+            elif my_id == o_id:
+                verdicts.append(NONE)
+                detail.append(f"{pair} vs {ol}: SAME id -- printings collapsed")
+            elif my_price is not None and o_price is not None:
+                if my_price != o_price:
+                    verdicts.append(FULL)
+                    detail.append(f"{pair} vs {ol}: distinct ids, distinct prices")
+                else:
+                    verdicts.append(PARTIAL)
+                    detail.append(f"{pair} vs {ol}: distinct ids but identical price")
+            else:
+                verdicts.append(PARTIAL)
+                detail.append(f"{pair} vs {ol}: distinct ids, price missing one side")
     if not verdicts:
-        return UNTESTED, "no EN/JP pair resolved"
+        return UNTESTED, "no cross-language pair resolved"
+    # One confirmed collision is disqualifying. Do not let it average away
+    # against a counterpart that simply failed to resolve.
+    if NONE in verdicts:
+        return NONE, "; ".join(detail)
     return roll_up(verdicts), "; ".join(detail)
 
 
@@ -901,7 +1000,6 @@ def aggregate(results):
     by_pair = {}
     for r in results:
         by_pair.setdefault(r["card"]["pair"], []).append(r)
-    results_by_slug = {r["slug"]: r for r in results}
 
     rows = []
     for game, lang, label in COMBOS:
@@ -926,7 +1024,7 @@ def aggregate(results):
         if len({l for g, l, _ in COMBOS if g == game}) < 2:
             sep, sep_detail = "N/A", "single-language game -- no counterpart printing exists"
         else:
-            sep, sep_detail = enjp_separation(by_pair, game, lang, results_by_slug)
+            sep, sep_detail = language_separation(by_pair, game, lang)
 
         rows.append({
             "combo": label, "game": game, "lang": lang,
@@ -945,6 +1043,10 @@ def aggregate(results):
             "pop": roll_up([s["pop"] for s in st]),
             "separation": sep,
             "separation_detail": sep_detail,
+            "expected_none": f"{game}:{lang}" in EXPECTED_NONE,
+            "catalog_absent_confirmed": sum(1 for s in st if s["catalog_absent_confirmed"]),
+            "graded_absent_confirmed": sum(1 for s in st if s["graded_absent_confirmed"]),
+            "n_cards": len(st),
             "cards": cards_res,
         })
     for row in rows:
@@ -967,10 +1069,19 @@ def summarize_agreement(cards_res):
 def verdict_for(row):
     if row["catalog"] == UNTESTED:
         return "UNTESTED", "probe has not run against live endpoints yet"
+    # A predicted absence that the sources confirm is a routing decision, not
+    # a failure: these cards move to the manual-entry tier.
+    if row["expected_none"] and row["catalog"] == NONE:
+        confirmed = ("confirmed by %d/%d empty 2xx responses"
+                     % (row["catalog_absent_confirmed"], row["n_cards"])
+                     if row["catalog_absent_confirmed"] else
+                     "sources did not answer; absence assumed, not confirmed")
+        return "MANUAL TIER", ("no Western source carries this printing -- hypothesis held (%s); "
+                               "raw prices entered by hand from Xianyu/Taobao" % confirmed)
     if row["catalog"] == NONE:
         return "NO GO", "catalog resolution fails -- cards cannot be identified"
     if row["separation"] == NONE:
-        return "NO GO", "EN and JP printings collapse to one id/price"
+        return "NO GO", "printings of different languages collapse to one id/price"
     graded_ok = row["psa10"] in (FULL, PARTIAL) and row["psa9"] in (FULL, PARTIAL)
     sample_ok = row["median_sales"] is not None and row["median_sales"] >= MIN_SAMPLE
     if row["price"] in (FULL, PARTIAL) and graded_ok and sample_ok:
@@ -1054,6 +1165,9 @@ def paid_tier_section(rows, prober):
     lines.append(f"Sizing assumption: **{WATCHLIST_CARDS} cards** on the watchlist, "
                  f"refreshed **{REFRESHES_PER_DAY}x/day**. Free tiers are "
                  f"{FREE_TIER_PER_DAY} req/day each.\n")
+    if any(r["verdict"] == "MANUAL TIER" for r in rows):
+        lines.append("Manual-tier cards are excluded from this math -- they consume no API "
+                     "budget, which is the one upside of hand-entry.\n")
     lines.append("| Provider | Needed for | Projected req/day | Free tier enough? | Buy? | Monthly |")
     lines.append("|---|---|---|---|---|---|")
 
@@ -1163,7 +1277,7 @@ def build_report(rows, prober, ran_live):
       "or the field came back incomplete. `NONE` = no card returned it. `UNTESTED` = not "
       "reached (no key, budget, or 429). `N/A` = the test does not apply to this combo.")
     A("")
-    A("| Combo | Catalog | Raw price | PSA 10 comp | PSA 9 comp | Sample adequacy | Pop data | EN/JP separation |")
+    A("| Combo | Catalog | Raw price | PSA 10 comp | PSA 9 comp | Sample adequacy | Pop data | Language separation |")
     A("|---|---|---|---|---|---|---|---|")
     for r in rows:
         A("| **{combo}** | {cat} | {price} | {p10} | {p9} | {samp} | {pop} | {sep} |".format(
@@ -1181,7 +1295,7 @@ def build_report(rows, prober, ran_live):
     for r in rows:
         A(f"- {r['combo']}: {r['agreement']}")
     A("")
-    A("EN/JP separation detail:")
+    A("Language separation detail (each language vs every counterpart printing):")
     A("")
     for r in rows:
         A(f"- {r['combo']}: {r['separation_detail']}")
@@ -1215,9 +1329,11 @@ def build_report(rows, prober, ran_live):
     A("- **GO** -- catalog resolves, raw price present, PSA 9 and 10 comps present, "
       f"median graded sample >= {MIN_SAMPLE}.")
     A("- **RAW ONLY** -- the screener works, the grading models do not.")
-    A("- **NO GO** -- resolution fails, or EN and JP merge into one record.")
+    A("- **NO GO** -- resolution fails, or two language printings merge into one record.")
     A("- **INCONCLUSIVE** -- the graded source was never reached (429 or budget). Not a finding; "
       "re-run.")
+    A("- **MANUAL TIER** -- no Western source carries the printing, as predicted. Raw prices come "
+      "in by hand; see section 4.")
     A("")
     A("| Combo | Verdict | Reason |")
     A("|---|---|---|")
@@ -1231,8 +1347,33 @@ def build_report(rows, prober, ran_live):
           "the raw screener usable. If the run disagrees, the run wins.")
         A("")
 
-    # 4 paid tiers
-    A("## 4. Paid tiers")
+    # 4 chinese tier
+    A("## 4. Chinese-language tier")
+    A("")
+    A(CHINESE_TIER_NOTE)
+    A("")
+    A("### Hypothesis vs result")
+    A("")
+    A("| Combo | Predicted | Catalog | Graded | Confirmed absent | Outcome |")
+    A("|---|---|---|---|---|---|")
+    for r in rows:
+        if not r["expected_none"]:
+            continue
+        if r["catalog"] == UNTESTED:
+            outcome = "not yet run"
+        elif r["catalog"] == NONE:
+            outcome = ("**held** -- absence confirmed by empty 2xx responses"
+                       if r["catalog_absent_confirmed"] else
+                       "**held, weakly** -- sources never answered, so absence is assumed")
+        else:
+            outcome = "**refuted** -- a Western source does carry this printing"
+        A("| {c} | NONE | {cat} | {g} | {n}/{t} cards | {o} |".format(
+            c=r["combo"], cat=r["catalog"], g=r["psa10"],
+            n=r["catalog_absent_confirmed"], t=r["n_cards"], o=outcome))
+    A("")
+
+    # 5 paid tiers
+    A("## 5. Paid tiers")
     A("")
     A(paid_tier_section(rows, prober))
     A("")
@@ -1241,7 +1382,7 @@ def build_report(rows, prober, ran_live):
     A("## Appendix A -- cards probed")
     A("")
     A("Chase cards with real secondary-market depth. Where a printing exists in both "
-      "languages the *same* card is probed on both sides, so the EN/JP separation test is "
+      "languages the *same* card is probed in each, so the separation test is "
       "sharp: one shared id means the source has collapsed the printings.")
     A("")
     A("| Combo | Card | Set | Expected no. | Resolved id (tcgapi.dev) | Pair |")
