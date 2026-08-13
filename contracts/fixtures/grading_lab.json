@@ -42,7 +42,16 @@
     "assumption_ids": [
       "grading_fee_schedule",
       "marketplace_fee_schedule"
-    ]
+    ],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": true,
+    "entry_method": "api"
   },
   "break_even_attainable": true,
   "break_even_note": "",
@@ -56,7 +65,16 @@
     "assumption_ids": [
       "submission_selection_haircut",
       "empirical_bayes_prior_strength"
-    ]
+    ],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "pop_implied_p_target": {
     "value": "0.249",
@@ -67,7 +85,16 @@
     "unit": "probability",
     "assumption_ids": [
       "submission_selection_haircut"
-    ]
+    ],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "price"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "ev": {
     "amount": "-38.40",
@@ -82,7 +109,16 @@
     "confidence": "medium",
     "sample_size": null,
     "unit": "ratio",
-    "assumption_ids": []
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "annualised_roi": {
     "value": "-0.418",
@@ -91,7 +127,16 @@
     "confidence": "medium",
     "sample_size": null,
     "unit": "ratio",
-    "assumption_ids": []
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "horizon_days": 114,
   "downside_case": {
@@ -145,12 +190,5 @@
     "grading_fee_schedule",
     "marketplace_fee_schedule",
     "days_to_sell"
-  ],
-  "staleness": {
-    "as_of": "2026-08-13T09:00:00Z",
-    "age_seconds": 172800,
-    "is_stale": false,
-    "threshold_seconds": 604800,
-    "kind": "population"
-  }
+  ]
 }

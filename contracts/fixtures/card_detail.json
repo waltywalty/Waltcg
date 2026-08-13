@@ -3,7 +3,9 @@
   "screen": "card_detail",
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
-  "warnings": [],
+  "warnings": [
+    "Population is 12 days old and past its 7-day threshold; prices are current."
+  ],
   "card": {
     "card_uid": "pkmn:sv3:223/197:sir:EN",
     "game": "pkmn",
@@ -32,16 +34,34 @@
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "price"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "population": {
         "value": null,
         "source": "pokemonpricetracker",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-01T09:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "cards",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-01T09:00:00Z",
+          "age_seconds": 1036800,
+          "is_stale": true,
+          "threshold_seconds": 604800,
+          "kind": "population"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       }
     },
     {
@@ -59,16 +79,34 @@
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "price"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "population": {
         "value": 410,
         "source": "pokemonpricetracker",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-01T09:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "cards",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-01T09:00:00Z",
+          "age_seconds": 1036800,
+          "is_stale": true,
+          "threshold_seconds": 604800,
+          "kind": "population"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       }
     },
     {
@@ -86,16 +124,34 @@
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "price"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "population": {
         "value": 5120,
         "source": "pokemonpricetracker",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-01T09:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "cards",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-01T09:00:00Z",
+          "age_seconds": 1036800,
+          "is_stale": true,
+          "threshold_seconds": 604800,
+          "kind": "population"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       }
     },
     {
@@ -113,16 +169,34 @@
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "price"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "population": {
         "value": 1830,
         "source": "pokemonpricetracker",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-01T09:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "cards",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-01T09:00:00Z",
+          "age_seconds": 1036800,
+          "is_stale": true,
+          "threshold_seconds": 604800,
+          "kind": "population"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       }
     }
   ],
@@ -171,39 +245,75 @@
   "population_total": {
     "value": 7360,
     "source": "pokemonpricetracker",
-    "as_of": "2026-08-13T09:00:00Z",
+    "as_of": "2026-08-01T09:00:00Z",
     "confidence": "medium",
     "sample_size": null,
     "unit": "cards",
-    "assumption_ids": []
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-01T09:00:00Z",
+      "age_seconds": 1036800,
+      "is_stale": true,
+      "threshold_seconds": 604800,
+      "kind": "population"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "population_by_grade": [
     {
       "value": 410,
       "source": "pokemonpricetracker",
-      "as_of": "2026-08-13T09:00:00Z",
+      "as_of": "2026-08-01T09:00:00Z",
       "confidence": "medium",
       "sample_size": null,
       "unit": "cards at grade 8",
-      "assumption_ids": []
+      "assumption_ids": [],
+      "staleness": {
+        "as_of": "2026-08-01T09:00:00Z",
+        "age_seconds": 1036800,
+        "is_stale": true,
+        "threshold_seconds": 604800,
+        "kind": "population"
+      },
+      "needs_primary_verification": false,
+      "entry_method": "api"
     },
     {
       "value": 5120,
       "source": "pokemonpricetracker",
-      "as_of": "2026-08-13T09:00:00Z",
+      "as_of": "2026-08-01T09:00:00Z",
       "confidence": "medium",
       "sample_size": null,
       "unit": "cards at grade 9",
-      "assumption_ids": []
+      "assumption_ids": [],
+      "staleness": {
+        "as_of": "2026-08-01T09:00:00Z",
+        "age_seconds": 1036800,
+        "is_stale": true,
+        "threshold_seconds": 604800,
+        "kind": "population"
+      },
+      "needs_primary_verification": false,
+      "entry_method": "api"
     },
     {
       "value": 1830,
       "source": "pokemonpricetracker",
-      "as_of": "2026-08-13T09:00:00Z",
+      "as_of": "2026-08-01T09:00:00Z",
       "confidence": "medium",
       "sample_size": null,
       "unit": "cards at grade 10",
-      "assumption_ids": []
+      "assumption_ids": [],
+      "staleness": {
+        "as_of": "2026-08-01T09:00:00Z",
+        "age_seconds": 1036800,
+        "is_stale": true,
+        "threshold_seconds": 604800,
+        "kind": "population"
+      },
+      "needs_primary_verification": false,
+      "entry_method": "api"
     }
   ],
   "obtainment": {
@@ -216,7 +326,16 @@
       "as_of": "2026-08-13T09:00:00Z",
       "confidence": "medium",
       "sample_size": null,
-      "assumption_ids": []
+      "assumption_ids": [],
+      "staleness": {
+        "as_of": "2026-08-13T09:00:00Z",
+        "age_seconds": 0,
+        "is_stale": false,
+        "threshold_seconds": 86400,
+        "kind": "price"
+      },
+      "needs_primary_verification": false,
+      "entry_method": "manual"
     }
   },
   "buy_routes": [
@@ -238,7 +357,16 @@
         "unit": "USD",
         "assumption_ids": [
           "marketplace_fee_schedule"
-        ]
+        ],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "price"
+        },
+        "needs_primary_verification": true,
+        "entry_method": "api"
       },
       "entry_method": "api"
     },
@@ -254,7 +382,16 @@
         "sample_size": null,
         "unit": "USD",
         "assumption_ids": [],
-        "unavailable_reason": "awaiting_manual_entry"
+        "unavailable_reason": "awaiting_manual_entry",
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "price"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "entry_method": "manual"
     }
@@ -273,11 +410,23 @@
       "image_url": null
     }
   ],
-  "staleness": {
-    "as_of": "2026-08-13T09:00:00Z",
-    "age_seconds": 1800,
-    "is_stale": false,
-    "threshold_seconds": 86400,
-    "kind": "price"
+  "price_history_meta": {
+    "value": null,
+    "unit": "series",
+    "source": "tcgapi.dev",
+    "as_of": "2026-08-12T09:00:00Z",
+    "confidence": "medium",
+    "sample_size": 4,
+    "assumption_ids": [],
+    "unavailable_reason": null,
+    "staleness": {
+      "as_of": "2026-08-12T09:00:00Z",
+      "age_seconds": 86400,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "price"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   }
 }

@@ -27,7 +27,16 @@
         "confidence": "low",
         "sample_size": 9,
         "unit": "z-score",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "own_baseline_z": {
         "value": "3.10",
@@ -36,7 +45,16 @@
         "confidence": "low",
         "sample_size": 9,
         "unit": "z-score",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 604800,
+          "kind": "sentiment"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "game_baseline_z": {
         "value": "0.39",
@@ -45,7 +63,16 @@
         "confidence": "low",
         "sample_size": 128,
         "unit": "z-score",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 604800,
+          "kind": "sentiment"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "sources": [
         "youtube"
@@ -57,14 +84,7 @@
           "paraphrase": "Opening video featuring the signature treatment; view velocity above the set baseline.",
           "as_of": "2026-08-13T09:00:00Z"
         }
-      ],
-      "staleness": {
-        "as_of": "2026-08-13T09:00:00Z",
-        "age_seconds": 7200,
-        "is_stale": false,
-        "threshold_seconds": 604800,
-        "kind": "sentiment"
-      }
+      ]
     },
     {
       "card": {
@@ -86,7 +106,16 @@
         "confidence": "low",
         "sample_size": 5,
         "unit": "z-score",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "own_baseline_z": {
         "value": "1.80",
@@ -95,7 +124,16 @@
         "confidence": "low",
         "sample_size": 5,
         "unit": "z-score",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 604800,
+          "kind": "sentiment"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "game_baseline_z": {
         "value": "0.38",
@@ -104,7 +142,16 @@
         "confidence": "low",
         "sample_size": 90,
         "unit": "z-score",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 604800,
+          "kind": "sentiment"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "sources": [
         "youtube",
@@ -117,14 +164,7 @@
           "paraphrase": "Search interest for the illustrator rising at set level; card-level series unavailable.",
           "as_of": "2026-08-13T09:00:00Z"
         }
-      ],
-      "staleness": {
-        "as_of": "2026-08-13T09:00:00Z",
-        "age_seconds": 10800,
-        "is_stale": false,
-        "threshold_seconds": 604800,
-        "kind": "sentiment"
-      }
+      ]
     }
   ],
   "window_days": 28,

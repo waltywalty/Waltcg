@@ -1,0 +1,259 @@
+{
+  "_fixture": true,
+  "screen": "grading_lab",
+  "generated_at": "2026-08-13T09:00:00Z",
+  "schema_version": 1,
+  "warnings": [
+    "Model A refused: 9 inputs missing. 7 are fixable; 2 are structural."
+  ],
+  "card": {
+    "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+    "game": "optcg",
+    "set_code": "OP05",
+    "number": "OP05-119",
+    "variant": "manga_rare",
+    "language": "EN",
+    "name": "Monkey.D.Luffy",
+    "rarity": "Manga Rare",
+    "artist": null,
+    "image_url": null
+  },
+  "acquisition_cost": {
+    "amount": "62.00",
+    "currency": "USD",
+    "fx_rate_used": null,
+    "fx_as_of": null
+  },
+  "grader": "PSA",
+  "tier": "regular",
+  "condition_read": {
+    "centering_pct": null,
+    "corner_flag": null,
+    "surface_flag": null,
+    "edge_flag": null
+  },
+  "break_even_p_target": {
+    "value": null,
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "unvalidated",
+    "sample_size": 0,
+    "unit": "probability",
+    "assumption_ids": [
+      "grading_fee_schedule",
+      "marketplace_fee_schedule"
+    ],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": true,
+    "entry_method": "api",
+    "unavailable_reason": "engine_refused_insufficient_evidence"
+  },
+  "break_even_attainable": false,
+  "break_even_note": "Not computable: see the checklist.",
+  "modelled_p_target": {
+    "value": null,
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "unvalidated",
+    "sample_size": 0,
+    "unit": "probability",
+    "assumption_ids": [
+      "submission_selection_haircut",
+      "empirical_bayes_prior_strength"
+    ],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": true,
+    "entry_method": "api",
+    "unavailable_reason": "engine_refused_insufficient_evidence"
+  },
+  "pop_implied_p_target": {
+    "value": null,
+    "source": "pokemonpricetracker",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "unvalidated",
+    "sample_size": 0,
+    "unit": "probability",
+    "assumption_ids": [
+      "submission_selection_haircut"
+    ],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": true,
+    "entry_method": "api",
+    "unavailable_reason": "engine_refused_insufficient_evidence"
+  },
+  "ev": null,
+  "roi": {
+    "value": null,
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "unvalidated",
+    "sample_size": 0,
+    "unit": "ratio",
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": true,
+    "entry_method": "api",
+    "unavailable_reason": "engine_refused_insufficient_evidence"
+  },
+  "annualised_roi": {
+    "value": null,
+    "source": "engine:model_a",
+    "as_of": "2026-08-13T09:00:00Z",
+    "confidence": "unvalidated",
+    "sample_size": 0,
+    "unit": "ratio",
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": true,
+    "entry_method": "api",
+    "unavailable_reason": "engine_refused_insufficient_evidence"
+  },
+  "horizon_days": null,
+  "downside_case": null,
+  "cost_breakdown": {},
+  "refusal": {
+    "reason": "missing comps for graded outcomes",
+    "detail": "Model A cannot price this submission. Nine inputs are absent; seven can be supplied, two cannot exist.",
+    "missing": [
+      {
+        "id": "comps_by_grade['10']",
+        "title": "No PSA 10 sale on record",
+        "reason_code": "comp_missing",
+        "fixable": true,
+        "deep_link": {
+          "screen": "card_detail",
+          "anchor": "price_history",
+          "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+          "assumption_id": null
+        }
+      },
+      {
+        "id": "comps_by_grade['9']",
+        "title": "No PSA 9 sale on record",
+        "reason_code": "comp_missing",
+        "fixable": true,
+        "deep_link": {
+          "screen": "card_detail",
+          "anchor": "price_history",
+          "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+          "assumption_id": null
+        }
+      },
+      {
+        "id": "condition_read.centering_pct",
+        "title": "Measure centering",
+        "reason_code": "condition_read_missing",
+        "fixable": true,
+        "deep_link": {
+          "screen": "grading_lab",
+          "anchor": "condition_read",
+          "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+          "assumption_id": null
+        }
+      },
+      {
+        "id": "condition_read.corner_flag",
+        "title": "Rate the corners",
+        "reason_code": "condition_read_missing",
+        "fixable": true,
+        "deep_link": {
+          "screen": "grading_lab",
+          "anchor": "condition_read",
+          "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+          "assumption_id": null
+        }
+      },
+      {
+        "id": "grading.submission_costs.inbound_shipping",
+        "title": "Set your inbound shipping cost",
+        "reason_code": "config_value_unset",
+        "fixable": true,
+        "deep_link": {
+          "screen": "settings",
+          "anchor": "grading_tiers",
+          "card_uid": null,
+          "assumption_id": null
+        }
+      },
+      {
+        "id": "grading.submission_costs.supplies",
+        "title": "Set your supplies cost per card",
+        "reason_code": "config_value_unset",
+        "fixable": true,
+        "deep_link": {
+          "screen": "settings",
+          "anchor": "grading_tiers",
+          "card_uid": null,
+          "assumption_id": null
+        }
+      },
+      {
+        "id": "acquisition_tax_pct",
+        "title": "Confirm your acquisition tax rate",
+        "reason_code": "assumption_unset",
+        "fixable": true,
+        "deep_link": {
+          "screen": "settings",
+          "anchor": "assumptions",
+          "card_uid": null,
+          "assumption_id": "acquisition_tax_pct"
+        }
+      },
+      {
+        "id": "population.optcg",
+        "title": "No population source exists for One Piece",
+        "reason_code": "population_missing",
+        "fixable": false,
+        "deep_link": null
+      },
+      {
+        "id": "pull_rate_estimates",
+        "title": "No pull rate published for this print run",
+        "reason_code": "assumption_unset",
+        "fixable": false,
+        "deep_link": {
+          "screen": "settings",
+          "anchor": "assumptions",
+          "card_uid": null,
+          "assumption_id": "pull_rate_estimates"
+        }
+      }
+    ]
+  },
+  "assumption_ids": [
+    "grading_fee_schedule",
+    "marketplace_fee_schedule",
+    "acquisition_tax_pct",
+    "pull_rate_estimates"
+  ]
+}

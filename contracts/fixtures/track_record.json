@@ -13,7 +13,16 @@
     "confidence": "medium",
     "sample_size": 31,
     "unit": "ratio",
-    "assumption_ids": []
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "hit_rate_30d": {
     "value": "0.452",
@@ -22,7 +31,16 @@
     "confidence": "medium",
     "sample_size": 31,
     "unit": "ratio",
-    "assumption_ids": []
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "hit_rate_90d": {
     "value": "0.387",
@@ -31,7 +49,16 @@
     "confidence": "low",
     "sample_size": 31,
     "unit": "ratio",
-    "assumption_ids": []
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "median_excess_return": {
     "value": "0.021",
@@ -40,7 +67,16 @@
     "confidence": "low",
     "sample_size": 31,
     "unit": "ratio",
-    "assumption_ids": []
+    "assumption_ids": [],
+    "staleness": {
+      "as_of": "2026-08-13T09:00:00Z",
+      "age_seconds": 0,
+      "is_stale": false,
+      "threshold_seconds": 86400,
+      "kind": "derived"
+    },
+    "needs_primary_verification": false,
+    "entry_method": "api"
   },
   "scored_alert_count": 31,
   "acting_threshold_met": false,
@@ -75,7 +111,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_30d": {
         "value": "-0.191",
@@ -84,7 +129,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_90d": {
         "value": "-0.263",
@@ -93,7 +147,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "assumption_ids": [
         "min_comp_sample_size"
@@ -129,7 +192,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_30d": {
         "value": "-0.140",
@@ -138,7 +210,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_90d": {
         "value": "-0.244",
@@ -147,7 +228,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "assumption_ids": []
     },
@@ -181,7 +271,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_30d": {
         "value": "-0.098",
@@ -190,7 +289,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_90d": {
         "value": "-0.187",
@@ -199,7 +307,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "assumption_ids": [
         "submission_selection_haircut"
@@ -235,7 +352,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_30d": {
         "value": "-0.077",
@@ -244,7 +370,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_90d": {
         "value": "-0.152",
@@ -253,7 +388,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "assumption_ids": []
     },
@@ -287,7 +431,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_30d": {
         "value": "-0.061",
@@ -296,7 +449,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_90d": {
         "value": "-0.121",
@@ -305,7 +467,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "assumption_ids": [
         "grading_fee_schedule"
@@ -343,7 +514,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_30d": {
         "value": "0.043",
@@ -352,7 +532,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "excess_return_90d": {
         "value": "0.088",
@@ -361,7 +550,16 @@
         "confidence": "high",
         "sample_size": null,
         "unit": "ratio",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "assumption_ids": [
         "submission_selection_haircut",

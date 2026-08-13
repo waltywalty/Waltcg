@@ -163,6 +163,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `acting_threshold_met` | `engine:alert_ledger` |
 | `age_seconds` | `engine` (computed from as_of) |
 | `alert_id` | `engine:alert_ledger` |
+| `anchor` | `engine` (refusal detail) -- section within the target screen |
 | `annualised_roi` | `engine:model_a` |
 | `assumption_ids` | `contracts/assumptions.json` |
 | `availability` | `config/grading.yaml` |
@@ -177,6 +178,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `checked_on` | `config/*.yaml` |
 | `corner_flag` | `manual` |
 | `current_value` | `contracts/assumptions.json` |
+| `deep_link` | `engine` (refusal detail) -- where the gap is fixed; null when structural |
 | `description` | `contracts/assumptions.json` |
 | `double_demeaned_z` | `engine:trend` |
 | `downside_case` | `engine:model_a` |
@@ -187,6 +189,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `excess_return_90d` | `engine:alert_ledger` |
 | `filtered_by` | UI request echo |
 | `fired_at` | `engine:alert_ledger` |
+| `fixable` | `engine` (refusal detail) -- false for an absence no input can clear |
 | `fx_spread` | `alpha_vantage` + `assumptions.fx_conversion_spread` |
 | `grading_fee` | `config/grading.yaml` |
 | `gross_spread` | `engine:model_c` |
@@ -215,7 +218,9 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `portfolio_value_meta` | `engine:portfolio` |
 | `price_at_alert` | `tcgapi.dev` snapshot at fire time |
 | `price_history` | `tcgapi.dev` Pro / `pokemonpricetracker` |
+| `price_history_meta` | `tcgapi.dev` -- freshness and point count of the series |
 | `price_meta` | `tcgapi.dev` |
+| `reason_code` | `engine` (refusal detail) -- closed enum, one per Refusal the models raise |
 | `roi` | `engine:model_a` |
 | `sell_venue` | `engine:model_c` |
 | `set_code` | `tcgapi.dev`, `apitcg.com` catalog |
@@ -224,6 +229,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `surface_flag` | `manual` |
 | `thesis` | `engine:alert_ledger` (rule text at fire time) |
 | `threshold_seconds` | `engine` (config) |
+| `title` | `engine` (refusal detail) -- human-readable, imperative where fixable |
 | `turnaround_business_days` | `config/grading.yaml` |
 | `ui_chip_required` | `contracts/assumptions.json` |
 | `unit` | `contracts/assumptions.json` |

@@ -3,7 +3,9 @@
   "screen": "signals",
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
-  "warnings": [],
+  "warnings": [
+    "One row is manually entered from Xianyu and has no population source."
+  ],
   "rows": [
     {
       "card": {
@@ -31,7 +33,16 @@
           "empirical_bayes_prior_strength",
           "grading_fee_schedule",
           "marketplace_fee_schedule"
-        ]
+        ],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": true,
+        "entry_method": "api"
       },
       "headline_label": "break-even P(10)",
       "ladder": [
@@ -50,7 +61,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": null,
@@ -59,7 +79,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -77,7 +106,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": 410,
@@ -86,7 +124,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -104,7 +151,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": 5120,
@@ -113,7 +169,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -131,7 +196,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": 1830,
@@ -140,7 +214,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         }
       ],
@@ -149,13 +232,7 @@
         "empirical_bayes_prior_strength",
         "grading_fee_schedule"
       ],
-      "staleness": {
-        "as_of": "2026-08-13T09:00:00Z",
-        "age_seconds": 1800,
-        "is_stale": false,
-        "threshold_seconds": 86400,
-        "kind": "price"
-      }
+      "entry_method": "api"
     },
     {
       "card": {
@@ -178,7 +255,16 @@
         "confidence": "medium",
         "sample_size": 14,
         "unit": "log residual",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "headline_label": "spread residual",
       "ladder": [
@@ -197,7 +283,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": null,
@@ -206,7 +301,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -224,7 +328,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": 120,
@@ -233,7 +346,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -251,7 +373,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": 1980,
@@ -260,7 +391,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -278,7 +418,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": 640,
@@ -287,20 +436,23 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         }
       ],
       "assumption_ids": [
         "min_comp_sample_size"
       ],
-      "staleness": {
-        "as_of": "2026-08-13T09:00:00Z",
-        "age_seconds": 3600,
-        "is_stale": false,
-        "threshold_seconds": 86400,
-        "kind": "price"
-      }
+      "entry_method": "api"
     },
     {
       "card": {
@@ -323,7 +475,16 @@
         "confidence": "low",
         "sample_size": 9,
         "unit": "z-score",
-        "assumption_ids": []
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api"
       },
       "headline_label": "velocity z",
       "ladder": [
@@ -342,7 +503,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": null,
@@ -352,7 +522,16 @@
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
-            "unavailable_reason": "no_source_for_this_game"
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -365,7 +544,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": null,
@@ -375,7 +563,16 @@
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
-            "unavailable_reason": "no_source_for_this_game"
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -388,7 +585,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": null,
@@ -398,7 +604,16 @@
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
-            "unavailable_reason": "no_source_for_this_game"
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         },
         {
@@ -411,7 +626,16 @@
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
-            "assumption_ids": []
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           },
           "population": {
             "value": null,
@@ -421,18 +645,198 @@
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
-            "unavailable_reason": "no_source_for_this_game"
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
           }
         }
       ],
       "assumption_ids": [],
-      "staleness": {
-        "as_of": "2026-08-13T09:00:00Z",
-        "age_seconds": 7200,
-        "is_stale": false,
-        "threshold_seconds": 604800,
-        "kind": "sentiment"
-      }
+      "entry_method": "api"
+    },
+    {
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "Parallel Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "play_type": "thin_float",
+      "headline": {
+        "value": "0.31",
+        "unit": "ratio",
+        "source": "engine:model_d",
+        "as_of": "2026-08-11T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 3,
+        "assumption_ids": [
+          "min_comp_sample_size"
+        ],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-11T09:00:00Z",
+          "age_seconds": 172800,
+          "is_stale": true,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "mixed"
+      },
+      "headline_label": "float ratio",
+      "ladder": [
+        {
+          "grade": "raw",
+          "price": {
+            "amount": "34.00",
+            "currency": "USD",
+            "fx_rate_used": "0.0068",
+            "fx_as_of": "2026-08-13T09:00:00Z"
+          },
+          "price_meta": {
+            "value": "34.00",
+            "unit": "USD",
+            "source": "manual:xianyu",
+            "as_of": "2026-08-11T09:00:00Z",
+            "confidence": "low",
+            "sample_size": 3,
+            "assumption_ids": [
+              "fx_rate_source"
+            ],
+            "unavailable_reason": null,
+            "staleness": {
+              "as_of": "2026-08-11T09:00:00Z",
+              "age_seconds": 172800,
+              "is_stale": true,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "manual"
+          },
+          "population": {
+            "value": null,
+            "unit": "cards",
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
+          }
+        },
+        {
+          "grade": "9",
+          "price": null,
+          "price_meta": {
+            "value": null,
+            "unit": "USD",
+            "source": "none",
+            "as_of": "2026-08-11T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "awaiting_manual_entry",
+            "staleness": {
+              "as_of": "2026-08-11T09:00:00Z",
+              "age_seconds": 172800,
+              "is_stale": true,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "manual"
+          },
+          "population": {
+            "value": null,
+            "unit": "cards",
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
+          }
+        },
+        {
+          "grade": "10",
+          "price": null,
+          "price_meta": {
+            "value": null,
+            "unit": "USD",
+            "source": "none",
+            "as_of": "2026-08-11T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "awaiting_manual_entry",
+            "staleness": {
+              "as_of": "2026-08-11T09:00:00Z",
+              "age_seconds": 172800,
+              "is_stale": true,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "manual"
+          },
+          "population": {
+            "value": null,
+            "unit": "cards",
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api"
+          }
+        }
+      ],
+      "assumption_ids": [
+        "min_comp_sample_size",
+        "fx_rate_source"
+      ],
+      "entry_method": "manual"
     }
   ],
   "filtered_by": [

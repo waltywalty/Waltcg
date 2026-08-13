@@ -131,6 +131,16 @@
               "type": "null"
             }
           ]
+        },
+        "staleness": {
+          "$ref": "#/$defs/staleness"
+        },
+        "needs_primary_verification": {
+          "type": "boolean",
+          "description": "True when this value rests on config still sourced from secondary summaries. Grading fees currently do. It propagates: a break-even probability computed with a provisional PSA fee is itself provisional, and the Grading Lab has to be able to say so without the user opening Settings to find out."
+        },
+        "entry_method": {
+          "$ref": "#/$defs/entry_method"
         }
       },
       "required": [
@@ -138,7 +148,10 @@
         "source",
         "as_of",
         "confidence",
-        "sample_size"
+        "sample_size",
+        "staleness",
+        "needs_primary_verification",
+        "entry_method"
       ],
       "additionalProperties": false
     },
@@ -165,7 +178,7 @@
     },
     "staleness": {
       "type": "object",
-      "description": "GOAL D7: stale data renders visibly degraded. The API decides staleness; the UI does not compute it from timestamps.",
+      "description": "Freshness of ONE value. Carried by every derived_value, never by a screen or a row: a row with a fresh price and a stale population has to say both, and a single row-level object can only say one. The API decides staleness; the UI does not compute it from timestamps.",
       "properties": {
         "as_of": {
           "type": "string",
@@ -189,8 +202,10 @@
             "population",
             "sentiment",
             "fx",
-            "config"
-          ]
+            "config",
+            "derived"
+          ],
+          "description": "What sort of data this is, which is what sets the threshold -- >24h for price, >7d for population. 'derived' is an engine output whose age is the age of its oldest input."
         }
       },
       "required": [
@@ -335,7 +350,8 @@
         "$ref": "#/$defs/grade_rung"
       },
       "minItems": 1,
-      "description": "The signature element. Ordered raw -> 8 -> 9 -> 10."
+      "description": "The signature element. Ordered raw -> 8 -> 9 -> 10. minItems 1 is deliberate: a card with only a raw price has exactly one rung, and the UI must render 1, 2, 3 and 4 rungs equally well. maxItems 4 because there are four grades -- grade uniqueness and ordering are asserted in tests/test_contract.py, which uniqueItems cannot express.",
+      "maxItems": 4
     },
     "play_type": {
       "type": "string",
@@ -392,15 +408,15 @@
         "change_pct_24h": {
           "$ref": "#/$defs/derived_value"
         },
-        "staleness": {
-          "$ref": "#/$defs/staleness"
+        "entry_method": {
+          "$ref": "#/$defs/entry_method"
         }
       },
       "required": [
         "card",
         "ladder",
         "change_pct_24h",
-        "staleness"
+        "entry_method"
       ],
       "additionalProperties": false
     },
@@ -454,9 +470,6 @@
             "$ref": "#/$defs/mover_row"
           },
           "maxItems": 3
-        },
-        "staleness": {
-          "$ref": "#/$defs/staleness"
         }
       },
       "required": [
@@ -469,8 +482,7 @@
         "day_change",
         "day_change_pct",
         "open_alert_count",
-        "top_movers",
-        "staleness"
+        "top_movers"
       ],
       "additionalProperties": false
     },
@@ -496,8 +508,8 @@
         "assumption_ids": {
           "$ref": "#/$defs/assumption_ids"
         },
-        "staleness": {
-          "$ref": "#/$defs/staleness"
+        "entry_method": {
+          "$ref": "#/$defs/entry_method"
         }
       },
       "required": [
@@ -507,7 +519,7 @@
         "headline_label",
         "ladder",
         "assumption_ids",
-        "staleness"
+        "entry_method"
       ],
       "additionalProperties": false
     },
@@ -635,11 +647,7 @@
           "$ref": "#/$defs/derived_value"
         },
         "entry_method": {
-          "type": "string",
-          "enum": [
-            "api",
-            "manual"
-          ]
+          "$ref": "#/$defs/entry_method"
         }
       },
       "required": [
@@ -766,8 +774,9 @@
           },
           "description": "Other language printings of the same art. Separate cards, separate prices; never merged in the UI."
         },
-        "staleness": {
-          "$ref": "#/$defs/staleness"
+        "price_history_meta": {
+          "$ref": "#/$defs/derived_value",
+          "description": "Freshness and density of the series. sample_size is the number of points returned; the schema guarantees no cadence and no minimum, because most of the universe has single-digit graded sales per quarter and a guaranteed density could only be met by interpolating prices that were never paid."
         }
       },
       "required": [
@@ -783,7 +792,7 @@
         "obtainment",
         "buy_routes",
         "language_variants",
-        "staleness"
+        "price_history_meta"
       ],
       "additionalProperties": false
     },
@@ -855,8 +864,9 @@
             "missing": {
               "type": "array",
               "items": {
-                "type": "string"
-              }
+                "$ref": "#/$defs/refusal_item"
+              },
+              "description": "The checklist. Ordered most-actionable first by the engine."
             }
           },
           "required": [
@@ -984,9 +994,6 @@
         },
         "assumption_ids": {
           "$ref": "#/$defs/assumption_ids"
-        },
-        "staleness": {
-          "$ref": "#/$defs/staleness"
         }
       },
       "required": [
@@ -1011,8 +1018,7 @@
         "downside_case",
         "cost_breakdown",
         "refusal",
-        "assumption_ids",
-        "staleness"
+        "assumption_ids"
       ],
       "additionalProperties": false
     },
@@ -1058,6 +1064,10 @@
               "type": "null"
             }
           ]
+        },
+        "needs_primary_verification": {
+          "type": "boolean",
+          "description": "True when any component is priced from unverified config. The components are Money, which carries no provenance of its own, so the stack states it once for the group."
         }
       },
       "required": [
@@ -1066,7 +1076,8 @@
         "shipping",
         "grading_fee",
         "fx_spread",
-        "tax"
+        "tax",
+        "needs_primary_verification"
       ],
       "additionalProperties": false
     },
@@ -1105,9 +1116,6 @@
         },
         "assumption_ids": {
           "$ref": "#/$defs/assumption_ids"
-        },
-        "staleness": {
-          "$ref": "#/$defs/staleness"
         }
       },
       "required": [
@@ -1119,8 +1127,7 @@
         "net_spread",
         "friction",
         "net_margin_pct",
-        "assumption_ids",
-        "staleness"
+        "assumption_ids"
       ],
       "additionalProperties": false
     },
@@ -1243,9 +1250,6 @@
           "items": {
             "$ref": "#/$defs/trend_excerpt"
           }
-        },
-        "staleness": {
-          "$ref": "#/$defs/staleness"
         }
       },
       "required": [
@@ -1254,8 +1258,7 @@
         "own_baseline_z",
         "game_baseline_z",
         "sources",
-        "excerpts",
-        "staleness"
+        "excerpts"
       ],
       "additionalProperties": false
     },
@@ -1756,6 +1759,122 @@
         "score_enabled"
       ],
       "additionalProperties": false
+    },
+    "refusal_reason_code": {
+      "type": "string",
+      "description": "Why this input is missing. Grounded in what engine/ev actually emits -- each code corresponds to a Refusal the models raise or a ConfigIncomplete path, so a code can never describe a gap the engine cannot produce.",
+      "enum": [
+        "config_value_unset",
+        "assumption_unset",
+        "comp_missing",
+        "condition_read_missing",
+        "population_missing",
+        "sample_below_minimum",
+        "manual_price_required",
+        "fx_rate_missing",
+        "tier_unavailable",
+        "rule_incomplete"
+      ]
+    },
+    "deep_link": {
+      "description": "Where this gap gets fixed. Null when there is nothing to navigate to -- a structural absence is not a to-do item and must not render as one.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "screen": {
+              "type": "string",
+              "enum": [
+                "home",
+                "signals",
+                "card_detail",
+                "grading_lab",
+                "arbitrage_board",
+                "trend_radar",
+                "track_record",
+                "settings"
+              ]
+            },
+            "anchor": {
+              "type": "string",
+              "description": "Section within the screen, e.g. 'grading_tiers', 'fee_schedules', 'assumptions', 'condition_read', 'buy_routes'."
+            },
+            "card_uid": {
+              "description": "Set when the fix is card-specific.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "assumption_id": {
+              "description": "Set when the gap is a registry entry. Must exist in contracts/assumptions.json -- asserted by tests/test_contract.py, which the schema cannot do across files.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "screen",
+            "anchor",
+            "card_uid",
+            "assumption_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "refusal_item": {
+      "type": "object",
+      "description": "One line of the refusal checklist. GOAL D7 and the design brief both require the refusal state to read as a finished, actionable checklist rather than a failure, so a bare string is not enough: the screen needs something to title the row, something to group it by, and somewhere to send the tap.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable identifier for the gap. Where the gap IS a registered assumption this is the assumption id verbatim, so the chip, the registry row and the refusal line are the same thing to the UI. Otherwise it is the engine's own path, e.g. 'fees.marketplaces.ebay.fee_schedule.bands'."
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable, imperative where fixable. Not a path."
+        },
+        "reason_code": {
+          "$ref": "#/$defs/refusal_reason_code"
+        },
+        "fixable": {
+          "type": "boolean",
+          "description": "True when supplying a value clears this item. False for a structural absence -- no population source exists for One Piece, and presenting that as a task the user can complete is a lie the checklist would tell every time it renders."
+        },
+        "deep_link": {
+          "$ref": "#/$defs/deep_link"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "reason_code",
+        "fixable",
+        "deep_link"
+      ],
+      "additionalProperties": false
+    },
+    "entry_method": {
+      "type": "string",
+      "enum": [
+        "api",
+        "manual",
+        "mixed"
+      ],
+      "description": "How the underlying data reached us. Manual rows come from Xianyu, Taobao, Mercari JP and SNKRDUNK typed in by hand; they run through the same engine but age differently and must stay visually distinguishable everywhere they appear. A single observation is never 'mixed' -- that value exists for values computed from several inputs of differing provenance."
     }
   },
   "oneOf": [

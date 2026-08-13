@@ -320,3 +320,114 @@ merged.** The differences that matter:
   bytes of prose identical in order, and the coverage table identical as a word
   multiset, the table alone because the PDF lays it out column-major and
   Markdown row-major.
+
+---
+
+## ADR-0005 — Provenance belongs to the value, not to the row
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/screens.schema.json`, `contracts/fixtures/`
+- **Found by:** Claude Design, auditing the contract before designing against it
+
+### Context
+
+Four gaps, reported by the designer rather than by a test. All four share one
+mistake: **metadata was attached at the wrong altitude.** Something true of a
+single number was recorded on the screen, on the row, or nowhere.
+
+1. **`refusal.missing` was `array<string>`.** The brief calls refusal the
+   behaviour it most needs the design to respect, and asks for a screen that
+   reads as a checklist. A bare string gives a designer nothing to title a row
+   with, nothing to group by, and nowhere to send the tap. Worse, no fixture
+   exercised a refusal at all, so the one state most in need of design was the
+   one nobody could see.
+2. **Staleness was per-screen and per-row, one `kind` at a time.** A card's
+   price is a live quote and its population is a weekly pop-report pull. They
+   do not age together. A row holding both could report only one, so the other
+   silently inherited the wrong freshness — and prices are the fast-moving half.
+3. **`needs_primary_verification` existed only on `grading_tier_view`,** on the
+   Settings screen. Grading fees today are `secondary, unverified`. A break-even
+   probability computed with one is itself provisional, and the Grading Lab —
+   where that number is the headline — had no way to say so.
+4. **`entry_method` existed only on `buy_route`.** A hand-typed Xianyu price
+   feeds a ladder rung and a signal row, and on both it rendered identically to
+   an API quote. Four of the eight game/language combinations are manual tier;
+   this is most of the app, not an edge.
+
+### Decision
+
+**Provenance is carried by `derived_value`.** It gains `staleness`,
+`needs_primary_verification` and `entry_method`, all required. Every number the
+engine computes or observes now states its own freshness, whether it rests on
+unverified config, and how it reached us.
+
+Row- and screen-level `staleness` is **deleted** from seven definitions rather
+than kept alongside. It was a rollup of values already present in the payload,
+which makes it a second source of truth that can disagree with the first.
+
+**Refusal items are objects**: `{id, title, reason_code, fixable, deep_link}`.
+Two parts carry the weight:
+
+- `id` **is the assumption id** where the gap is a registered assumption, so the
+  chip, the registry row and the refusal line are one thing to the UI. Enforced
+  in `tests/test_contract.py`, which the schema cannot do across files.
+- `fixable` separates "supply this and the number computes" from "no population
+  source exists for One Piece". Rendering a structural absence as a checkbox
+  tells the same lie every time the screen loads.
+
+`reason_code` is a closed enum of ten, each grounded in a `Refusal` the models
+actually raise or a `ConfigIncomplete` path — so a code cannot describe a gap
+the engine has no way to produce.
+
+### Where row-level markers survive, and why
+
+`entry_method` is kept **on `signal_row` and `mover_row`** as well as on every
+value. This looks like the rollup that was just deleted, and is not: a signal
+row's headline is computed from inputs that do not all appear on the row, so a
+row-level `mixed` carries information no per-field marker can. Staleness had no
+such inputs — every stale field was already in the payload. The asymmetry is the
+test for whether a row-level field is earning its place.
+
+### Consequences
+
+- **The engine now owes a mapping.** `Refusal.as_dict()` emits `missing` as a
+  list of dotted paths — `fees.marketplaces.ebay.fee_schedule.bands`,
+  `comps_by_grade['10']`. Those become `refusal_item.id`; the title, reason code,
+  fixability and deep link do not exist in the engine and have to be derived at
+  the `api/` boundary, which is not built yet. **The contract is deliberately
+  ahead of the engine here.** Nothing enforces the correspondence today, and a
+  test asserting every engine refusal path maps to a `reason_code` is owed when
+  `api/` lands.
+- Two fixtures were added rather than adapted: `grading_lab.refusal.json`, a
+  nine-item checklist with seven fixable items and two structural ones, and a
+  manual-tier signal row on `optcg:OP01:OP01-078:parallel:JP`. Fixtures now key
+  on `<screen>.<state>.json`, so a screen may carry several.
+- `contracts/fixtures/card_detail.json` deliberately ships a **12-day-old
+  population beside a same-day price**. That combination was unrepresentable
+  before this change, so it is now a fixture — the regression test for fix 2 is
+  that it can be expressed at all.
+- Staleness arithmetic is asserted: `is_stale == age_seconds >
+  threshold_seconds` on every value in every fixture. A flag that disagrees with
+  the badge printed beside it is worse than no flag.
+
+### Two properties confirmed unchanged
+
+Both were queried in the audit and both are deliberate.
+
+**`grade_ladder.minItems: 1`.** A card with a raw price and no graded comps has
+exactly one rung, so 1, 2, 3 and 4 rungs all have to render. A fixture now ships
+a three-rung ladder so the degraded form is in front of whoever designs it.
+
+**`price_history` guarantees no density.** No `minItems`, no cadence. Most of
+the universe has single-digit graded sales per quarter, and any guaranteed
+density could only be met by interpolating prices nobody paid. Because the
+guarantee is absent, the series has to state what it actually returned:
+`price_history_meta.sample_size` is the point count, so a two-point history
+cannot be drawn as though it were a series.
+
+**One thing the audit did not raise and should have:** nothing bounded the
+ladder from above, and nothing enforced rung uniqueness or order. Seven rungs,
+or two both graded 9, validated cleanly — `uniqueItems` cannot express
+uniqueness on a property. `maxItems: 4` is now in the schema; uniqueness and
+raw → 8 → 9 → 10 ordering are asserted in tests.

@@ -59,7 +59,8 @@
           "fx_as_of": null
         },
         "fx_spread": null,
-        "tax": null
+        "tax": null,
+        "needs_primary_verification": true
       },
       "net_margin_pct": {
         "value": "14.90",
@@ -71,19 +72,21 @@
         "assumption_ids": [
           "grading_fee_schedule",
           "marketplace_fee_schedule"
-        ]
+        ],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": true,
+        "entry_method": "api"
       },
       "assumption_ids": [
         "grading_fee_schedule",
         "marketplace_fee_schedule"
-      ],
-      "staleness": {
-        "as_of": "2026-08-13T09:00:00Z",
-        "age_seconds": 1800,
-        "is_stale": false,
-        "threshold_seconds": 86400,
-        "kind": "price"
-      }
+      ]
     },
     {
       "card": {
@@ -144,7 +147,8 @@
           "currency": "USD",
           "fx_rate_used": null,
           "fx_as_of": null
-        }
+        },
+        "needs_primary_verification": true
       },
       "net_margin_pct": {
         "value": "9.10",
@@ -156,19 +160,21 @@
         "assumption_ids": [
           "marketplace_fee_schedule",
           "fx_conversion_spread"
-        ]
+        ],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": true,
+        "entry_method": "api"
       },
       "assumption_ids": [
         "marketplace_fee_schedule",
         "fx_conversion_spread"
-      ],
-      "staleness": {
-        "as_of": "2026-08-13T09:00:00Z",
-        "age_seconds": 43200,
-        "is_stale": false,
-        "threshold_seconds": 86400,
-        "kind": "price"
-      }
+      ]
     }
   ],
   "sorted_by": "net_margin_pct",
