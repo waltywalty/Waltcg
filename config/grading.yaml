@@ -1,319 +1,324 @@
 # Grading service tiers, fees and turnarounds.
 #
-# STATUS: SCHEMA ONLY. Every value is null and carries NEEDS_VALUE.
-# The engine REFUSES to compute while any required value is null -- it does
-# not warn, it does not substitute a default, it raises ConfigIncomplete and
-# names every missing path. Fill these in from the sources cited per block.
+# STATUS: PROVISIONAL. Every populated value below carries
+#   source: "secondary, unverified"
+#   checked_on: 2026-08-13
+#   confidence: low
+# meaning it came from a secondary summary, NOT from the grader's own page.
 #
-# Rules for filling this in:
-#   * Every number needs `source` (a URL) and `checked_on` (ISO date).
-#   * `effective_from` is the date the grader's price list took effect, which
-#     is NOT the date you looked it up. Both are recorded.
-#   * Tier keys below are structural. The marketing NAMES must be confirmed
-#     against each grader's live services page -- do not assume they are
-#     unchanged.
-#   * Fees are per card unless the tier is bulk-priced; say which in `unit`.
+# The engine warns on EVERY unverified entry regardless of age. A value that
+# was never checked against its primary source is not "fresh for 60 days" --
+# it was never fresh. Age-based staleness is a separate, weaker signal.
 #
-# Known context to verify, NOT to trust as fact:
-#   PSA paused its four Value tiers in June 2026 against a backlog reported
-#   around 10M cards, and Regular turnaround was running roughly 50-60
-#   business days. That is the state this config was scaffolded against. It
-#   is a claim to check, not a value to enter. If the pause has lifted, set
-#   availability to "open" and record the date you confirmed it.
+# PSA entries additionally carry needs_primary_verification: true. Sources
+# disagree on the Value tier prices, the backlog size and the membership cost,
+# so psacard.com is the only authority and nothing here should be trusted
+# until it is read directly.
+#
+# Values still null and REFUSING (deliberate):
+#   * submission_costs.* -- my own inbound shipping, supplies, batch size
+#   * every grader's membership cost and declared-value caps
+# The engine raises ConfigIncomplete naming each one rather than computing
+# around it.
 
-schema_version: 1
+schema_version: 2
 config_kind: grading
 
 meta:
-  # Date the whole file was last reconciled against every grader's site.
-  # The engine warns when this is more than `staleness_warn_days` old, and
-  # that warning is separate from the null-value refusal.
-  verified_on: null            # NEEDS_VALUE  ISO date, e.g. 2026-08-13
-  verified_by: null            # NEEDS_VALUE  who checked
+  verified_on: null            # NEEDS_VALUE -- set only when read from primary sources
+  verified_by: null            # NEEDS_VALUE
   staleness_warn_days: 60
-  currency: null               # NEEDS_VALUE  currency all fees below are quoted in
+  currency: USD
+  currency_source: "secondary, unverified"
+  currency_checked_on: "2026-08-13"
+  provisional: true
+  provisional_note: >-
+    Populated 2026-08-13 from a secondary summary. No value here has been read
+    from a grader's own pricing page. Treat every figure as indicative.
 
 graders:
 
   PSA:
     display_name: PSA
-    source: null               # NEEDS_VALUE  https://www.psacard.com/services/tradingcardgrading
-    checked_on: null           # NEEDS_VALUE
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    needs_primary_verification: true
+    primary_source_url: "https://www.psacard.com/services/tradingcardgrading"
+    verification_note: >-
+      Sources disagree on Value tier pricing, backlog size and Collectors Club
+      cost. PSA's own services page is the only authority. Until it is read
+      directly, every PSA figure here is indicative and the membership and
+      declared-value fields stay null and refusing.
     membership:
-      required: null           # NEEDS_VALUE  true/false -- PSA requires a collectors club level for some tiers
-      annual_cost: null        # NEEDS_VALUE
-      included_vouchers: null  # NEEDS_VALUE  number of grading vouchers bundled with membership
-    declared_value_cap_applies: null   # NEEDS_VALUE  true/false
+      required: null           # NEEDS_VALUE -- sources disagree
+      annual_cost: null        # NEEDS_VALUE -- sources disagree
+      included_vouchers: null  # NEEDS_VALUE
+      needs_primary_verification: true
+    declared_value_cap_applies: null   # NEEDS_VALUE
+    # Charged once per submission, not per card. The engine amortises these
+    # across default_batch_size.
+    per_submission_fees:
+      handling_fee: 10.00
+      handling_fee_is_approximate: true
+      return_shipping: 15.00
+      return_shipping_is_floor: true    # quoted as "15.00+"; scales with value
+      source: "secondary, unverified"
+      checked_on: "2026-08-13"
+      confidence: low
+      needs_primary_verification: true
     tiers:
-      # The four Value tiers reported paused in June 2026. Confirm each.
-      value_bulk:
-        name: null             # NEEDS_VALUE  confirm exact tier name on PSA's site
-        fee: null              # NEEDS_VALUE  per-card fee
-        unit: null             # NEEDS_VALUE  "per_card" | "per_card_bulk"
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE  estimate PSA publishes
-        turnaround_observed_days: null  # NEEDS_VALUE  what it actually ran; prefer this if known
-        availability: null     # NEEDS_VALUE  "open" | "paused" | "waitlist" | "discontinued"
-        availability_note: null # NEEDS_VALUE  e.g. paused June 2026, backlog ~10M cards
-        effective_from: null   # NEEDS_VALUE
-      value:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      value_plus:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      value_max:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
       regular:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE  published estimate
-        turnaround_observed_days: null  # NEEDS_VALUE  reported ~50-60 business days mid-2026: CONFIRM
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      express:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
+        name: "Regular"
+        fee: 79.99
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE -- sources disagree
+        # Quoted as a 40-60 business day range. The engine uses the
+        # conservative end: overstating turnaround understates annualised ROI,
+        # which is the safe direction for a capital-lockup decision.
+        turnaround_business_days: 60
+        turnaround_business_days_min: 40
+        turnaround_business_days_max: 60
+        turnaround_observed_days: null
+        availability: open
+        availability_note: "ACTIVE per secondary source, 2026-08-13"
+        effective_from: null            # NEEDS_VALUE -- price-list date unknown
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
+        needs_primary_verification: true
+      value:
+        name: "Value (paused)"
+        fee: null                       # NEEDS_VALUE -- sources disagree on price
+        unit: per_card
+        min_cards: null                 # NEEDS_VALUE
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE
         turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      super_express:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: paused
+        availability_since: "2026-06-02"
+        availability_note: >-
+          Paused since 2026-06-02 with no announced reinstatement date. The
+          engine refuses to price a submission against a tier that is not
+          accepting cards, so the null fee is not load-bearing -- but it stays
+          null because sources disagree on what the price was.
+        reinstatement_date: null        # none announced
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
+        needs_primary_verification: true
+      value_plus:
+        name: "Value Plus (paused)"
+        fee: null                       # NEEDS_VALUE
+        unit: per_card
+        min_cards: null                 # NEEDS_VALUE
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE
         turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      walk_through:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: paused
+        availability_since: "2026-06-02"
+        availability_note: "Paused since 2026-06-02, no reinstatement date."
+        reinstatement_date: null
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
+        needs_primary_verification: true
+      value_bulk:
+        name: "Value Bulk (paused)"
+        fee: null                       # NEEDS_VALUE
+        unit: per_card_bulk
+        min_cards: null                 # NEEDS_VALUE -- commonly cited as 20, unconfirmed
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE
         turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: paused
+        availability_since: "2026-06-02"
+        availability_note: "Paused since 2026-06-02, no reinstatement date."
+        reinstatement_date: null
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
+        needs_primary_verification: true
+      value_max:
+        name: "Value Max (paused)"
+        fee: null                       # NEEDS_VALUE
+        unit: per_card
+        min_cards: null                 # NEEDS_VALUE
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE
+        turnaround_business_days: null  # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: paused
+        availability_since: "2026-06-02"
+        availability_note: "Paused since 2026-06-02, no reinstatement date."
+        reinstatement_date: null
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
+        needs_primary_verification: true
 
   CGC:
     display_name: CGC Cards
-    source: null               # NEEDS_VALUE  https://www.cgccards.com/card-grading/services-pricing/
-    checked_on: null           # NEEDS_VALUE
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    primary_source_url: "https://www.cgccards.com/card-grading/services-pricing/"
     membership:
-      required: null           # NEEDS_VALUE
-      annual_cost: null        # NEEDS_VALUE
-      included_vouchers: null  # NEEDS_VALUE
-    declared_value_cap_applies: null  # NEEDS_VALUE
+      required: false
+      annual_cost: 0
+      included_vouchers: null           # NEEDS_VALUE
+      source: "secondary, unverified"
+      checked_on: "2026-08-13"
+      confidence: low
+    declared_value_cap_applies: null     # NEEDS_VALUE
+    per_submission_fees:
+      handling_fee: null                # NEEDS_VALUE
+      return_shipping: null             # NEEDS_VALUE
     tiers:
+      economy:
+        name: "Economy"
+        fee: 15.00
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: false
+        turnaround_business_days: null  # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: open
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
       bulk:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
+        name: "Bulk"
+        fee: 12.00
+        unit: per_card_bulk
+        min_cards: 25
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: false
         turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      standard:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      express:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: open
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
 
   BGS:
     display_name: Beckett (BGS)
-    source: null               # NEEDS_VALUE  https://www.beckett.com/grading/pricing
-    checked_on: null           # NEEDS_VALUE
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    primary_source_url: "https://www.beckett.com/grading/pricing"
+    subgrades_included: true
     membership:
-      required: null           # NEEDS_VALUE
-      annual_cost: null        # NEEDS_VALUE
-      included_vouchers: null  # NEEDS_VALUE
-    declared_value_cap_applies: null  # NEEDS_VALUE
-    subgrades_included: null   # NEEDS_VALUE  true/false -- matters for Model C crossover logic
+      required: null                    # NEEDS_VALUE
+      annual_cost: null                 # NEEDS_VALUE
+      included_vouchers: null           # NEEDS_VALUE
+    declared_value_cap_applies: null     # NEEDS_VALUE
+    per_submission_fees:
+      handling_fee: null                # NEEDS_VALUE
+      return_shipping: null             # NEEDS_VALUE
     tiers:
-      base:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
+      economy:
+        name: "Economy"
+        fee: 20.00
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE
         turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      standard:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      express:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: open
+        availability_note: "subgrades included at this tier"
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
 
   SGC:
     display_name: SGC
-    source: null               # NEEDS_VALUE  https://gosgc.com/pricing/
-    checked_on: null           # NEEDS_VALUE
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    primary_source_url: "https://gosgc.com/pricing/"
     membership:
-      required: null           # NEEDS_VALUE
-      annual_cost: null        # NEEDS_VALUE
-      included_vouchers: null  # NEEDS_VALUE
-    declared_value_cap_applies: null  # NEEDS_VALUE
+      required: null                    # NEEDS_VALUE
+      annual_cost: null                 # NEEDS_VALUE
+      included_vouchers: null           # NEEDS_VALUE
+    declared_value_cap_applies: null     # NEEDS_VALUE
+    per_submission_fees:
+      handling_fee: null                # NEEDS_VALUE
+      return_shipping: null             # NEEDS_VALUE
     tiers:
-      bulk:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      standard:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
+      economy:
+        name: "Economy"
+        fee: 25.00
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE
+        # Quoted as 20-30 days. Units not stated as business or calendar days
+        # in the source, so both interpretations are recorded and the engine
+        # uses the conservative end under the business-day reading.
+        turnaround_business_days: 30
+        turnaround_business_days_min: 20
+        turnaround_business_days_max: 30
+        turnaround_units_unconfirmed: true
+        turnaround_observed_days: null
+        availability: open
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
 
   TAG:
     display_name: TAG Grading
-    source: null               # NEEDS_VALUE  https://taggrading.com/pricing
-    checked_on: null           # NEEDS_VALUE
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    primary_source_url: "https://taggrading.com/pricing"
     membership:
-      required: null           # NEEDS_VALUE
-      annual_cost: null        # NEEDS_VALUE
-      included_vouchers: null  # NEEDS_VALUE
-    declared_value_cap_applies: null  # NEEDS_VALUE
+      required: null                    # NEEDS_VALUE
+      annual_cost: null                 # NEEDS_VALUE
+      included_vouchers: null           # NEEDS_VALUE
+    declared_value_cap_applies: null     # NEEDS_VALUE
+    per_submission_fees:
+      handling_fee: null                # NEEDS_VALUE
+      return_shipping: null             # NEEDS_VALUE
     tiers:
       bulk:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
+        name: "Bulk"
+        fee: 12.00
+        unit: per_card_bulk
+        min_cards: null                 # NEEDS_VALUE
+        max_declared_value: null        # NEEDS_VALUE
+        membership_required: null       # NEEDS_VALUE
         turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
-      standard:
-        name: null             # NEEDS_VALUE
-        fee: null              # NEEDS_VALUE
-        unit: null             # NEEDS_VALUE
-        min_cards: null        # NEEDS_VALUE
-        max_declared_value: null  # NEEDS_VALUE
-        membership_required: null # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null  # NEEDS_VALUE
-        availability: null     # NEEDS_VALUE
-        availability_note: null # NEEDS_VALUE
-        effective_from: null   # NEEDS_VALUE
+        turnaround_observed_days: null
+        availability: open
+        effective_from: null            # NEEDS_VALUE
+        source: "secondary, unverified"
+        checked_on: "2026-08-13"
+        confidence: low
 
-# Costs incurred per submission regardless of grader, paid by me.
+# My own costs. Deliberately null: these are mine to measure, not to inherit
+# from anyone's summary. The engine refuses until they are filled.
 submission_costs:
-  inbound_shipping: null       # NEEDS_VALUE  cost to ship the batch to the grader
+  inbound_shipping: null       # NEEDS_VALUE -- what I pay to ship the batch out
   inbound_insurance: null      # NEEDS_VALUE
-  return_shipping_insured: null # NEEDS_VALUE  grader's insured return charge
-  supplies_per_card: null      # NEEDS_VALUE  sleeve + semi-rigid + team bag
-  default_batch_size: null     # NEEDS_VALUE  used to amortise per-batch costs across cards
+  return_shipping_insured: null # NEEDS_VALUE -- mine; the grader's own charge is
+                               # under graders.*.per_submission_fees.return_shipping
+  supplies_per_card: null      # NEEDS_VALUE -- sleeve + semi-rigid + team bag
+  default_batch_size: null     # NEEDS_VALUE
   source: null                 # NEEDS_VALUE
   checked_on: null             # NEEDS_VALUE

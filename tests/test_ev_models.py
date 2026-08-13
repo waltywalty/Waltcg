@@ -267,9 +267,21 @@ class GoldenRefusals(unittest.TestCase):
             raw_to_graded_ev("real/config", usd(100), "regular",
                              {"10": usd(500)}, cfg=cfg,
                              grade_probs=_dist({"10": "1.0"}))
-        self.assertGreater(len(ctx.exception.missing), 10)
-        self.assertIn("grading.meta.currency", ctx.exception.missing)
+        # Assert the SPECIFIC gaps rather than a count: the config is now
+        # partly populated with provisional values, so a count threshold would
+        # drift. What must still be missing is everything that is mine to
+        # measure -- my shipping, my supplies, my tax, my days-to-sell.
+        missing = set(ctx.exception.missing)
+        for path in ("grading.submission_costs.inbound_shipping",
+                     "grading.submission_costs.supplies_per_card",
+                     "grading.submission_costs.default_batch_size",
+                     "assumptions.tax.acquisition_tax_pct.value",
+                     "fees.region_defaults.default_days_to_sell"):
+            self.assertIn(path, missing, f"{path} should still be refusing")
         self.assertIn("refusing to compute", str(ctx.exception))
+        # And the provisional values that ARE populated must not be listed.
+        self.assertNotIn("grading.meta.currency", missing)
+        self.assertNotIn("grading.graders.PSA.tiers.regular.fee", missing)
 
     def test_zero_sample_size_refuses_rather_than_guessing(self):
         """Model D must suppress thin comps, then refuse to fit on what is left."""

@@ -62,6 +62,39 @@ class StalenessWarning:
                 f"({self.age_days} days ago, limit {self.limit_days})")
 
 
+UNVERIFIED_SOURCES = ("secondary, unverified", "secondary", "unverified")
+
+
+@dataclass
+class UnverifiedWarning:
+    """A value that was never checked against its primary source.
+
+    Distinct from staleness, and stronger. Staleness says a verified value has
+    aged past its window. This says the value was never verified at all, so no
+    amount of recency makes it trustworthy. It fires regardless of age and
+    cannot be waited out.
+    """
+
+    config_kind: str
+    path: str
+    source: Optional[str]
+    checked_on: Optional[str]
+    confidence: Optional[str]
+    needs_primary_verification: bool = False
+
+    def __str__(self):
+        bits = [f"{self.config_kind}:{self.path} is UNVERIFIED"]
+        if self.source:
+            bits.append(f"source={self.source!r}")
+        if self.checked_on:
+            bits.append(f"checked_on={self.checked_on}")
+        if self.confidence:
+            bits.append(f"confidence={self.confidence}")
+        if self.needs_primary_verification:
+            bits.append("NEEDS PRIMARY VERIFICATION")
+        return " -- ".join(bits)
+
+
 @dataclass
 class Config:
     """The three dated files, loaded together and queried by dotted path."""
@@ -157,12 +190,59 @@ class Config:
             return StalenessWarning(which, str(verified), age, limit)
         return None
 
+    def unverified(self, which: str) -> list:
+        """Every node in this config whose source is unverified.
+
+        Walks the whole tree rather than checking a single meta flag, because
+        provisional values arrive per-entry: one grader can be read from its
+        own page while another is still a summary.
+        """
+        found = []
+
+        def walk(node, path):
+            if isinstance(node, dict):
+                src = node.get("source")
+                conf = node.get("confidence")
+                needs = bool(node.get("needs_primary_verification"))
+                unverified_src = (isinstance(src, str)
+                                  and src.strip().lower() in UNVERIFIED_SOURCES)
+                low_conf = (isinstance(conf, str) and conf.strip().lower() == "low")
+                if unverified_src or low_conf or needs:
+                    found.append(UnverifiedWarning(
+                        config_kind=which, path=path or "(root)", source=src,
+                        checked_on=node.get("checked_on"), confidence=conf,
+                        needs_primary_verification=needs))
+                for k, v in node.items():
+                    walk(v, f"{path}.{k}" if path else str(k))
+            elif isinstance(node, list):
+                for i, v in enumerate(node):
+                    walk(v, f"{path}[{i}]")
+
+        walk(getattr(self, which, {}) or {}, "")
+        return found
+
+    def unverified_warnings(self) -> list:
+        out = []
+        for which in self._ROOTS:
+            out.extend(self.unverified(which))
+        return out
+
+    def needs_primary_verification(self) -> list:
+        """Entries where a secondary source is not good enough at any age."""
+        return [w for w in self.unverified_warnings() if w.needs_primary_verification]
+
     def staleness_warnings(self) -> list:
+        """Age-based staleness AND never-verified entries.
+
+        Both surface here so a caller cannot pick up the weaker signal and
+        miss the stronger one. An unverified value fires regardless of age.
+        """
         out = []
         for which in self._ROOTS:
             w = self.staleness(which)
             if w is not None:
                 out.append(w)
+        out.extend(self.unverified_warnings())
         return out
 
 

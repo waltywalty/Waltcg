@@ -21,7 +21,9 @@ from decimal import Decimal
 from typing import Optional
 
 from .breakeven import annualised, expected_proceeds, net_proceeds, solve_break_even_p
-from .config import Config, ConfigIncomplete, business_days_to_calendar
+from .config import (MISSING, Config, ConfigIncomplete,
+                     business_days_to_calendar)
+from .fees import FeeScheduleError, net_proceeds_from_schedule
 from .grades import shrunk_grade_distribution
 from .money import Money
 from .results import CostBreakdown, EVResult, GradeDistribution, Provenance, Refusal
@@ -29,8 +31,16 @@ from .results import CostBreakdown, EVResult, GradeDistribution, Provenance, Ref
 MODEL = "raw_to_graded_ev"
 
 
-def required_paths(grader: str, tier: str, venue: str) -> list:
-    return [
+def required_paths(grader: str, tier: str, venue: str, schedule: bool = False) -> list:
+    venue_fee_paths = (
+        [f"fees.marketplaces.{venue}.fee_schedule.base",
+         f"fees.marketplaces.{venue}.fee_schedule.bands"]
+        if schedule else
+        [f"fees.marketplaces.{venue}.final_value_fee_pct",
+         f"fees.marketplaces.{venue}.payment_pct",
+         f"fees.marketplaces.{venue}.payment_fixed"]
+    )
+    return venue_fee_paths + [
         "grading.meta.currency",
         f"grading.graders.{grader}.tiers.{tier}.fee",
         f"grading.graders.{grader}.tiers.{tier}.turnaround_business_days",
@@ -40,9 +50,6 @@ def required_paths(grader: str, tier: str, venue: str) -> list:
         "grading.submission_costs.return_shipping_insured",
         "grading.submission_costs.supplies_per_card",
         "grading.submission_costs.default_batch_size",
-        f"fees.marketplaces.{venue}.final_value_fee_pct",
-        f"fees.marketplaces.{venue}.payment_pct",
-        f"fees.marketplaces.{venue}.payment_fixed",
         f"fees.marketplaces.{venue}.currency",
         "fees.region_defaults.default_days_to_sell",
         "assumptions.submission_selection_haircut.value",
@@ -66,6 +73,8 @@ def raw_to_graded_ev(
     card_pop: Optional[dict] = None,
     set_pop: Optional[dict] = None,
     outbound_shipping: Optional[Money] = None,
+    shipping_charged: Optional[Money] = None,
+    tax_collected: Optional[Money] = None,
     batch_size: Optional[int] = None,
     days_to_sell: Optional[int] = None,
 ):
@@ -78,7 +87,11 @@ def raw_to_graded_ev(
     if not isinstance(acquisition_cost, Money):
         raise TypeError("acquisition_cost must be Money, not a bare number")
 
-    cfg.require(required_paths(grader, tier, venue),
+    # A venue either carries a modern fee_schedule (base + marginal bands +
+    # tiered fixed fees) or the older flat trio. Which one decides what must
+    # be present before anything is computed.
+    uses_schedule = cfg.get(f"fees.marketplaces.{venue}.fee_schedule") is not MISSING
+    cfg.require(required_paths(grader, tier, venue, schedule=uses_schedule),
                 context=f"{MODEL} for {card_uid} ({grader}/{tier} -> {venue})")
 
     currency = cfg.get("grading.meta.currency")
@@ -138,18 +151,35 @@ def raw_to_graded_ev(
     total_cost = costs.total()
 
     # -- proceeds ---------------------------------------------------------
-    fvf = cfg.decimal(f"fees.marketplaces.{venue}.final_value_fee_pct")
-    pay_pct = cfg.decimal(f"fees.marketplaces.{venue}.payment_pct")
-    fixed = Money(str(cfg.decimal(f"fees.marketplaces.{venue}.payment_fixed")), currency)
     ship_out = outbound_shipping or Money.zero(currency)
     if not isinstance(ship_out, Money):
         raise TypeError("outbound_shipping must be Money")
+    ship_charged = shipping_charged or Money.zero(currency)
+    tax_coll = tax_collected or Money.zero(currency)
+
+    schedule = cfg.get(f"fees.marketplaces.{venue}.fee_schedule") if uses_schedule else None
 
     proceeds_by_grade = {}
     for grade, value in comps_by_grade.items():
         if not isinstance(value, Money):
             raise TypeError(f"comp for grade {grade} must be Money, not a bare number")
-        proceeds_by_grade[str(grade)] = net_proceeds(value, fvf, pay_pct, fixed, ship_out)
+        if schedule:
+            try:
+                proceeds_by_grade[str(grade)] = net_proceeds_from_schedule(
+                    value, schedule, shipping_charged=ship_charged,
+                    tax_collected=tax_coll, outbound_shipping=ship_out)
+            except FeeScheduleError as e:
+                return Refusal(MODEL, "fee schedule unusable", str(e),
+                               missing=[f"fees.marketplaces.{venue}.fee_schedule."
+                                        f"{schedule.get('blocking_gap') or 'base'}"],
+                               subject=card_uid)
+        else:
+            fvf = cfg.decimal(f"fees.marketplaces.{venue}.final_value_fee_pct")
+            pay_pct = cfg.decimal(f"fees.marketplaces.{venue}.payment_pct")
+            fixed = Money(str(cfg.decimal(
+                f"fees.marketplaces.{venue}.payment_fixed")), currency)
+            proceeds_by_grade[str(grade)] = net_proceeds(
+                value, fvf, pay_pct, fixed, ship_out)
 
     probs = grade_probs.probs
 

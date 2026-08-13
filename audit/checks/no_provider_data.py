@@ -68,6 +68,10 @@ PAYLOAD_KEY_ALLOWLIST = [
     re.compile(r"^probe/fixtures/.*\.json$"),      # synthetic, marker-checked below
     re.compile(r"^contracts/.*\.json$"),           # schema and assumption registry
     re.compile(r"^config/.*\.ya?ml$"),             # dated config, our own costs
+    # Workflow files are code, not data. This guard's own CI job names payload
+    # keys in its self-test seed, and flagging that is a false positive -- it
+    # is the check describing what it looks for, not a cached response.
+    re.compile(r"^\.github/.*\.ya?ml$"),
 ]
 
 # probe/fixtures must say they are synthetic, so a real payload cannot be

@@ -1,167 +1,220 @@
 # Marketplace fees and shipping bands.
 #
-# STATUS: SCHEMA ONLY. Every value is null and carries NEEDS_VALUE.
-# The engine REFUSES to compute while any required value is null.
+# STATUS: PROVISIONAL for eBay, TCGplayer and Mercari US. Every populated
+# value carries source: "secondary, unverified", checked_on: 2026-08-13 and
+# confidence: low. The engine warns on EVERY unverified entry regardless of
+# age -- a value never checked against its primary source was never fresh.
 #
-# Rules for filling this in:
-#   * Percentages are decimal fractions, NOT percent: 0.1325 not 13.25.
-#   * `final_value_fee_pct` is the marketplace's commission. `payment_pct`
-#     and `payment_fixed` are the payment processor's cut, which on some
-#     venues is bundled into the commission -- if it is bundled, set the
-#     payment fields to 0 and say so in `notes`, do not leave them null.
-#   * Fees frequently differ by category and by seller status. Record the
-#     category you actually sell in, in `category`.
-#   * Shipping bands are what I PAY to ship, by weight band, in the venue's
-#     currency. Model A subtracts outbound shipping from proceeds.
-#   * Cross-border: `fx_conversion_pct` is the spread the venue or processor
-#     charges when settling into my home currency. It is not the FX rate.
+# Still null and REFUSING, by decision: Mercari JP, SNKRDUNK, Xianyu,
+# Cardmarket, and all of my own shipping bands.
+#
+# FEE SCHEDULE SHAPE -- why this is not a single percentage
+# ---------------------------------------------------------
+# A flat `final_value_fee_pct` understates real fees three different ways, so
+# schedules are modelled explicitly:
+#
+#   base    what the percentage multiplies. eBay charges on item + shipping +
+#           tax, so 13.25% of the item price alone is NOT the fee.
+#   bands   marginal rate bands. Each rate applies only to the portion of the
+#           base inside that band, exactly like a tax bracket. Applying the
+#           top rate to the whole amount is the classic error.
+#   discount  a schedule that REPLACES `bands` at or above a threshold. It is
+#           not applied on top of them.
+#   fixed_bands  tiered per-order fixed fee, keyed on the item price.
+#
+# Percentages are decimal fractions: 0.1325, not 13.25.
 
-schema_version: 1
+schema_version: 2
 config_kind: fees
 
 meta:
-  verified_on: null            # NEEDS_VALUE  ISO date
+  verified_on: null            # NEEDS_VALUE -- set only when read from primary sources
   verified_by: null            # NEEDS_VALUE
   staleness_warn_days: 60
-  home_currency: null          # NEEDS_VALUE  currency I actually settle in
-  home_region: null            # NEEDS_VALUE  e.g. GB, US, JP -- drives which defaults apply
+  home_currency: null          # NEEDS_VALUE -- mine to declare
+  home_region: null            # NEEDS_VALUE
+  provisional: true
+  provisional_note: >-
+    eBay, TCGplayer and Mercari US populated 2026-08-13 from a secondary
+    summary. Not read from any marketplace's own fee page.
 
 marketplaces:
 
   ebay:
     display_name: eBay
-    currency: null             # NEEDS_VALUE
-    source: null               # NEEDS_VALUE  https://www.ebay.com/help/selling/fees-credits-invoices/selling-fees
-    checked_on: null           # NEEDS_VALUE
-    category: null             # NEEDS_VALUE  the exact category the fee % applies to
-    final_value_fee_pct: null  # NEEDS_VALUE  decimal fraction
-    payment_pct: null          # NEEDS_VALUE  0 if bundled into fvf -- say so in notes
-    payment_fixed: null        # NEEDS_VALUE  per-order fixed fee
+    currency: USD
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    primary_source_url: "https://www.ebay.com/help/selling/fees-credits-invoices/selling-fees"
+    category: "Trading cards (singles)"
+    fee_schedule:
+      base: item_plus_shipping_plus_tax
+      bands:
+        - up_to: null
+          pct: 0.1325
+      # Singles at or above $1000: half rate on the portion up to $7500,
+      # 2.35% on everything above. A single card can straddle $7500, which is
+      # why these are marginal bands and not a lookup.
+      discount:
+        applies_at_or_above: 1000.00
+        note: "50% off FVF for the portion up to 7500, 2.35% above"
+        bands:
+          - up_to: 7500.00
+            pct: 0.06625
+          - up_to: null
+            pct: 0.0235
+      payment:
+        # Payment processing is bundled into the FVF on eBay's managed
+        # payments; the per-order fixed charge is the separate part.
+        pct: 0
+        fixed_bands:
+          - up_to: 10.00
+            fee: 0.30
+          - up_to: null
+            fee: 0.40
+      source: "secondary, unverified"
+      checked_on: "2026-08-13"
+      confidence: low
     fx_conversion_pct: null    # NEEDS_VALUE
     international_fee_pct: null # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE  0 if none
-    shipping_bands:
-      # Fill one entry per band actually used. Keep them ordered by max_grams.
-      - max_grams: null        # NEEDS_VALUE
-        cost: null             # NEEDS_VALUE
-        service: null          # NEEDS_VALUE
-        tracked: null          # NEEDS_VALUE
-      - max_grams: null        # NEEDS_VALUE
-        cost: null             # NEEDS_VALUE
-        service: null          # NEEDS_VALUE
-        tracked: null          # NEEDS_VALUE
-    notes: null                # NEEDS_VALUE
+    store_subscription_monthly: null # NEEDS_VALUE
+    shipping_bands: null       # NEEDS_VALUE -- my own postage costs
+    notes: >-
+      Fee base includes shipping and tax, so the effective rate on the item
+      price alone always exceeds 13.25%.
 
   tcgplayer:
     display_name: TCGplayer
-    currency: null             # NEEDS_VALUE
-    source: null               # NEEDS_VALUE  https://help.tcgplayer.com/hc/en-us/articles/201853component-fees
-    checked_on: null           # NEEDS_VALUE
-    category: null             # NEEDS_VALUE
-    final_value_fee_pct: null  # NEEDS_VALUE
-    payment_pct: null          # NEEDS_VALUE
-    payment_fixed: null        # NEEDS_VALUE
+    currency: USD
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    primary_source_url: "https://help.tcgplayer.com/hc/en-us/articles/201853117-Seller-Fees"
+    category: "Trading cards (singles)"
+    fee_schedule:
+      base: item_plus_shipping_plus_tax
+      bands:
+        - up_to: null
+          pct: 0.1075
+      payment:
+        pct: 0.025
+        base: item_plus_shipping_plus_tax
+        fixed: 0.30
+      source: "secondary, unverified"
+      checked_on: "2026-08-13"
+      confidence: low
     fx_conversion_pct: null    # NEEDS_VALUE
     international_fee_pct: null # NEEDS_VALUE
     store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands:
-      - max_grams: null        # NEEDS_VALUE
-        cost: null             # NEEDS_VALUE
-        service: null          # NEEDS_VALUE
-        tracked: null          # NEEDS_VALUE
-    notes: null                # NEEDS_VALUE  graded slabs may fall under a different fee schedule
+    shipping_bands: null       # NEEDS_VALUE
+    notes: >-
+      10.75% commission plus 2.5% and $0.30 processing, all on the full order
+      total including tax.
 
-  cardmarket:
-    display_name: Cardmarket
-    currency: null             # NEEDS_VALUE
-    source: null               # NEEDS_VALUE  https://help.cardmarket.com/en/CommissionFees
-    checked_on: null           # NEEDS_VALUE
-    category: null             # NEEDS_VALUE
-    final_value_fee_pct: null  # NEEDS_VALUE
-    payment_pct: null          # NEEDS_VALUE
-    payment_fixed: null        # NEEDS_VALUE
+  mercari_us:
+    display_name: Mercari US
+    currency: USD
+    source: "secondary, unverified"
+    checked_on: "2026-08-13"
+    confidence: low
+    primary_source_url: "https://www.mercari.com/help_center/"
+    category: "Trading cards"
+    fee_schedule:
+      # The source gave the rates but NOT what they multiply. A percentage
+      # without its base is not a fee, so this stays null and the engine
+      # refuses rather than assuming item-only and understating the stack.
+      base: null               # NEEDS_VALUE -- fee base not stated by the source
+      bands:
+        - up_to: null
+          pct: 0.10
+      payment:
+        pct: 0.029
+        fixed: 0.50
+      source: "secondary, unverified"
+      checked_on: "2026-08-13"
+      confidence: low
+      blocking_gap: "base"
     fx_conversion_pct: null    # NEEDS_VALUE
     international_fee_pct: null # NEEDS_VALUE
     store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands:
-      - max_grams: null        # NEEDS_VALUE
-        cost: null             # NEEDS_VALUE
-        service: null          # NEEDS_VALUE
-        tracked: null          # NEEDS_VALUE
-    notes: null                # NEEDS_VALUE
+    shipping_bands: null       # NEEDS_VALUE
+    notes: >-
+      10% + 2.9% + $0.50 per the secondary source. The fee base was not
+      stated, so this marketplace refuses until it is confirmed.
+
+  # ---- deliberately null and refusing -------------------------------------
 
   mercari_jp:
     display_name: Mercari Japan
-    currency: null             # NEEDS_VALUE  expected JPY
-    source: null               # NEEDS_VALUE  https://www.mercari.com/jp/help_center/
+    currency: null             # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
     checked_on: null           # NEEDS_VALUE
+    confidence: null           # NEEDS_VALUE
     category: null             # NEEDS_VALUE
-    final_value_fee_pct: null  # NEEDS_VALUE
-    payment_pct: null          # NEEDS_VALUE
-    payment_fixed: null        # NEEDS_VALUE
-    fx_conversion_pct: null    # NEEDS_VALUE  matters: JPY sale settling to home currency
+    fee_schedule: null         # NEEDS_VALUE
+    fx_conversion_pct: null    # NEEDS_VALUE -- matters: JPY sale settling to home currency
     international_fee_pct: null # NEEDS_VALUE
-    proxy_service_pct: null    # NEEDS_VALUE  if bought/sold via a proxy, their cut
+    proxy_service_pct: null    # NEEDS_VALUE
     proxy_service_fixed: null  # NEEDS_VALUE
     store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands:
-      - max_grams: null        # NEEDS_VALUE
-        cost: null             # NEEDS_VALUE
-        service: null          # NEEDS_VALUE
-        tracked: null          # NEEDS_VALUE
-    notes: null                # NEEDS_VALUE
+    shipping_bands: null       # NEEDS_VALUE
+    notes: "Deliberately unpopulated. Manual-entry tier for v1."
 
   snkrdunk:
     display_name: SNKRDUNK
     currency: null             # NEEDS_VALUE
     source: null               # NEEDS_VALUE
     checked_on: null           # NEEDS_VALUE
+    confidence: null           # NEEDS_VALUE
     category: null             # NEEDS_VALUE
-    final_value_fee_pct: null  # NEEDS_VALUE
-    payment_pct: null          # NEEDS_VALUE
-    payment_fixed: null        # NEEDS_VALUE
+    fee_schedule: null         # NEEDS_VALUE
+    authentication_fee: null   # NEEDS_VALUE
     fx_conversion_pct: null    # NEEDS_VALUE
     international_fee_pct: null # NEEDS_VALUE
-    authentication_fee: null   # NEEDS_VALUE  per-item authentication charge
     store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands:
-      - max_grams: null        # NEEDS_VALUE
-        cost: null             # NEEDS_VALUE
-        service: null          # NEEDS_VALUE
-        tracked: null          # NEEDS_VALUE
-    notes: null                # NEEDS_VALUE
+    shipping_bands: null       # NEEDS_VALUE
+    notes: "Deliberately unpopulated."
 
   xianyu:
     display_name: Xianyu
-    currency: null             # NEEDS_VALUE  expected CNY
+    currency: null             # NEEDS_VALUE
     source: null               # NEEDS_VALUE
     checked_on: null           # NEEDS_VALUE
+    confidence: null           # NEEDS_VALUE
     category: null             # NEEDS_VALUE
-    final_value_fee_pct: null  # NEEDS_VALUE
-    payment_pct: null          # NEEDS_VALUE
-    payment_fixed: null        # NEEDS_VALUE
+    fee_schedule: null         # NEEDS_VALUE
     fx_conversion_pct: null    # NEEDS_VALUE
     international_fee_pct: null # NEEDS_VALUE
-    proxy_service_pct: null    # NEEDS_VALUE  Xianyu is domestic-only in practice; a proxy is usually required
+    proxy_service_pct: null    # NEEDS_VALUE -- domestic-only in practice
     proxy_service_fixed: null  # NEEDS_VALUE
     store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands:
-      - max_grams: null        # NEEDS_VALUE
-        cost: null             # NEEDS_VALUE
-        service: null          # NEEDS_VALUE
-        tracked: null          # NEEDS_VALUE
-    notes: null                # NEEDS_VALUE  manual-entry tier source for Chinese printings
+    shipping_bands: null       # NEEDS_VALUE
+    notes: "Deliberately unpopulated. Manual-entry tier for Chinese printings."
 
-# Which venue each combo is assumed to sell on, unless overridden per call.
+  cardmarket:
+    display_name: Cardmarket
+    currency: null             # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+    checked_on: null           # NEEDS_VALUE
+    confidence: null           # NEEDS_VALUE
+    category: null             # NEEDS_VALUE
+    fee_schedule: null         # NEEDS_VALUE
+    fx_conversion_pct: null    # NEEDS_VALUE
+    international_fee_pct: null # NEEDS_VALUE
+    store_subscription_monthly: null # NEEDS_VALUE
+    shipping_bands: null       # NEEDS_VALUE
+    notes: "Deliberately unpopulated."
+
 region_defaults:
   sell_venue_by_combo:
-    one-piece:EN: null         # NEEDS_VALUE
-    one-piece:JP: null         # NEEDS_VALUE
-    one-piece:CN-S: null       # NEEDS_VALUE
-    pokemon:EN: null           # NEEDS_VALUE
-    pokemon:JP: null           # NEEDS_VALUE
-    pokemon:CN-S: null         # NEEDS_VALUE
-    pokemon:CN-T: null         # NEEDS_VALUE
+    optcg:EN: null             # NEEDS_VALUE
+    optcg:JP: null             # NEEDS_VALUE
+    optcg:CN-S: null           # NEEDS_VALUE
+    pkmn:EN: null              # NEEDS_VALUE
+    pkmn:JP: null              # NEEDS_VALUE
+    pkmn:CN-S: null            # NEEDS_VALUE
+    pkmn:CN-T: null            # NEEDS_VALUE
     riftbound:EN: null         # NEEDS_VALUE
-  default_days_to_sell: null   # NEEDS_VALUE  used for annualised ROI
-  days_to_sell_by_venue: null  # NEEDS_VALUE  optional map overriding the default
+  default_days_to_sell: null   # NEEDS_VALUE -- mine to measure
+  days_to_sell_by_venue: null  # NEEDS_VALUE
