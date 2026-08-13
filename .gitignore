@@ -28,6 +28,10 @@ probe/out/
 !tsconfig.json
 !contracts/**/*.json
 !config/**/*.json
+# Replay fixtures. Synthetic payloads only - shapes, error envelopes and
+# structural data hand-written to reproduce failure modes. No provider
+# response is ever copied in here, so the no-provider-data rule holds.
+!probe/fixtures/**/*.json
 
 # ─── Python ───────────────────────────────────────────────────
 __pycache__/

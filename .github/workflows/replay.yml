@@ -1,0 +1,57 @@
+name: replay
+
+# The instrument's own test suite. Runs on every push and PR, costs nothing,
+# and makes no network calls at all -- the probe's HTTP layer is swapped for a
+# fixture reader. Every logic bug this probe has shipped was visible in a saved
+# payload; this is the loop that catches the next one in seconds instead of a
+# day of provider quota.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # No secrets are provided to this job on purpose. If a code path ever
+      # tries to reach the network, it has no credentials to do it with, and
+      # the fixture reader has no transport at all.
+      - name: Replay fixtures
+        run: python -m probe.replay
+
+      - name: Offline scaffold still builds
+        run: python probe/coverage.py --offline --report /tmp/scaffold.md
+
+      - name: Report writer rejects price-shaped values
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, ".")
+          from probe import coverage as c
+          for bad in ["PSA 10 at $5200", "median 412.55", "USD 300"]:
+              try:
+                  c.scrub_report("x " + bad + " y")
+              except SystemExit:
+                  continue
+              raise SystemExit(f"price guard failed to block: {bad!r}")
+          print("price guard holds")
+          PY
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Instrument replay"
+            echo
+            python -m probe.replay 2>&1 | tail -n 20
+          } >> "$GITHUB_STEP_SUMMARY"

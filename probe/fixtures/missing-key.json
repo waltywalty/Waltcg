@@ -1,0 +1,192 @@
+{
+  "name": "missing-key",
+  "cards": "smoke",
+  "description": "APITCG_KEY unset. The provider must be UNTESTED with reason 'key absent' and must issue zero requests.",
+  "keys": {
+    "TCGAPI_KEY": "tcgfixturekey0001",
+    "APITCG_KEY": null,
+    "PPT_KEY": "pptfixturekey0001"
+  },
+  "rules": [
+    {
+      "match": "/v1/games",
+      "responses": [
+        {
+          "body": {
+            "data": [
+              {
+                "id": 55,
+                "slug": "pokemon",
+                "name": "Pokemon",
+                "card_count": 1
+              },
+              {
+                "id": 11,
+                "slug": "one-piece",
+                "name": "One Piece Card Game",
+                "card_count": 1
+              },
+              {
+                "id": 5,
+                "slug": "riftbound",
+                "name": "Riftbound: League of Legends Trading Card Game"
+              },
+              {
+                "id": 12,
+                "slug": "magic",
+                "name": "Magic: The Gathering"
+              }
+            ],
+            "meta": {
+              "page": 1,
+              "per_page": 4,
+              "total": 6,
+              "has_more": true
+            },
+            "rate_limit": {
+              "daily_limit": 1000,
+              "daily_remaining": 995,
+              "daily_reset": "2026-08-14T00:00:00Z"
+            }
+          }
+        },
+        {
+          "body": {
+            "data": [
+              {
+                "id": 19,
+                "slug": "pokemon-japan",
+                "name": "Pokemon Japan"
+              },
+              {
+                "id": 21,
+                "slug": "one-piece-japan",
+                "name": "One Piece Card Game Japan"
+              }
+            ],
+            "meta": {
+              "page": 2,
+              "per_page": 4,
+              "total": 6,
+              "has_more": false
+            },
+            "rate_limit": {
+              "daily_limit": 1000,
+              "daily_remaining": 994,
+              "daily_reset": "2026-08-14T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "match": "/v1/search",
+      "body": {
+        "data": [
+          {
+            "id": "tcg-1",
+            "name": "Fixture",
+            "rarity": "SR",
+            "artist": "Fixture Artist",
+            "releaseDate": "2022-12-02",
+            "number": "OP01-121",
+            "setName": "Fixture Set"
+          }
+        ],
+        "rate_limit": {
+          "daily_limit": 1000,
+          "daily_remaining": 900
+        }
+      }
+    },
+    {
+      "match": "/v1/prices",
+      "body": {
+        "data": {
+          "marketPrice": 1.0,
+          "currency": "USD",
+          "conditions": {
+            "nearMint": 1.0,
+            "lightlyPlayed": 0.9
+          }
+        },
+        "rate_limit": {
+          "daily_limit": 1000,
+          "daily_remaining": 890
+        }
+      }
+    },
+    {
+      "match": "apitcg",
+      "body": {
+        "data": [
+          {
+            "id": "should-never-be-fetched",
+            "name": "Fixture",
+            "rarity": "SR",
+            "artist": "Fixture Artist",
+            "releaseDate": "2022-12-02",
+            "number": "OP01-121",
+            "setName": "Fixture Set"
+          }
+        ],
+        "rate_limit": {
+          "daily_limit": 1000,
+          "daily_remaining": 900
+        }
+      }
+    },
+    {
+      "match": "pokemonpricetracker",
+      "body": {
+        "data": [
+          {
+            "id": "ppt-1"
+          }
+        ],
+        "id": "ppt-1",
+        "windowDays": 90,
+        "ebay": {
+          "salesByGrade": {
+            "PSA 10": {
+              "averagePrice": 1.0,
+              "count": 11
+            },
+            "PSA 9": {
+              "averagePrice": 1.0,
+              "count": 14
+            },
+            "PSA 8": {
+              "averagePrice": 1.0,
+              "count": 7
+            }
+          }
+        },
+        "populationByGrader": {
+          "PSA": {
+            "10": 10,
+            "9": 20
+          }
+        },
+        "totalPopulation": 30,
+        "combinedGemRate": 0.33,
+        "metadata": {
+          "apiCallsConsumed": {
+            "costPerCard": 4,
+            "cards": 1,
+            "ebay": 2,
+            "history": 1
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "provider_requests_max": {
+      "apitcg.com": 0
+    },
+    "provider_key_absent": [
+      "apitcg.com"
+    ]
+  }
+}

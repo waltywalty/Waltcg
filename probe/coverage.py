@@ -695,11 +695,53 @@ class Provider:
         return "ok" + (" -- " + ", ".join(bits) if bits else "")
 
 
+class ReplayTransport:
+    """Fixture-backed stand-in for send_exact(). Makes no network calls.
+
+    Installed by --replay so that every layer above the socket -- auth
+    retries, budget metering, body classification, extraction, scoring,
+    verdicts, report generation -- runs exactly as it does live. That is the
+    point: the bugs this project kept paying a day of quota to find were all
+    above this line.
+    """
+
+    def __init__(self, scenario):
+        self.rules = scenario.get("rules", [])
+        self.hits = {}
+        self.log = []
+
+    def __call__(self, url, headers, timeout):
+        for i, rule in enumerate(self.rules):
+            if not re.search(rule["match"], url):
+                continue
+            n = self.hits.get(i, 0)
+            self.hits[i] = n + 1
+            seq = rule.get("responses")
+            resp = seq[min(n, len(seq) - 1)] if seq else rule
+            status = resp.get("status", 200)
+            body = resp.get("body")
+            text = "" if body is None else json.dumps(body)
+            if resp.get("raw") is not None:          # non-JSON body fixtures
+                text = resp["raw"]
+            self.log.append({"url": url, "status": status, "rule": rule["match"],
+                             "auth_header": next((k for k in headers
+                                                  if k.lower() in ("x-api-key", "authorization")),
+                                                 None)})
+            return status, text, resp.get("headers", {})
+        self.log.append({"url": url, "status": 404, "rule": None, "auth_header": None})
+        return 404, json.dumps({"error": "no fixture matched this URL"}), {}
+
+
 class Prober:
-    def __init__(self, args):
+    def __init__(self, args, scenario=None):
         self.args = args
         self.offline = args.offline
-        self.use_cache = args.use_cache
+        self.use_cache = getattr(args, "use_cache", False)
+        self.scenario = scenario
+        # Swappable HTTP layer. Live runs use send_exact; --replay swaps in a
+        # fixture reader and nothing below it can reach the network.
+        self.transport = ReplayTransport(scenario) if scenario else send_exact
+        self.replaying = scenario is not None
         self.budget = args.budget
         self.timeout = args.timeout
         self.pinned = {}          # op -> url template that answered
@@ -712,20 +754,27 @@ class Prober:
         # One key per provider, never shared. apitcg.com and tcgapi.dev are
         # unrelated companies; sending one's key to the other is a credential
         # leak that also produces junk 401 data. Absent key => UNTESTED.
+        keys = (scenario or {}).get("keys")
+
+        def envkey(name):
+            if keys is not None:
+                return (keys.get(name) or "").strip()
+            return os.environ.get(name, "").strip()
+
         self.providers = {
-            "tcgapi.dev": Provider("tcgapi.dev", os.environ.get("TCGAPI_KEY", "").strip(),
+            "tcgapi.dev": Provider("tcgapi.dev", envkey("TCGAPI_KEY"),
                                    ["x-api-key"], "TCGAPI_KEY", "X-API-Key"),
             # apitcg.com documents a lowercase x-api-key and answers auth
             # failures with HTTP 200, so try that spelling first.
-            "apitcg.com": Provider("apitcg.com", os.environ.get("APITCG_KEY", "").strip(),
+            "apitcg.com": Provider("apitcg.com", envkey("APITCG_KEY"),
                                    ["x-api-key", "bearer"], "APITCG_KEY", "x-api-key"),
             "pokemonpricetracker.com": Provider("pokemonpricetracker.com",
-                                                os.environ.get("PPT_KEY", "").strip(),
+                                                envkey("PPT_KEY"),
                                                 ["bearer", "x-api-key"], "PPT_KEY"),
         }
         os.makedirs(RAW_DIR, exist_ok=True)
 
-    def preflight(self):
+    def preflight(self, quiet=False):
         """Report credential presence before spending a single request.
 
         The prefix goes to the run log only, never into COVERAGE.md -- that
@@ -733,7 +782,12 @@ class Prober:
         of a live credential is a different risk from a line in a run log.
         """
         rows = []
-        print("preflight: credentials", file=sys.stderr)
+
+        def say(msg):
+            if not quiet:
+                print(msg, file=sys.stderr)
+
+        say("preflight: credentials")
         for name, p in self.providers.items():
             fp = fingerprint_key(p.key)
             fp.update(provider=name, env=p.key_env)
@@ -741,22 +795,22 @@ class Prober:
             fp["auth_header"] = p.auth_header_name(p.auth_styles[0])
             fp["auth_style"] = p.auth_styles[0]
             if not fp["present"]:
-                print(f"  {name:<26} {p.key_env:<12} ABSENT -- provider marked UNTESTED, "
-                      "no requests will be made", file=sys.stderr)
+                say(f"  {name:<26} {p.key_env:<12} ABSENT -- provider marked UNTESTED, "
+                    "no requests will be made")
             else:
                 pref = f"{fp['prefix']}..." if fp["prefix"] else "(withheld, key under 8 chars)"
-                print(f"  {name:<26} {p.key_env:<12} present  len={fp['length']:<4} "
-                      f"prefix={pref}  header={fp['auth_header']!r}", file=sys.stderr)
+                say(f"  {name:<26} {p.key_env:<12} present  len={fp['length']:<4} "
+                    f"prefix={pref}  header={fp['auth_header']!r}")
         self.preflight_rows = rows
 
         # Game slugs are per-provider and must not be shared: apitcg.com takes
         # hyphenated string slugs, tcgapi.dev takes opaque numeric ids
         # discovered from /v1/games at step 0.
-        print("preflight: game slug substitution per combo", file=sys.stderr)
+        say("preflight: game slug substitution per combo")
         for game, lang, label in COMBOS:
             api = APITCG_GAME.get(game, game)
             tcg = self.tcgapi_game_slug.get((game, lang), "(resolved at step 0)")
-            print(f"  {label:<26} apitcg.com={api!r}  tcgapi.dev={tcg!r}", file=sys.stderr)
+            say(f"  {label:<26} apitcg.com={api!r}  tcgapi.dev={tcg!r}")
         return rows
 
     # -- raw request ------------------------------------------------------
@@ -768,6 +822,8 @@ class Prober:
         return os.path.join(d, f"{h}.json")
 
     def _record(self, path, rec):
+        if self.replaying:
+            return
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(rec, f, indent=2, ensure_ascii=False)
@@ -809,7 +865,7 @@ class Prober:
             sent = p.headers(style)
             body = ""
             try:
-                status, body, resp_headers = send_exact(url, sent, self.timeout)
+                status, body, resp_headers = self.transport(url, sent, self.timeout)
                 for hk in ("x-ratelimit-limit", "x-ratelimit-remaining",
                            "ratelimit-limit", "retry-after"):
                     if resp_headers.get(hk):
@@ -1314,15 +1370,18 @@ def confirmed_empty(rec):
 
 def score_card(res):
     a, b = res["tcgapi_catalog"], res["apitcg_catalog"]
-    # Never infer absence from a request that failed. If neither catalog gave
-    # a usable body, the answer is "we do not know", not "the card is absent".
-    untested_catalog = not (usable(a) or usable(b))
+    # Absence is a claim about EVERY source, so it needs an answer from every
+    # source. One catalog returning a validated empty result while the other
+    # errors is not "the card does not exist" -- it is one data point and one
+    # failure. Finding the card anywhere still settles the question positively.
+    found_anywhere = a.get("found") or b.get("found")
+    inconclusive = [s for s in (a, b) if not usable(s)]
 
     # catalog
-    if untested_catalog:
-        catalog = UNTESTED
-    elif not a.get("found") and not b.get("found"):
-        catalog = NONE
+    if not found_anywhere and inconclusive:
+        catalog = UNTESTED       # a source never answered; absence unprovable
+    elif not found_anywhere:
+        catalog = NONE           # every source answered, none had the card
     else:
         best = a if a.get("found") else b
         fields = [best.get("id"), best.get("artist"), best.get("rarity"), best.get("release_date")]
@@ -1382,8 +1441,11 @@ def score_card(res):
     return {"catalog": catalog, "price": price, "pop": pop,
             "psa10": gstat["psa10"], "psa9": gstat["psa9"], "psa8": gstat["psa8"],
             "graded_sales_total": sum(counts) if counts else None,
+            # catalog == NONE already requires every source to have answered,
+            # so this only adds that at least one of those answers was a
+            # validated empty envelope rather than a found-nothing guess.
             "catalog_absent_confirmed": (catalog == NONE
-                                         and (confirmed_empty(a) or confirmed_empty(b))),
+                                         and confirmed_empty(a) and confirmed_empty(b)),
             "graded_absent_confirmed": (gstat["psa10"] == NONE and confirmed_empty(g))}
 
 
@@ -1656,7 +1718,8 @@ def paid_tier_section(rows, prober):
             per_card_cost, unit_label = per_card, "requests (assumed)"
         need = int(round(WATCHLIST_CARDS * per_card_cost * REFRESHES_PER_DAY))
         enough = "yes" if need <= FREE_TIER_PER_DAY else "no"
-        cost_cell = f"{per_card_cost:.3g} {unit_label}"
+        # One decimal: a 2dp figure looks like money to scrub_report().
+        cost_cell = f"{per_card_cost:.1f} {unit_label}"
         cap_cards = (int(FREE_TIER_PER_DAY // per_card_cost) if per_card_cost else 0)
         if prov == "tcgapi.dev":
             used_for = "catalog + raw/per-condition price (every combo)"
@@ -2056,53 +2119,107 @@ def build_report(rows, prober, ran_live):
 # ---------------------------------------------------------------------------
 
 
+def select_cards(smoke=False):
+    """Full 21-card set, or one card per game for the smoke run."""
+    if not smoke:
+        return list(CARDS)
+    picked, seen = [], set()
+    for card in CARDS:
+        if card["game"] not in seen and card["lang"] == "EN":
+            picked.append(card)
+            seen.add(card["game"])
+    return picked
+
+
+def run_pipeline(prober, cards, quiet=False):
+    """Preflight -> step 0 -> cards -> aggregate. Shared by live and replay.
+
+    replay.py drives this exact function against fixtures, so anything it
+    verifies is the same code path a live run takes.
+    """
+    def log(msg):
+        if not quiet:
+            print(msg, file=sys.stderr)
+
+    prober.preflight(quiet=quiet)
+    log("step 0: tcgapi.dev /v1/games")
+    prober.games = probe_games(prober)
+    if prober.games["reached"]:
+        log(f"  {len(prober.games['games'])} games; riftbound="
+            f"{prober.games['riftbound']}; language dimension="
+            f"{prober.games['language_dimension']}; complete={prober.games['complete']}")
+
+    results = []
+    for card in cards:
+        log(f"probing {card['game']}/{card['lang']}: {card['name']}")
+        results.append(probe_card(prober, card))
+    return results, aggregate(results)
+
+
 def main():
     ap = argparse.ArgumentParser(description="waltcg source-coverage probe")
     ap.add_argument("--offline", action="store_true",
                     help="make no network calls; emit the UNTESTED scaffold")
     ap.add_argument("--use-cache", action="store_true",
                     help="replay cached responses in probe/out/ before spending budget")
+    ap.add_argument("--replay", metavar="FIXTURE",
+                    help="run the whole pipeline against a fixture scenario, zero network")
+    ap.add_argument("--smoke", action="store_true",
+                    help="3 cards, one per game -- prove the instrument before "
+                         "spending the full budget")
+    ap.add_argument("--report", metavar="PATH", default=REPORT_PATH,
+                    help="where to write the markdown report")
     ap.add_argument("--budget", type=int, default=int(os.environ.get("PROBE_BUDGET", "90")),
                     help="max requests per provider (free tiers are 100/day)")
     ap.add_argument("--timeout", type=int, default=20)
     args = ap.parse_args()
 
-    prober = Prober(args)
+    scenario = None
+    if args.replay:
+        with open(args.replay, encoding="utf-8") as f:
+            scenario = json.load(f)
+        print(f"REPLAY -- {scenario.get('name', args.replay)} (no network)", file=sys.stderr)
 
-    prober.preflight()
+    # A replay must never overwrite the committed report with fixture output.
+    if args.replay and args.report == REPORT_PATH:
+        os.makedirs(OUT_DIR, exist_ok=True)
+        args.report = os.path.join(OUT_DIR, "replay-COVERAGE.md")
 
-    # Step 0: inventory the catalog before spending anything on cards.
-    print("step 0: tcgapi.dev /v1/games", file=sys.stderr)
-    prober.games = probe_games(prober)
-    if prober.games["reached"]:
-        print(f"  {len(prober.games['games'])} games; riftbound="
-              f"{prober.games['riftbound']}; language dimension="
-              f"{prober.games['language_dimension']}", file=sys.stderr)
+    prober = Prober(args, scenario=scenario)
+    cards = select_cards(smoke=args.smoke or (scenario or {}).get("cards") == "smoke")
+    if args.smoke:
+        print(f"SMOKE RUN -- {len(cards)} cards, one per game", file=sys.stderr)
 
-    results = []
-    for card in CARDS:
-        print(f"probing {card['game']}/{card['lang']}: {card['name']}", file=sys.stderr)
-        results.append(probe_card(prober, card))
+    results, rows = run_pipeline(prober, cards)
 
-    os.makedirs(OUT_DIR, exist_ok=True)
-    # Full results, prices included, stay here. probe/out/ is gitignored.
-    with open(os.path.join(OUT_DIR, "results.json"), "w", encoding="utf-8") as f:
-        json.dump({"generated_at": now_iso(), "results": results,
-                   "attempts": prober.attempts,
-                   "pinned": prober.pinned}, f, indent=2, ensure_ascii=False, default=str)
+    if not args.replay:
+        os.makedirs(OUT_DIR, exist_ok=True)
+        # Full results, prices included, stay here. probe/out/ is gitignored.
+        with open(os.path.join(OUT_DIR, "results.json"), "w", encoding="utf-8") as f:
+            json.dump({"generated_at": now_iso(), "results": results,
+                       "attempts": prober.attempts,
+                       "pinned": prober.pinned}, f, indent=2, ensure_ascii=False, default=str)
 
-    rows = aggregate(results)
     ran_live = any(p.requests for p in prober.providers.values())
     report = build_report(rows, prober, ran_live)
     report = scrub_report(report, prober.safe_tokens)
-    with open(REPORT_PATH, "w", encoding="utf-8") as f:
+    with open(args.report, "w", encoding="utf-8") as f:
         f.write(report)
 
-    print(f"\nwrote {REPORT_PATH}", file=sys.stderr)
+    print(f"\nwrote {args.report}", file=sys.stderr)
     for r in rows:
-        print(f"  {r['combo']:<16} {r['verdict']}", file=sys.stderr)
+        print(f"  {r['combo']:<24} {r['verdict']}", file=sys.stderr)
     for p in prober.providers.values():
         print(f"  [{p.name}] {p.requests} requests, {p.status_note()}", file=sys.stderr)
+
+    if args.smoke:
+        broken = [p.name for p in prober.providers.values()
+                  if p.key and (p.discovery_failed or not p.requests)]
+        if broken:
+            print(f"\nSMOKE FAILED -- instrument is not working for: {', '.join(broken)}. "
+                  "Fix before spending the full budget.", file=sys.stderr)
+            return 1
+        print("\nSMOKE PASSED -- safe to run the full 21-card probe.", file=sys.stderr)
     return 0
 
 

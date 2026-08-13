@@ -1,0 +1,89 @@
+{
+  "name": "chinese-absence-needs-proof",
+  "cards": "full",
+  "description": "The exact historical failure: both catalogs answer HTTP 200 with an error object for every card. The Chinese combos are predicted absent, but a failed request is not evidence of absence -- they must come back INCONCLUSIVE, never MANUAL TIER.",
+  "keys": {
+    "TCGAPI_KEY": "tcgfixturekey0001",
+    "APITCG_KEY": "apifixturekey0001",
+    "PPT_KEY": "pptfixturekey0001"
+  },
+  "rules": [
+    {
+      "match": "/v1/games",
+      "body": {
+        "data": [
+          {
+            "id": 55,
+            "slug": "pokemon",
+            "name": "Pokemon"
+          },
+          {
+            "id": 11,
+            "slug": "one-piece",
+            "name": "One Piece Card Game"
+          },
+          {
+            "id": 5,
+            "slug": "riftbound",
+            "name": "Riftbound: League of Legends Trading Card Game"
+          },
+          {
+            "id": 19,
+            "slug": "pokemon-japan",
+            "name": "Pokemon Japan"
+          }
+        ],
+        "meta": {
+          "page": 1,
+          "per_page": 50,
+          "total": 4,
+          "has_more": false
+        },
+        "rate_limit": {
+          "daily_limit": 1000,
+          "daily_remaining": 990
+        }
+      }
+    },
+    {
+      "match": "/v1/search",
+      "body": {
+        "error": "Invalid API key"
+      }
+    },
+    {
+      "match": "/v1/prices",
+      "body": {
+        "error": "Invalid API key"
+      }
+    },
+    {
+      "match": "apitcg",
+      "body": {
+        "error": "Invalid API key"
+      }
+    },
+    {
+      "match": "pokemonpricetracker",
+      "body": {
+        "error": "Invalid API key"
+      }
+    }
+  ],
+  "expect": {
+    "confirmed_absences": 0,
+    "verdict_not": {
+      "any": [
+        "MANUAL TIER",
+        "NO GO",
+        "RAW ONLY",
+        "GO"
+      ]
+    },
+    "verdict_contains": {
+      "Pokemon CN-Simplified": "UNTESTED",
+      "Pokemon CN-Traditional": "UNTESTED",
+      "One Piece CN-Simplified": "UNTESTED"
+    }
+  }
+}

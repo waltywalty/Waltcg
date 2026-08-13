@@ -1,0 +1,119 @@
+{
+  "name": "template-404",
+  "cards": "smoke",
+  "description": "Search templates all 404. Discovery must abort after the first card rather than repeating across every card.",
+  "keys": {
+    "TCGAPI_KEY": "tcgfixturekey0001",
+    "APITCG_KEY": "apifixturekey0001",
+    "PPT_KEY": "pptfixturekey0001"
+  },
+  "rules": [
+    {
+      "match": "/v1/games",
+      "responses": [
+        {
+          "body": {
+            "data": [
+              {
+                "id": 55,
+                "slug": "pokemon",
+                "name": "Pokemon",
+                "card_count": 1
+              },
+              {
+                "id": 11,
+                "slug": "one-piece",
+                "name": "One Piece Card Game",
+                "card_count": 1
+              },
+              {
+                "id": 5,
+                "slug": "riftbound",
+                "name": "Riftbound: League of Legends Trading Card Game"
+              },
+              {
+                "id": 12,
+                "slug": "magic",
+                "name": "Magic: The Gathering"
+              }
+            ],
+            "meta": {
+              "page": 1,
+              "per_page": 4,
+              "total": 6,
+              "has_more": true
+            },
+            "rate_limit": {
+              "daily_limit": 1000,
+              "daily_remaining": 995,
+              "daily_reset": "2026-08-14T00:00:00Z"
+            }
+          }
+        },
+        {
+          "body": {
+            "data": [
+              {
+                "id": 19,
+                "slug": "pokemon-japan",
+                "name": "Pokemon Japan"
+              },
+              {
+                "id": 21,
+                "slug": "one-piece-japan",
+                "name": "One Piece Card Game Japan"
+              }
+            ],
+            "meta": {
+              "page": 2,
+              "per_page": 4,
+              "total": 6,
+              "has_more": false
+            },
+            "rate_limit": {
+              "daily_limit": 1000,
+              "daily_remaining": 994,
+              "daily_reset": "2026-08-14T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "match": "/v1/search",
+      "status": 404,
+      "body": {
+        "error": "not found"
+      }
+    },
+    {
+      "match": "/v1/prices",
+      "status": 404,
+      "body": {
+        "error": "not found"
+      }
+    },
+    {
+      "match": "apitcg",
+      "status": 404,
+      "body": {
+        "error": "not found"
+      }
+    },
+    {
+      "match": "pokemonpricetracker",
+      "status": 404,
+      "body": {
+        "error": "not found"
+      }
+    }
+  ],
+  "expect": {
+    "confirmed_absences": 0,
+    "provider_requests_max": {
+      "tcgapi.dev": 6,
+      "apitcg.com": 3
+    },
+    "discovery_aborted": true
+  }
+}

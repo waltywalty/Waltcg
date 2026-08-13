@@ -5,6 +5,12 @@ name: probe
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "structure (~3 reqs) | smoke (~14) | full (smoke first, then 21 cards)"
+        required: true
+        type: choice
+        default: structure
+        options: [structure, smoke, full]
       budget:
         description: "Max requests per provider (free tier is 100/day)"
         required: false
@@ -35,7 +41,11 @@ jobs:
           python-version: "3.11"
 
       # No pip install: probe/coverage.py is stdlib-only on purpose.
-      - name: Run coverage probe
+      # The instrument's own tests, before spending a single request.
+      - name: Replay fixtures (offline gate)
+        run: python -m probe.replay
+
+      - name: Run probe
         env:
           # One key per provider. These are unrelated companies -- a missing
           # key makes its columns UNTESTED, it never borrows another's.
@@ -53,7 +63,23 @@ jobs:
           APITCG_CATALOG_URLS: ${{ vars.APITCG_CATALOG_URLS }}
           PPT_CARD_URLS: ${{ vars.PPT_CARD_URLS }}
           PPT_POP_URLS: ${{ vars.PPT_POP_URLS }}
-        run: python probe/coverage.py
+        run: |
+          set -euo pipefail
+          case "${{ inputs.mode }}" in
+            structure)
+              python -m probe.structure
+              ;;
+            smoke)
+              python probe/coverage.py --smoke
+              ;;
+            full)
+              # Smoke first. It exits non-zero if the instrument is not
+              # working, and set -e stops us before the full budget is spent.
+              python probe/coverage.py --smoke --report /tmp/smoke-COVERAGE.md
+              echo "smoke passed; running the full 21-card probe"
+              python probe/coverage.py
+              ;;
+          esac
 
       # probe/out/ holds raw provider responses, including price values. It is
       # gitignored and deliberately NOT uploaded as a build artifact: artifacts
@@ -66,13 +92,14 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add --force probe/COVERAGE.md
+          [ -f probe/STRUCTURE.md ] && git add --force probe/STRUCTURE.md || true
 
           if git diff --cached --quiet; then
             echo "COVERAGE.md unchanged; nothing to commit."
             exit 0
           fi
 
-          git commit -m "probe: refresh source coverage matrix"
+          git commit -m "probe: refresh ${{ inputs.mode }} results"
 
           for attempt in 1 2 3 4; do
             if git push origin HEAD:"${GITHUB_REF_NAME}"; then
