@@ -55,3 +55,40 @@ jobs:
             echo
             python -m probe.replay 2>&1 | tail -n 20
           } >> "$GITHUB_STEP_SUMMARY"
+
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      # Golden fixtures are hand-computable and the property tests pin the
+      # shape of the models: EV falls as cost rises, rises with P(target),
+      # annualised ROI falls as turnaround grows, and money is never a float.
+      - name: EV model tests
+        run: python -m unittest discover -s tests -v
+
+      # The shipped config is deliberately all-null. Assert the engine REFUSES
+      # rather than warning or defaulting -- if this ever passes, a default has
+      # crept in somewhere and every number downstream is fiction.
+      - name: Null config must refuse to compute
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, ".")
+          from engine.ev import Config, ConfigIncomplete, Money, raw_to_graded_ev
+          cfg = Config.load()
+          try:
+              raw_to_graded_ev("ci", Money("100", "USD"), "regular",
+                               {"10": Money("500", "USD")}, cfg=cfg)
+          except ConfigIncomplete as e:
+              print(f"refused as designed, {len(e.missing)} gaps named")
+              sys.exit(0)
+          raise SystemExit("FAIL: engine computed against a null config")
+          PY

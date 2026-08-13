@@ -1,0 +1,134 @@
+# BGS subgrade -> PSA crossover heuristics (Model C).
+#
+# STATUS: SCHEMA ONLY for the probabilities. The RULE STRUCTURE below is
+# asserted; the numbers attached to each rule are null and carry NEEDS_VALUE.
+# The engine REFUSES to compute a crossover while any required probability is
+# null.
+#
+# The structural claims encoded here -- which are hobby heuristics, not
+# measured facts, and are labelled as such:
+#   * A BGS 9.5 with balanced subgrades (no subgrade below 9.5) crosses to
+#     PSA 10 far more often than an unbalanced one.
+#   * A single 9.0 subgrade on CORNERS or SURFACE is a hard red flag: those
+#     are the two categories PSA weighs most heavily and is least forgiving
+#     of.
+#   * CENTERING is where PSA is most forgiving relative to BGS. A 9.0
+#     centering subgrade is materially less damaging to crossover odds than a
+#     9.0 on corners or surface.
+#
+# Every probability below MUST be sourced before use. `source` should name
+# where the number came from -- a population study, a tracked personal
+# submission log, or a named community dataset with its sample size. A number
+# with `source: null` is a guess and the engine will not run on it.
+
+schema_version: 1
+config_kind: crossover_rules
+
+meta:
+  verified_on: null            # NEEDS_VALUE
+  verified_by: null            # NEEDS_VALUE
+  staleness_warn_days: 60
+  evidence_quality: null       # NEEDS_VALUE  "measured" | "community" | "anecdote"
+  sample_size: null            # NEEDS_VALUE  n behind these probabilities; null means unsupported
+
+# Subgrade category weights, most to least punishing on a PSA crossover.
+subgrade_severity:
+  corners: hard_red_flag
+  surface: hard_red_flag
+  edges: moderate
+  centering: most_forgiving
+
+rules:
+  # Each rule matches on the BGS overall grade plus a subgrade pattern, and
+  # yields P(PSA assigns target grade) on a crossover attempt.
+  - id: bgs_95_balanced
+    description: BGS 9.5, no subgrade below 9.5
+    match:
+      bgs_overall: 9.5
+      min_subgrade: 9.5
+    p_psa_10: null             # NEEDS_VALUE
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+  - id: bgs_95_single_9_centering
+    description: BGS 9.5 with exactly one 9.0 subgrade, and it is centering
+    match:
+      bgs_overall: 9.5
+      single_9_category: centering
+    p_psa_10: null             # NEEDS_VALUE  expected HIGHER than the corners/surface case
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+  - id: bgs_95_single_9_corners
+    description: BGS 9.5 with exactly one 9.0 subgrade on corners -- hard red flag
+    match:
+      bgs_overall: 9.5
+      single_9_category: corners
+    p_psa_10: null             # NEEDS_VALUE  expected LOWER than the centering case
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+  - id: bgs_95_single_9_surface
+    description: BGS 9.5 with exactly one 9.0 subgrade on surface -- hard red flag
+    match:
+      bgs_overall: 9.5
+      single_9_category: surface
+    p_psa_10: null             # NEEDS_VALUE
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+  - id: bgs_95_single_9_edges
+    description: BGS 9.5 with exactly one 9.0 subgrade on edges
+    match:
+      bgs_overall: 9.5
+      single_9_category: edges
+    p_psa_10: null             # NEEDS_VALUE
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+  - id: bgs_95_multi_9
+    description: BGS 9.5 with two or more 9.0 subgrades
+    match:
+      bgs_overall: 9.5
+      count_9_subgrades_min: 2
+    p_psa_10: null             # NEEDS_VALUE
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+  - id: bgs_9_any
+    description: BGS 9.0 overall, any subgrade pattern
+    match:
+      bgs_overall: 9.0
+    p_psa_10: null             # NEEDS_VALUE
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+  - id: bgs_10_pristine
+    description: BGS 10 Pristine
+    match:
+      bgs_overall: 10
+    p_psa_10: null             # NEEDS_VALUE
+    p_psa_9: null              # NEEDS_VALUE
+    p_psa_below_9: null        # NEEDS_VALUE
+    source: null               # NEEDS_VALUE
+
+# crack_resubmit path only: the slab is destroyed, so damage is possible.
+crack_and_resubmit:
+  p_damage_during_crack: null  # NEEDS_VALUE  non-zero by definition; 0 is not a valid answer
+  damage_residual_value_pct: null # NEEDS_VALUE  fraction of raw value retained if damaged
+  source: null                 # NEEDS_VALUE
+
+# psa_crossover path only: minimum grade specified, card returns in its
+# original slab if PSA will not hit it. No grade risk, only fees and lockup.
+psa_crossover_path:
+  fee_charged_on_failure: null # NEEDS_VALUE  true/false -- does PSA charge if it declines?
+  fee_on_failure: null         # NEEDS_VALUE
+  original_slab_returned: true # structural: this is what defines the path
+  source: null                 # NEEDS_VALUE

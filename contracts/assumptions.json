@@ -1,0 +1,146 @@
+{
+  "_README": [
+    "Assumption registry. This file did not exist when engine/ev was built --",
+    "docs/GOAL.md and contracts/assumptions.json were both absent from the repo",
+    "and from its entire history. It is scaffolded here because Models A, B and",
+    "E reference it by name.",
+    "",
+    "STATUS: SCHEMA ONLY. Every value is null and carries a NEEDS_VALUE note.",
+    "The engine REFUSES to compute while any required value is null.",
+    "",
+    "An assumption belongs here when it is a JUDGEMENT rather than an",
+    "observation. Observations belong in a dated config or in the store.",
+    "Every entry carries a rationale and a source so the judgement can be",
+    "argued with later."
+  ],
+  "schema_version": 1,
+  "meta": {
+    "verified_on": null,
+    "verified_by": null,
+    "staleness_warn_days": 60
+  },
+
+  "submission_selection_haircut": {
+    "value": null,
+    "NEEDS_VALUE": "Multiplier applied to P(10) from the population prior, with the removed mass reassigned to P(9). Decimal fraction in (0, 1]; 1.0 means no haircut.",
+    "rationale": [
+      "Population reports count cards people CHOSE to submit. Submitters",
+      "pre-screen, so the pool that reaches the grader is better than the",
+      "pool in the wild. Reading a population gem rate as P(10 | this card in",
+      "my hands) therefore overstates it. This haircut is the correction.",
+      "It is a judgement, not a measurement, which is why it lives here."
+    ],
+    "source": null,
+    "suggested_calibration": "Track your own submissions: realised P(10) divided by population gem rate, over at least 30 cards, per game and era."
+  },
+
+  "regrade_conditional_prior": {
+    "value": null,
+    "NEEDS_VALUE": "P(10 | card already in a PSA 9 slab, no condition read supplied). Decimal fraction. Model B's DEFAULT, deliberately conservative.",
+    "rationale": [
+      "A card already graded 9 is not a random card. PSA saw it and declined",
+      "to give it a 10, so the base gem rate is the wrong prior -- it is",
+      "conditioned on information the grader already acted on. Model B is",
+      "forbidden from using the base gem rate for this reason.",
+      "Without a condition read this number should be low enough that the",
+      "model discourages the resubmission by default."
+    ],
+    "source": null,
+    "conditional_adjustments": {
+      "_NEEDS_VALUE": "Multipliers applied to the prior once the user supplies a condition read. Each is a decimal multiplier on the default.",
+      "centering_pct_ge_60_40": null,
+      "centering_pct_ge_55_45": null,
+      "corner_flag_clean": null,
+      "surface_flag_clean": null,
+      "edge_flag_clean": null,
+      "any_flag_dirty": null
+    },
+    "p_downgrade_below_9": {
+      "value": null,
+      "NEEDS_VALUE": "P(regrade comes back below 9). Non-zero: the card is re-examined by a different grader on a different day.",
+      "source": null
+    }
+  },
+
+  "empirical_bayes": {
+    "prior_strength_cards": {
+      "value": null,
+      "NEEDS_VALUE": "Beta-Binomial prior strength in pseudo-counts, i.e. how many set-level observations the prior is worth. Higher = shrink small-population cards harder toward the set distribution.",
+      "source": null
+    },
+    "min_card_pop_for_own_prior": {
+      "value": null,
+      "NEEDS_VALUE": "Below this total population, the card's own distribution is not used at all and the set-level distribution is used directly.",
+      "source": null
+    },
+    "fallback_when_no_set_data": {
+      "value": null,
+      "NEEDS_VALUE": "What to do when neither card nor set has population data: must be the string 'refuse'. Guessing a grade distribution is how a break-even probability becomes fiction.",
+      "source": null
+    }
+  },
+
+  "pull_rate_estimates": {
+    "_NEEDS_VALUE": "Model E inputs. ALL of these are flagged low_confidence by construction: community pull-rate data is self-reported, survivorship-biased toward hits, and rarely states a denominator. Model E stamps every result with this flag and it cannot be turned off.",
+    "confidence": "low",
+    "confidence_is_immutable": true,
+    "by_product": {
+      "_example_shape": {
+        "product_id": "the sealed product this applies to",
+        "packs_per_box": null,
+        "cards_per_pack": null,
+        "rates": {
+          "_NEEDS_VALUE": "Map of rarity_band -> probability per pack. Must sum to <= 1 across mutually exclusive bands.",
+          "example_rarity_band": null
+        },
+        "source": null,
+        "sample_size": null,
+        "collected_on": null
+      }
+    }
+  },
+
+  "days_to_sell": {
+    "value": null,
+    "NEEDS_VALUE": "Expected days from listing to settled sale. Feeds annualised ROI together with grading turnaround. Overridable per venue in config/fees.yaml.",
+    "source": null
+  },
+
+  "tax": {
+    "acquisition_tax_pct": {
+      "value": null,
+      "NEEDS_VALUE": "Sales tax / VAT paid on acquisition, as a decimal fraction. 0 if none, not null.",
+      "source": null
+    },
+    "capital_gains_treatment": {
+      "value": null,
+      "NEEDS_VALUE": "String describing treatment. Models report PRE-TAX returns; this is recorded so the omission is explicit rather than forgotten.",
+      "source": null
+    }
+  },
+
+  "min_comp_sample_size": {
+    "value": 5,
+    "window_days": 90,
+    "rationale": [
+      "Model D suppresses any card where either grade's comp sample is below",
+      "this in the window. A screen built on three sales is noise wearing a",
+      "suit. This one has a real default because it is a methodology floor,",
+      "not a market observation."
+    ],
+    "source": "waltcg methodology decision"
+  },
+
+  "fx": {
+    "rate_source": {
+      "value": null,
+      "NEEDS_VALUE": "Where FX rates come from, e.g. a named daily reference rate. Every converted amount stores the rate used and that rate's as-of date.",
+      "source": null
+    },
+    "conversion_spread_pct": {
+      "value": null,
+      "NEEDS_VALUE": "Spread paid on an actual currency conversion, separate from the marketplace's fx_conversion_pct. 0 if none, not null.",
+      "source": null
+    }
+  }
+}

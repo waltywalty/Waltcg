@@ -1,0 +1,3 @@
+# The probe (probe/) is deliberately stdlib-only so CI needs no install.
+# The engine reads dated YAML config, which needs a parser.
+PyYAML>=6.0
