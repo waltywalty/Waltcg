@@ -152,6 +152,25 @@ def raw_to_graded_ev(
         proceeds_by_grade[str(grade)] = net_proceeds(value, fvf, pay_pct, fixed, ship_out)
 
     probs = grade_probs.probs
+
+    # Universal-claim rule (see docs/decisions.md ADR-0001). An EV is a claim
+    # about EVERY branch the distribution puts mass on. A grade with weight but
+    # no comp is not worth zero -- it is unknown, and silently treating it as
+    # zero understates EV while still returning a confident-looking number.
+    # "This card has no PSA 10 comps" is the same shape of universal claim as
+    # "no Western source carries this printing", and gets the same answer:
+    # refuse, name the gap, do not compute around it.
+    uncomped = sorted(g for g, p in probs.items()
+                      if p > 0 and g not in proceeds_by_grade)
+    if uncomped:
+        return Refusal(
+            MODEL, "missing comps for graded outcomes",
+            "the grade distribution puts weight on "
+            + ", ".join(f"grade {g} (p={probs[g]})" for g in uncomped)
+            + " but no sale comp was supplied for those grades. An unpriced branch is "
+              "unknown, not worthless; pricing it at zero would understate EV and still "
+              "return a number that reads like a finding.",
+            missing=[f"comps_by_grade[{g!r}]" for g in uncomped], subject=card_uid)
     ev_proceeds = expected_proceeds(probs, proceeds_by_grade, currency)
     ev = ev_proceeds - total_cost
 

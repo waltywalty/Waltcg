@@ -223,6 +223,31 @@ class GoldenModelA(unittest.TestCase):
         self.assertIsInstance(r, Refusal)
         self.assertIn("currency", r.reason)
 
+    def test_missing_comp_for_a_weighted_grade_refuses(self):
+        """ADR-0001: an EV is a claim about every branch carrying mass.
+
+        Before this rule the model silently priced the un-comped PSA 10 branch
+        at zero and returned EV -143.00 -- a confident number meaning "do not
+        grade this", when the truth was "we do not know what a 10 sells for".
+        """
+        cfg = filled_config()
+        r = raw_to_graded_ev(
+            "golden/no-psa10-comp", usd(200), "regular",
+            {"9": usd(200), "8": usd(100)}, cfg=cfg,
+            grade_probs=_dist({"10": "0.5", "9": "0.4", "8": "0.1"}))
+        self.assertIsInstance(r, Refusal)
+        self.assertEqual(r.reason, "missing comps for graded outcomes")
+        self.assertEqual(r.missing, ["comps_by_grade['10']"])
+
+    def test_zero_weight_grade_needs_no_comp(self):
+        """The rule is about branches that carry mass, not every conceivable grade."""
+        cfg = filled_config()
+        r = raw_to_graded_ev(
+            "golden/zero-weight", usd(200), "regular",
+            {"10": usd(1000), "9": usd(200)}, cfg=cfg,
+            grade_probs=_dist({"10": "0.5", "9": "0.5", "8": "0"}))
+        self.assertTrue(r.ok)
+
     def test_paused_tier_is_refused(self):
         cfg = filled_config()
         r = raw_to_graded_ev("golden/paused", usd(200), "paused_tier",
