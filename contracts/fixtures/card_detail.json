@@ -22,13 +22,13 @@
     {
       "grade": "raw",
       "price": {
-        "amount": "140",
+        "amount": "140.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
       "price_meta": {
-        "value": "140",
+        "value": "140.00",
         "source": "tcgapi.dev",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "medium",
@@ -67,13 +67,13 @@
     {
       "grade": "8",
       "price": {
-        "amount": "190",
+        "amount": "88.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
       "price_meta": {
-        "value": "190",
+        "value": "88.00",
         "source": "tcgapi.dev",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "medium",
@@ -112,13 +112,13 @@
     {
       "grade": "9",
       "price": {
-        "amount": "320",
+        "amount": "142.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
       "price_meta": {
-        "value": "320",
+        "value": "142.00",
         "source": "tcgapi.dev",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "medium",
@@ -157,13 +157,13 @@
     {
       "grade": "10",
       "price": {
-        "amount": "1180",
+        "amount": "540.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
       "price_meta": {
-        "value": "1180",
+        "value": "540.00",
         "source": "tcgapi.dev",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "medium",
@@ -215,7 +215,7 @@
       "as_of": "2026-08-12",
       "grade": "raw",
       "price": {
-        "amount": "138.50",
+        "amount": "140.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
@@ -235,7 +235,7 @@
       "as_of": "2026-08-12",
       "grade": "10",
       "price": {
-        "amount": "1180.00",
+        "amount": "540.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null

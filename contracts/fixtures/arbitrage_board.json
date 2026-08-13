@@ -21,6 +21,12 @@
       "path": "psa_crossover",
       "buy_venue": "ebay",
       "sell_venue": "ebay",
+      "buy_cost": {
+        "amount": "1180.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
       "gross_spread": {
         "amount": "310.00",
         "currency": "USD",
@@ -28,14 +34,14 @@
         "fx_as_of": null
       },
       "net_spread": {
-        "amount": "176.40",
+        "amount": "118.90",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
       "friction": {
         "marketplace_fee": {
-          "amount": "41.18",
+          "amount": "98.71",
           "currency": "USD",
           "fx_rate_used": null,
           "fx_as_of": null
@@ -63,7 +69,7 @@
         "needs_primary_verification": true
       },
       "net_margin_pct": {
-        "value": "14.90",
+        "value": "10.08",
         "source": "engine:model_c",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "medium",
@@ -104,6 +110,12 @@
       "path": "cross_market",
       "buy_venue": "mercari_jp",
       "sell_venue": "ebay",
+      "buy_cost": {
+        "amount": "1006.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
       "gross_spread": {
         "amount": "240.00",
         "currency": "USD",
@@ -111,14 +123,14 @@
         "fx_as_of": null
       },
       "net_spread": {
-        "amount": "91.60",
+        "amount": "40.85",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
       "friction": {
         "marketplace_fee": {
-          "amount": "31.80",
+          "amount": "82.55",
           "currency": "USD",
           "fx_rate_used": null,
           "fx_as_of": null
@@ -151,7 +163,7 @@
         "needs_primary_verification": true
       },
       "net_margin_pct": {
-        "value": "9.10",
+        "value": "4.06",
         "source": "engine:model_c",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "low",

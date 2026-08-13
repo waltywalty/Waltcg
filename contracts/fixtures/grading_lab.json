@@ -4,7 +4,8 @@
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
   "warnings": [
-    "PSA Regular fee is provisional and needs primary verification"
+    "PSA regular fee is provisional and needs primary verification",
+    "Needs P(10) = 0.301; modelled 0.199. Do not submit."
   ],
   "card": {
     "card_uid": "pkmn:sv3:223/197:sir:EN",
@@ -33,7 +34,7 @@
     "edge_flag": "clean"
   },
   "break_even_p_target": {
-    "value": "0.412",
+    "value": "0.301",
     "source": "engine:model_a",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "medium",
@@ -56,7 +57,7 @@
   "break_even_attainable": true,
   "break_even_note": "",
   "modelled_p_target": {
-    "value": "0.286",
+    "value": "0.199",
     "source": "engine:model_a",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "low",
@@ -97,13 +98,13 @@
     "entry_method": "api"
   },
   "ev": {
-    "amount": "-38.40",
+    "amount": "-35.67",
     "currency": "USD",
     "fx_rate_used": null,
     "fx_as_of": null
   },
   "roi": {
-    "value": "-0.152",
+    "value": "-0.159",
     "source": "engine:model_a",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "medium",
@@ -121,7 +122,7 @@
     "entry_method": "api"
   },
   "annualised_roi": {
-    "value": "-0.418",
+    "value": "-0.425",
     "source": "engine:model_a",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "medium",
@@ -140,7 +141,7 @@
   },
   "horizon_days": 114,
   "downside_case": {
-    "amount": "-96.20",
+    "amount": "-148.60",
     "currency": "USD",
     "fx_rate_used": null,
     "fx_as_of": null

@@ -431,3 +431,149 @@ ladder from above, and nothing enforced rung uniqueness or order. Seven rungs,
 or two both graded 9, validated cleanly — `uniqueItems` cannot express
 uniqueness on a property. `maxItems: 4` is now in the schema; uniqueness and
 raw → 8 → 9 → 10 ordering are asserted in tests.
+
+---
+
+## ADR-0006 — The engine is the authority on every number in a fixture
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/fixtures/`, `tests/fixture_scenario.py`
+- **Found by:** reading two fixtures side by side and noticing they described
+  different worlds
+
+### Context
+
+Card Detail showed the worked Pokémon card with a PSA 9 at 320. Grading Lab
+priced a submission on that same card at 224.54 all-in and reported it losing
+96.20 if it came back a 9. A 9 selling for 43% more than the entire cost of
+acquiring and grading the card is not a loss, and no arithmetic connects those
+two screens.
+
+Checked against the engine, **every derived figure in `grading_lab.json` was
+invented**, and not by a little:
+
+| Figure | Shipped | Engine |
+|---|---|---|
+| EV | −38.40 | **+210.36** |
+| break-even P(10) | 0.412 | **0** |
+| modelled P(10) | 0.286 | 0.199 |
+| downside if 8 | −96.20 | −60.12 |
+
+The break-even solving to zero is the tell: at a PSA 9 of 320 the submission
+pays for itself without the card ever reaching a 10, so the Grading Lab's
+signature gauge — what you need against what is likely — has nothing to draw.
+
+Worse than any single number, `modelled_p_target` (0.286) sat **above**
+`pop_implied_p_target` (0.249). The submission-selection haircut only ever moves
+mass *down*, because people submit their best copies. Inverted, it reads as "the
+population understates your chances", which is the opposite of CLAUDE.md
+non-negotiable 5 and the single most dangerous thing this app could imply.
+
+This matters more than it looks. A designer tuning visual weight against these
+fixtures is not learning the numbers — those get replaced. They are learning the
+**relationships**: how wide the needed-versus-likely gap usually is, whether a
+negative EV is a near miss or a rout, what a normal grade spread looks like.
+Those lessons survive into the layout and outlive every value in the file.
+
+### Decision
+
+**The engine computes the fixtures. Nothing derived is typed by hand.**
+
+`tests/fixture_scenario.py` declares the one scenario every fixture is computed
+under, and draws a hard line through it:
+
+- **Real, from dated config.** The PSA Regular fee (79.99), its 60 business-day
+  turnaround, and the whole eBay banded schedule — 13.25% on item plus shipping
+  plus tax, tiered fixed fees, the discount band at 1000 — come from
+  `config/*.yaml` as shipped. Fee arithmetic in the fixtures is the real fee
+  arithmetic.
+- **Declared, because config ships them null.** Submission costs, the selection
+  haircut, prior strength, tax rate, days-to-sell. Every one is null in the
+  repository on purpose so the engine refuses rather than defaults. A fixture
+  needs *some* number to exist at all, so the scenario states which it used and
+  why, in one place. They are illustrative and none is a claim about the world.
+
+`tests/regenerate_fixtures.py` rewrites the derived figures;
+`tests/test_fixture_arithmetic.py` recomputes them independently and fails on
+disagreement. 31 assertions, mutation-tested against the exact numbers that
+shipped: all of them are caught.
+
+### Which half was wrong
+
+The ladder, not the Lab. The Lab's figures (EV −38.40, ROI −0.152, annualised
+−0.418) describe a coherent and very typical card — one where a 9 sells for
+roughly what the card cost raw, and only a 10 pays. The ladder described a
+different one. Reconciled toward the Lab, because a **marginal** submission is
+the case that screen exists for: `raw 140 / 8 88 / 9 142 / 10 540` reproduces
+its story with arithmetic that holds — needed P(10) 0.301 against a modelled
+0.199, EV −35.67, annualised −0.425.
+
+### What cannot be recomputed, and is now written down
+
+Five figures have no path back to their inputs, because the inputs are not in
+the payload: portfolio value (no holdings list), per-mover 24h change (no prior
+price), the three hit rates and median excess return (31 scored alerts, 6
+visible by design), and `suppressed_count` (counts rows that were filtered
+before serialisation). They are listed in `NOT_RECOMPUTABLE` with a reason each,
+and a test asserts the reasons are reasons rather than labels. **An unchecked
+figure that nobody has written down is exactly how this happened.**
+
+### Consequences
+
+- `arbitrage_row` gains `buy_cost`. Without it `net_margin_pct` had no
+  recomputable denominator and the marketplace fee had no base to be charged on
+  — and the shipped rows had a flat 13.25% applied above 1000, where the real
+  schedule halves it. A friction stack you cannot recompute is the thing the
+  expandable stack exists to prevent.
+- Changing one number in the scenario moves every fixture together, which is
+  the property that was missing.
+- The fixtures are still synthetic and still marked `_fixture: true`. Synthetic
+  now means *derived under a stated scenario*, not *arbitrary*.
+
+---
+
+## ADR-0007 — Manual Entry is the ninth screen
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/screens.schema.json`
+
+### Context
+
+The v2 design brief lists nine screens. The contract had eight. The missing one
+was Manual Entry, which is not a peripheral utility: **four of the eight
+game/language combinations have no automated price source at all** — One Piece
+JP, whose printing tcgapi's catalog cannot even express, and the three Chinese
+printings that no Western source carries. Their prices are typed in from Xianyu,
+Taobao, Mercari JP and SNKRDUNK.
+
+The absence had already started bending things around it. `deep_link.screen`
+could not name Manual Entry, so a `manual_price_required` refusal — "I cannot
+price this until you type something in" — had nowhere honest to send the tap and
+pointed at Card Detail instead. A workaround in a contract becomes a workaround
+in the app.
+
+### Decision
+
+`screen_manual_entry`, with two lists and nothing else:
+
+- `awaiting` — cards the app cannot price on its own, each with the
+  `unavailable_reason` that put it there and the last price I entered, if any.
+- `recent_entries` — `manual_price_entry` records: card, price, venue,
+  condition, `as_of`, `observed_at`, note, `supersedes`.
+
+`supersedes` rather than an edit, because history is append-only (CLAUDE.md
+§Conventions) — a mistyped price is corrected by a new row citing the old one,
+and the fixture demonstrates exactly that.
+
+`deep_link.screen` gains `manual_entry`, and the schema now **pins** it: a
+refusal item whose `reason_code` is `manual_price_required` must deep-link to
+`manual_entry`, enforced by an `if`/`then`. The workaround cannot come back.
+
+### What was deliberately left out
+
+`venues` and `condition_options` as payload fields. Both are already closed
+enums in the schema, so serving them would be the API telling the UI something
+the UI can read off the contract — a field that exists to be redundant is the
+first step toward two lists that disagree.

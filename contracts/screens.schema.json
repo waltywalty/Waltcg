@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://waltcg.local/contracts/screens.schema.json",
   "title": "waltcg screen payloads",
-  "description": "The exact response payload for each of the eight screens. The API serves exactly this; a response that fails validation is a 500, not a warning. Every field here has a named upstream source in contracts/SOURCE_MAP.md -- fields with no reachable source were deleted rather than stubbed, and the deletions are listed at the bottom of that file.",
+  "description": "The exact response payload for each of the nine screens (Manual Entry is the ninth: four of the eight game/language combinations have no automated price source). The API serves exactly this; a response that fails validation is a 500, not a warning. Every field here has a named upstream source in contracts/SOURCE_MAP.md -- fields with no reachable source were deleted rather than stubbed, and the deletions are listed at the bottom of that file.",
   "$defs": {
     "currency": {
       "type": "string",
@@ -1102,6 +1102,10 @@
         "sell_venue": {
           "type": "string"
         },
+        "buy_cost": {
+          "$ref": "#/$defs/money",
+          "description": "Landed cost of the buy leg. Without it net_margin_pct has no recomputable denominator and the marketplace fee has no base to be charged on -- the sale price is buy_cost + gross_spread."
+        },
         "gross_spread": {
           "$ref": "#/$defs/money"
         },
@@ -1123,6 +1127,7 @@
         "path",
         "buy_venue",
         "sell_venue",
+        "buy_cost",
         "gross_spread",
         "net_spread",
         "friction",
@@ -1792,12 +1797,13 @@
                 "arbitrage_board",
                 "trend_radar",
                 "track_record",
-                "settings"
+                "settings",
+                "manual_entry"
               ]
             },
             "anchor": {
               "type": "string",
-              "description": "Section within the screen, e.g. 'grading_tiers', 'fee_schedules', 'assumptions', 'condition_read', 'buy_routes'."
+              "description": "Section within the screen, e.g. 'grading_tiers', 'fee_schedules', 'assumptions', 'condition_read', 'buy_routes', 'awaiting'."
             },
             "card_uid": {
               "description": "Set when the fix is card-specific.",
@@ -1865,7 +1871,37 @@
         "fixable",
         "deep_link"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "reason_code": {
+                "const": "manual_price_required"
+              }
+            },
+            "required": [
+              "reason_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "deep_link": {
+                "type": "object",
+                "properties": {
+                  "screen": {
+                    "const": "manual_entry"
+                  }
+                },
+                "required": [
+                  "screen"
+                ]
+              }
+            },
+            "description": "A price only I can supply is supplied on Manual Entry."
+          }
+        }
+      ]
     },
     "entry_method": {
       "type": "string",
@@ -1875,6 +1911,182 @@
         "mixed"
       ],
       "description": "How the underlying data reached us. Manual rows come from Xianyu, Taobao, Mercari JP and SNKRDUNK typed in by hand; they run through the same engine but age differently and must stay visually distinguishable everywhere they appear. A single observation is never 'mixed' -- that value exists for values computed from several inputs of differing provenance."
+    },
+    "manual_venue": {
+      "type": "string",
+      "enum": [
+        "xianyu",
+        "taobao",
+        "mercari_jp",
+        "snkrdunk",
+        "local_shop",
+        "other"
+      ],
+      "description": "Where a hand-entered price was seen. No automated source covers any of these."
+    },
+    "manual_price_entry": {
+      "type": "object",
+      "description": "One hand-typed observation. Append-only: a correction is a new row citing the one it supersedes, never an edit in place.",
+      "properties": {
+        "entry_id": {
+          "type": "string"
+        },
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "price": {
+          "$ref": "#/$defs/money"
+        },
+        "venue": {
+          "$ref": "#/$defs/manual_venue"
+        },
+        "condition": {
+          "type": "string",
+          "enum": [
+            "raw_nm",
+            "raw_lp",
+            "raw_played",
+            "graded_psa",
+            "graded_cgc",
+            "graded_bgs",
+            "unknown"
+          ]
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the price refers to."
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When I typed it in. Never earlier than as_of."
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersedes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entry_id",
+        "card",
+        "price",
+        "venue",
+        "condition",
+        "as_of",
+        "observed_at",
+        "note",
+        "supersedes"
+      ],
+      "additionalProperties": false
+    },
+    "awaiting_entry": {
+      "type": "object",
+      "description": "A card the app cannot price on its own, and why.",
+      "properties": {
+        "card": {
+          "$ref": "#/$defs/card_ref"
+        },
+        "reason": {
+          "$ref": "#/$defs/unavailable_reason"
+        },
+        "last_price": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_entered_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "card",
+        "reason",
+        "last_price",
+        "last_entered_at"
+      ],
+      "additionalProperties": false
+    },
+    "screen_manual_entry": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        }
+      ],
+      "description": "Four of the eight game/language combinations have no automated price source: One Piece JP and the three Chinese printings. Their prices are typed in from Xianyu, Taobao, Mercari JP and SNKRDUNK, and run through the same engine unchanged.",
+      "properties": {
+        "screen": {
+          "const": "manual_entry"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "_fixture": {
+          "type": "boolean"
+        },
+        "awaiting": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/awaiting_entry"
+          }
+        },
+        "recent_entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/manual_price_entry"
+          }
+        }
+      },
+      "required": [
+        "screen",
+        "generated_at",
+        "schema_version",
+        "warnings",
+        "awaiting",
+        "recent_entries"
+      ],
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -1901,6 +2113,9 @@
     },
     {
       "$ref": "#/$defs/screen_settings"
+    },
+    {
+      "$ref": "#/$defs/screen_manual_entry"
     }
   ]
 }

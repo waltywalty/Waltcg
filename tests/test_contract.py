@@ -28,7 +28,7 @@ SOURCE_MAP_PATH = os.path.join(CONTRACTS, "SOURCE_MAP.md")
 FIXTURE_GLOB = os.path.join(CONTRACTS, "fixtures", "*.json")
 
 SCREENS = ["home", "signals", "card_detail", "grading_lab", "arbitrage_board",
-           "trend_radar", "track_record", "settings"]
+           "trend_radar", "track_record", "settings", "manual_entry"]
 
 MONEY_KEYS = {"amount", "currency", "fx_rate_used", "fx_as_of"}
 # Field names that hold money. A bare number under any of these is the bug.

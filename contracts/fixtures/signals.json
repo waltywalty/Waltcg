@@ -22,11 +22,11 @@
       },
       "play_type": "raw_to_10",
       "headline": {
-        "value": "0.412",
+        "value": "0.301",
         "source": "engine:model_a",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "medium",
-        "sample_size": 27,
+        "sample_size": 7360,
         "unit": "probability",
         "assumption_ids": [
           "submission_selection_haircut",
@@ -49,13 +49,13 @@
         {
           "grade": "raw",
           "price": {
-            "amount": "140",
+            "amount": "140.00",
             "currency": "USD",
             "fx_rate_used": null,
             "fx_as_of": null
           },
           "price_meta": {
-            "value": "140",
+            "value": "140.00",
             "source": "tcgapi.dev",
             "as_of": "2026-08-13T09:00:00Z",
             "confidence": "medium",
@@ -75,15 +75,15 @@
           "population": {
             "value": null,
             "source": "pokemonpricetracker",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-01T09:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
-              "is_stale": false,
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
               "threshold_seconds": 604800,
               "kind": "population"
             },
@@ -94,13 +94,13 @@
         {
           "grade": "8",
           "price": {
-            "amount": "190",
+            "amount": "88.00",
             "currency": "USD",
             "fx_rate_used": null,
             "fx_as_of": null
           },
           "price_meta": {
-            "value": "190",
+            "value": "88.00",
             "source": "tcgapi.dev",
             "as_of": "2026-08-13T09:00:00Z",
             "confidence": "medium",
@@ -120,15 +120,15 @@
           "population": {
             "value": 410,
             "source": "pokemonpricetracker",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-01T09:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
-              "is_stale": false,
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
               "threshold_seconds": 604800,
               "kind": "population"
             },
@@ -139,13 +139,13 @@
         {
           "grade": "9",
           "price": {
-            "amount": "320",
+            "amount": "142.00",
             "currency": "USD",
             "fx_rate_used": null,
             "fx_as_of": null
           },
           "price_meta": {
-            "value": "320",
+            "value": "142.00",
             "source": "tcgapi.dev",
             "as_of": "2026-08-13T09:00:00Z",
             "confidence": "medium",
@@ -165,15 +165,15 @@
           "population": {
             "value": 5120,
             "source": "pokemonpricetracker",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-01T09:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
-              "is_stale": false,
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
               "threshold_seconds": 604800,
               "kind": "population"
             },
@@ -184,13 +184,13 @@
         {
           "grade": "10",
           "price": {
-            "amount": "1180",
+            "amount": "540.00",
             "currency": "USD",
             "fx_rate_used": null,
             "fx_as_of": null
           },
           "price_meta": {
-            "value": "1180",
+            "value": "540.00",
             "source": "tcgapi.dev",
             "as_of": "2026-08-13T09:00:00Z",
             "confidence": "medium",
@@ -210,15 +210,15 @@
           "population": {
             "value": 1830,
             "source": "pokemonpricetracker",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-01T09:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "cards",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
-              "is_stale": false,
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
               "threshold_seconds": 604800,
               "kind": "population"
             },
