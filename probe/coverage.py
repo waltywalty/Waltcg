@@ -87,7 +87,7 @@ def roll_up(statuses):
 
 
 # ---------------------------------------------------------------------------
-# Cards under test -- 3 per combo, 18 total
+# Cards under test -- 3 per combo, 15 total
 # ---------------------------------------------------------------------------
 #
 # Selection rule: recognisable chase cards with real secondary-market depth,
@@ -95,6 +95,9 @@ def roll_up(statuses):
 # exists in both. That makes the EN/JP separation test sharp: if a source
 # hands back one id (or one price) for both printings, it has collapsed them.
 # `pair` links the two printings of one card.
+#
+# Riftbound is English-only -- there is no Japanese release -- so it has one
+# combo and no separation test to run.
 #
 # `number` is an expected value used as a cross-check on whatever the API
 # resolves, not as the lookup key. Where numbering is marked unverified the
@@ -106,7 +109,6 @@ COMBOS = [
     ("pokemon", "EN", "Pokemon EN"),
     ("pokemon", "JP", "Pokemon JP"),
     ("riftbound", "EN", "Riftbound EN"),
-    ("riftbound", "JP", "Riftbound JP"),
 ]
 
 CARDS = [
@@ -163,19 +165,6 @@ CARDS = [
          name="Viktor", set="Origins", set_code="OGN",
          number=None, rarity_hint="Legend", number_unverified=True),
     dict(game="riftbound", lang="EN", pair="rift-leesin",
-         name="Lee Sin", set="Origins", set_code="OGN",
-         number=None, rarity_hint="Legend", number_unverified=True),
-
-    # -- Riftbound JP ------------------------------------------------------
-    # Sixth combo. Expected to resolve thinly or not at all; that is itself
-    # the finding.
-    dict(game="riftbound", lang="JP", pair="rift-jinx",
-         name="Jinx", set="Origins", set_code="OGN",
-         number=None, rarity_hint="Legend", number_unverified=True),
-    dict(game="riftbound", lang="JP", pair="rift-viktor",
-         name="Viktor", set="Origins", set_code="OGN",
-         number=None, rarity_hint="Legend", number_unverified=True),
-    dict(game="riftbound", lang="JP", pair="rift-leesin",
          name="Lee Sin", set="Origins", set_code="OGN",
          number=None, rarity_hint="Legend", number_unverified=True),
 ]
@@ -932,7 +921,12 @@ def aggregate(results):
         else:
             sample = NONE
 
-        sep, sep_detail = enjp_separation(by_pair, game, lang, results_by_slug)
+        # A game published in one language only has nothing to separate.
+        # Saying UNTESTED there would imply a test worth running.
+        if len({l for g, l, _ in COMBOS if g == game}) < 2:
+            sep, sep_detail = "N/A", "single-language game -- no counterpart printing exists"
+        else:
+            sep, sep_detail = enjp_separation(by_pair, game, lang, results_by_slug)
 
         rows.append({
             "combo": label, "game": game, "lang": lang,
@@ -1167,7 +1161,7 @@ def build_report(rows, prober, ran_live):
     A("")
     A("`FULL` = every probed card in the combo returned the field. `PARTIAL` = some did, "
       "or the field came back incomplete. `NONE` = no card returned it. `UNTESTED` = not "
-      "reached (no key, budget, or 429).")
+      "reached (no key, budget, or 429). `N/A` = the test does not apply to this combo.")
     A("")
     A("| Combo | Catalog | Raw price | PSA 10 comp | PSA 9 comp | Sample adequacy | Pop data | EN/JP separation |")
     A("|---|---|---|---|---|---|---|---|")
@@ -1234,8 +1228,7 @@ def build_report(rows, prober, ran_live):
         A("**Prior expectation, to be confirmed or refuted by the first live run (not a finding):** "
           "Riftbound EN is expected to land on `RAW ONLY` -- the game launched late 2025, so there "
           "should be little or no graded population yet, which starves the PSA comps while leaving "
-          "the raw screener usable. Riftbound JP may not resolve at all. If the run disagrees, "
-          "the run wins.")
+          "the raw screener usable. If the run disagrees, the run wins.")
         A("")
 
     # 4 paid tiers
