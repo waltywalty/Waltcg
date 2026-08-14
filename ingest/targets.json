@@ -1,0 +1,16 @@
+{
+  "_note": "Which cards each adapter asks about. Card identities only -- no prices, no provider payloads. Populated from the store as the catalog grows.",
+  "tcgapi": {
+    "cards": []
+  },
+  "pokemonpricetracker": {
+    "cards": []
+  },
+  "apitcg": {
+    "cards": []
+  },
+  "pricecharting": {
+    "cards": []
+  },
+  "fx_alphavantage": {}
+}

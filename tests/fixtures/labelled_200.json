@@ -1,0 +1,173 @@
+{
+  "_schema": "waltcg labelled resolver set v1",
+  "_gate": {
+    "required_cards": 200,
+    "required_combos": [
+      "optcg:EN",
+      "optcg:JP",
+      "optcg:CN-S",
+      "pkmn:EN",
+      "pkmn:JP",
+      "pkmn:CN-S",
+      "pkmn:CN-T",
+      "riftbound:EN"
+    ],
+    "required_hard_cases": 20,
+    "precision_threshold": 0.98,
+    "recall_threshold": 0.9
+  },
+  "_status": "INCOMPLETE -- seeded only, see _needed",
+  "_needed": {
+    "have": 12,
+    "short_by": 188,
+    "why": "Every row above is a card whose identity is established somewhere in this repository. I could not source the remaining 188 without inventing set codes, collector numbers and names -- which would make the resolver's precision score a measurement of my own fabrications rather than of the resolver. CLAUDE.md: when a source cannot supply a field, delete it rather than stub it. The same applies to a test set.",
+    "combos_with_zero_cards": [
+      "pkmn:CN-S",
+      "pkmn:CN-T"
+    ],
+    "combos_thin": {
+      "optcg:CN-S": 1,
+      "pkmn:JP": 2,
+      "optcg:JP": 2
+    },
+    "hard_cases_present": 7,
+    "hard_cases_short_by": 13
+  },
+  "cards": [
+    {
+      "card_uid": "pkmn:sv3:223/197:sir:EN",
+      "game": "pkmn",
+      "set_code": "sv3",
+      "number": "223/197",
+      "variant": "sir",
+      "language": "EN",
+      "name": "Charizard ex",
+      "verified_from": "contracts/fixtures"
+    },
+    {
+      "card_uid": "pkmn:sv3:108/108:sar:JP",
+      "game": "pkmn",
+      "set_code": "sv3",
+      "number": "108/108",
+      "variant": "sar",
+      "language": "JP",
+      "name": "リザードンex",
+      "verified_from": "contracts/fixtures",
+      "hard_case": "same_art_different_language",
+      "note": "Same art as the EN SIR above, different set numbering and language. Must NOT merge."
+    },
+    {
+      "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+      "game": "pkmn",
+      "set_code": "SM-P",
+      "number": "070/SM-P",
+      "variant": "promo",
+      "language": "JP",
+      "name": "Yu Nagaba Eevee",
+      "verified_from": "contracts/fixtures",
+      "hard_case": "promo_vs_set",
+      "note": "Promo numbering scheme, not a set number."
+    },
+    {
+      "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+      "game": "optcg",
+      "set_code": "OP05",
+      "number": "OP05-119",
+      "variant": "manga_rare",
+      "language": "EN",
+      "name": "Monkey.D.Luffy",
+      "verified_from": "contracts/fixtures"
+    },
+    {
+      "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+      "game": "optcg",
+      "set_code": "OP01",
+      "number": "OP01-078",
+      "variant": "parallel",
+      "language": "JP",
+      "name": "Boa Hancock",
+      "verified_from": "contracts/fixtures",
+      "hard_case": "alt_art_variant",
+      "note": "Parallel printing of a base card at the same number."
+    },
+    {
+      "card_uid": "optcg:P:P-001:promo:EN",
+      "game": "optcg",
+      "set_code": "P",
+      "number": "P-001",
+      "variant": "promo",
+      "language": "EN",
+      "name": "Monkey.D.Luffy",
+      "verified_from": "contracts/fixtures",
+      "hard_case": "promo_vs_set",
+      "note": "Promo Luffy. Shares a name with OP05-119 and is a different card."
+    },
+    {
+      "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-301",
+      "variant": "overnumbered",
+      "language": "EN",
+      "name": "Jinx",
+      "verified_from": "contracts/fixtures",
+      "note": "Set code unverified against a primary source; see the gap note below."
+    },
+    {
+      "card_uid": "riftbound:OGN:OGN-042:signature:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-042",
+      "variant": "signature",
+      "language": "EN",
+      "name": "Viktor",
+      "verified_from": "contracts/fixtures",
+      "note": "Set code unverified against a primary source."
+    },
+    {
+      "card_uid": "riftbound:VDT:VDT-017:base:EN",
+      "game": "riftbound",
+      "set_code": "VDT",
+      "number": "VDT-017",
+      "variant": "base",
+      "language": "EN",
+      "name": "Vendetta",
+      "verified_from": "contracts/fixtures",
+      "note": "Set code unverified against a primary source."
+    },
+    {
+      "card_uid": "optcg:OP01:OP01-121:base:EN",
+      "game": "optcg",
+      "set_code": "OP01",
+      "number": "OP01-121",
+      "variant": "base",
+      "language": "EN",
+      "name": "Monkey.D.Luffy",
+      "verified_from": "contracts/card_uid.md",
+      "hard_case": "same_number_three_languages"
+    },
+    {
+      "card_uid": "optcg:OP01:OP01-121:base:JP",
+      "game": "optcg",
+      "set_code": "OP01",
+      "number": "OP01-121",
+      "variant": "base",
+      "language": "JP",
+      "name": "モンキー・D・ルフィ",
+      "verified_from": "contracts/card_uid.md",
+      "hard_case": "same_number_three_languages"
+    },
+    {
+      "card_uid": "optcg:OP01:OP01-121:base:CN-S",
+      "game": "optcg",
+      "set_code": "OP01",
+      "number": "OP01-121",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "路飞",
+      "verified_from": "contracts/card_uid.md",
+      "hard_case": "same_number_three_languages",
+      "note": "Simplified Chinese printing. No Western source carries it; manual tier."
+    }
+  ]
+}

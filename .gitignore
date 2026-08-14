@@ -38,6 +38,13 @@ probe/out/
 # no_provider_data allowlist, so these are scanned for payload keys like any
 # unprivileged JSON and CI fails if a real response is ever dropped in here.
 !design/**/*.json
+# The resolver's hand-labelled test set and the per-source card lists. Card
+# IDENTITIES only -- game, set code, number, variant, language, name. No
+# prices, no populations, no provider payloads. Like design/**, deliberately
+# NOT added to the no_provider_data allowlist, so both are scanned for payload
+# keys like any unprivileged JSON and CI fails if an observation lands in one.
+!tests/fixtures/*.json
+!ingest/targets.json
 
 # ─── Documents: PDFs are not a source format ──────────────────
 # Source documents arrive as pasted text. A PDF that reaches the tree gets
