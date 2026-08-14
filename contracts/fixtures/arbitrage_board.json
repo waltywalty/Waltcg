@@ -101,7 +101,15 @@
         "marketplace_fee_schedule"
       ],
       "estimate_basis": "config_rule",
-      "regrade_detail": null
+      "regrade_detail": null,
+      "comp_basis": {
+        "state": "match",
+        "comps_grader": "PSA",
+        "route_grader": "PSA",
+        "route": "psa_us",
+        "flag": false,
+        "note": "Comps are PSA sales against a PSA submission."
+      }
     },
     {
       "card": {
@@ -202,7 +210,15 @@
         "fx_conversion_spread"
       ],
       "estimate_basis": "none",
-      "regrade_detail": null
+      "regrade_detail": null,
+      "comp_basis": {
+        "state": "match",
+        "comps_grader": "PSA",
+        "route_grader": "PSA",
+        "route": "psa_us",
+        "flag": false,
+        "note": "Comps are PSA sales against a PSA submission."
+      }
     },
     {
       "card": {
@@ -310,6 +326,14 @@
         "regrade_condition_adjustments"
       ],
       "estimate_basis": "config_rule",
+      "comp_basis": {
+        "state": "match",
+        "comps_grader": "PSA",
+        "route_grader": "PSA",
+        "route": "psa_us",
+        "flag": false,
+        "note": "Comps are PSA sales against a PSA submission."
+      },
       "regrade_detail": {
         "break_even_p_target": {
           "value": "0.561",

@@ -130,6 +130,12 @@ class EVResult:
     # cost total as well would double-count it. `applies: False` on a domestic
     # route is a result, not an absence: it is the main reason to prefer one.
     import_charges: Optional[dict] = None
+    # Whose slabs the comps describe, against whose slab this route produces.
+    # A flag rather than a refusal: holding comps fixed is how a route-cost
+    # comparison isolates fees and freight, and refusing would throw that away.
+    # But a CGC 10 and a PSA 10 are different assets, so the result must never
+    # be read as a slab choice without saying so.
+    comp_basis: Optional[dict] = None
     downside_case: Optional[dict] = None
     grade_distribution: Optional[GradeDistribution] = None
     branches: list = field(default_factory=list)

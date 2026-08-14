@@ -90,8 +90,10 @@ marketplaces:
       vat_on_fee_pct: 0.20
       vat_on_fee_note: >-
         20% VAT is charged ON the fee itself, so the cash cost of a 12.8% fee is
-        15.36% of the fee base. This is a fee-on-fee, not a fee-on-goods, and is
-        NOT modelled by the engine's band arithmetic yet -- see the audit note.
+        15.36% of the fee base. A fee-on-fee, not a fee-on-goods: it multiplies
+        the fee and never the sale price. MODELLED -- see
+        engine/ev/fees.py::marketplace_fee. A private seller cannot reclaim it,
+        so it is a real cost rather than a pass-through.
       source: "secondary, unverified"
       checked_on: "2026-08-14"
       confidence: low

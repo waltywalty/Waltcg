@@ -868,3 +868,103 @@ in `b1b002b`. Evidence:
   two answers — the case that was previously unrepresentable.
 
 The design brief is working from a pre-`b1b002b` schema. Nothing to fix here.
+
+---
+
+## ADR-0013 — Cross-grader comps are flagged, not refused
+
+- **Status:** Accepted
+- **Date:** 2026-08-14
+- **Scope:** `engine/ev/comps.py`, models A/B/C, `contracts/`
+
+### Context
+
+The route comparison prices one card through CGC UK and PSA US against a single
+set of comps. Those comps are PSA sales. A CGC 10 and a PSA 10 are different
+assets with different premiums, so the CGC row is optimistic by exactly the gap
+between them — a gap for which there is no data in this repository.
+
+Refusing would have been consistent with how this codebase handles most
+uncertainty, and it would have been wrong here. Holding the comps fixed is not
+a defect of the comparison; it is **the method**. It is precisely how the cost
+of a route — fees, freight, import charges — gets isolated from slab premium.
+Refuse and the question the whole import-charge term was built to answer
+becomes unanswerable.
+
+The failure mode is narrower than "the number is wrong". The number is right
+for one question and wrong for another:
+
+- **"What does this route cost?"** — fixed comps are correct.
+- **"Which slab should I own?"** — fixed comps answer it wrongly, and
+  confidently.
+
+### Decision
+
+`comp_basis`, on every model result and on the Grading Lab and Arbitrage rows.
+A flag, never a refusal.
+
+Three states, not two:
+
+| State | Meaning |
+|---|---|
+| `match` | Comps are from the route's own grader. |
+| `mismatch` | Comps are from a named different grader. |
+| `unstated` | Nobody said which grader supplied them. |
+
+**`unstated` raises the flag exactly like `mismatch`.** Silence is not
+agreement, and treating an unstated comp source as a match would be the silent
+default this repository keeps refusing to take. One boolean, `flag`, is true for
+both — because to a reader they mean the same thing.
+
+**It names the grader.** "Mismatch" alone is not actionable; the reader needs to
+know whose sales the number rests on. The name is carried both as a structured
+field and in the note, and mutation-testing removes each independently.
+
+Case and surrounding whitespace never decide a mismatch. `comps_grader` is free
+text I type; the route grader is a config key. A flag raised by capitalisation
+is noise, and noise gets ignored along with the real ones.
+
+### Consequences
+
+- The CGC UK row in the route comparison now carries a mismatch flag naming PSA
+  as the comp source, while still producing its break-even of 0.125. That is the
+  intended shape: usable, and impossible to mistake for a slab recommendation.
+- Every existing call site that does not state a comp source now flags
+  `unstated`. That is not a regression — it is the contract discovering that
+  nobody had said.
+
+---
+
+## ADR-0014 — eBay UK's VAT is charged on the fee, not on the sale
+
+- **Status:** Accepted
+- **Date:** 2026-08-14
+- **Scope:** `engine/ev/fees.py`, `config/fees.yaml`
+
+`config/fees.yaml` recorded eBay UK's 20% VAT-on-fee and the engine ignored it,
+understating the venue by about 2.5 points of the sale. Recorded-but-unmodelled
+is the worst of the three options: it looks handled.
+
+Implemented rather than refused, because the arithmetic is unambiguous once the
+base is named correctly. **It is a fee-on-fee.** It multiplies the selling fee
+and never the sale price:
+
+```
+fee_before_vat = commission + payment + fixed
+vat_on_fee     = fee_before_vat * 0.20
+```
+
+So a 12.8% selling fee costs 15.36% of the fee base, and 15.40% of a £1,000 sale
+once the 30p is counted. A private seller cannot reclaim it, so it is a real
+cost rather than a pass-through.
+
+Both components are itemised on the result — a fee stack whose parts you cannot
+see is a fee stack you cannot check. Venues with no `vat_on_fee_pct` are
+unaffected, and a rate written as `20` rather than `0.20` is rejected rather
+than charging 2,000%.
+
+**Not resolved and deliberately so:** PSA's membership price. Two of PSA's own
+pages disagree ($149/$199 against $99). A conflict between two primary sources
+is not settled by picking one, so the entry stays flagged
+`needs_primary_verification` with a CONFLICT note until it is confirmed at
+checkout.

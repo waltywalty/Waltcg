@@ -181,6 +181,8 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `category` | `manual` classification |
 | `centering_pct` | `manual` (my condition read) |
 | `checked_on` | `config/*.yaml` |
+| `comp_basis` | `engine` -- whose slabs the comps describe against whose slab the route produces; a flag, never a refusal |
+| `comps_grader` | `engine` -- the grader that supplied the comps, named because 'mismatch' alone is not actionable |
 | `corner_flag` | `manual` |
 | `current_value` | `contracts/assumptions.json` |
 | `deep_link` | `engine` (refusal detail) -- where the gap is fixed; null when structural |
@@ -197,9 +199,11 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `excess_return_7d` | `engine:alert_ledger` |
 | `excess_return_90d` | `engine:alert_ledger` |
 | `expected` | `engine` -- probability-weighted import charge, for the cost side |
+| `fee_before_vat` | `engine` over `config/fees.yaml` -- fee excluding VAT charged on the fee itself |
 | `filtered_by` | UI request echo |
 | `fired_at` | `engine:alert_ledger` |
 | `fixable` | `engine` (refusal detail) -- false for an absence no input can clear |
+| `flag` | `engine` -- true for mismatch AND unstated; both mean the same to a reader |
 | `fx_spread` | `alpha_vantage` + `assumptions.fx_conversion_spread` |
 | `grading_fee` | `config/grading.yaml` |
 | `gross_spread` | `engine:model_c` |
@@ -242,10 +246,12 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `regrade_detail` | `engine:model_b` -- conditional prior, never the base gem rate |
 | `relief_scenario` | `contracts/assumptions.json::relief_scenario` -- unvalidated, chipped |
 | `roi` | `engine:model_a` |
+| `route_grader` | `config/grading.yaml::routes.<route>.grader` |
 | `sell_venue` | `engine:model_c` |
 | `set_code` | `tcgapi.dev`, `apitcg.com` catalog |
 | `shipping` | `config/fees.yaml` |
 | `sorted_by` | `engine` |
+| `state` | `engine` -- match / mismatch / unstated |
 | `supersedes` | `manual` -- the entry this one corrects. History is append-only; nothing is edited in place |
 | `supplies` | `config/grading.yaml` -- sleeve, semi-rigid, team bag, per card |
 | `surface_flag` | `manual` |
@@ -257,5 +263,6 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `unit` | `contracts/assumptions.json` |
 | `used_by` | `engine` -- inverse of the `assumption_ids` carried on every derived value; derived, never hand-kept |
 | `used_by_count` | `engine` -- `len(used_by)`, carried so a chip can render without the list |
+| `vat_on_fee` | `config/fees.yaml::<venue>.fee_schedule.vat_on_fee_pct` -- eBay UK charges 20% ON the fee |
 | `window_days` | `engine:trend` (config) |
 | `worst_five` | `engine:alert_ledger` |

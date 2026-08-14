@@ -29,6 +29,7 @@ from decimal import Decimal
 from typing import Optional
 
 from .breakeven import annualised, net_proceeds, solve_break_even_p
+from .comps import comp_basis
 from .config import MISSING, Config, business_days_to_calendar
 from .money import Money
 from .results import CostBreakdown, EVResult, GradeDistribution, Provenance, Refusal
@@ -135,6 +136,7 @@ def crossover_ev(
     venue: str = "ebay",
     route: Optional[str] = None,
     route_fx=None,
+    comps_grader: Optional[str] = None,
     outbound_shipping: Optional[Money] = None,
     batch_size: Optional[int] = None,
     days_to_sell: Optional[int] = None,
@@ -338,6 +340,7 @@ def crossover_ev(
     be = solve_break_even_p(target, proceeds, probs, total_cost)
 
     return EVResult(
+        comp_basis=comp_basis(grader, comps_grader, route=route),
         import_charges={
             "applies": import_applies, "route": route, "note": import_note,
             "relief_scenario": relief if import_applies else None,

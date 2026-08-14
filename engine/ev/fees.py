@@ -133,13 +133,32 @@ def marketplace_fee(
     fixed = _fixed_fee(item, payment.get("fixed_bands") or schedule.get("fixed_bands"),
                        payment.get("fixed"))
 
-    total = commission + payment_pct_amount + fixed
+    fee_before_vat = commission + payment_pct_amount + fixed
+
+    # VAT ON THE FEE, not on the goods. eBay UK charges 20% on top of the
+    # selling fee itself, so a 12.8% fee costs 15.36% of the fee base. This is
+    # a fee-on-fee: it multiplies the fee, never the sale price, and a private
+    # seller cannot reclaim it. Modelled rather than ignored -- leaving it out
+    # understated eBay UK by about 2.5 points of the sale.
+    vat_on_fee_pct = schedule.get("vat_on_fee_pct")
+    if vat_on_fee_pct is None:
+        vat_on_fee = Money.zero(cur)
+    else:
+        rate = Decimal(str(vat_on_fee_pct))
+        if rate < 0 or rate > 1:
+            raise FeeScheduleError(
+                f"vat_on_fee_pct = {rate}; expected a fraction, not a percentage")
+        vat_on_fee = fee_before_vat * rate
+
+    total = fee_before_vat + vat_on_fee
     return {
         "base_name": base_name,
         "base_amount": base,
         "commission": commission,
         "payment_pct_amount": payment_pct_amount,
         "fixed": fixed,
+        "fee_before_vat": fee_before_vat,
+        "vat_on_fee": vat_on_fee,
         "total": total,
         "discount_applied": discount_applied,
     }

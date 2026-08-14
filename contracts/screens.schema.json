@@ -1022,6 +1022,9 @@
         },
         "import_charges": {
           "$ref": "#/$defs/import_charges_view"
+        },
+        "comp_basis": {
+          "$ref": "#/$defs/comp_basis_view"
         }
       },
       "required": [
@@ -1047,7 +1050,8 @@
         "cost_breakdown",
         "refusal",
         "assumption_ids",
-        "import_charges"
+        "import_charges",
+        "comp_basis"
       ],
       "additionalProperties": false
     },
@@ -1186,6 +1190,9 @@
             }
           ],
           "description": "Non-null exactly on a crack_resubmit row. Pinned below."
+        },
+        "comp_basis": {
+          "$ref": "#/$defs/comp_basis_view"
         }
       },
       "required": [
@@ -1200,7 +1207,8 @@
         "net_margin_pct",
         "assumption_ids",
         "estimate_basis",
-        "regrade_detail"
+        "regrade_detail",
+        "comp_basis"
       ],
       "additionalProperties": false,
       "allOf": [
@@ -2431,6 +2439,68 @@
         "expected",
         "effective_rate_on_goods",
         "by_grade"
+      ],
+      "additionalProperties": false
+    },
+    "comp_basis_view": {
+      "type": "object",
+      "description": "Whose slabs the comps describe, against whose slab this route produces. A FLAG, never a refusal: holding comps fixed across routes is exactly how a route-cost comparison isolates fees, freight and import charges, so refusing would throw away the comparison the route work exists to support. But a CGC 10 and a PSA 10 are different assets with different premiums, so a route-cost figure must never render as a slab choice.",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch",
+            "unstated"
+          ],
+          "description": "`unstated` is flagged like `mismatch`, not treated as a match: nobody said is not the same as they agree."
+        },
+        "flag": {
+          "type": "boolean",
+          "description": "True for mismatch AND unstated -- one boolean the badge hangs on, because both mean the same to a reader."
+        },
+        "comps_grader": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Which grader supplied the comps. Named, because 'mismatch' alone is not actionable."
+        },
+        "route_grader": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "flag",
+        "comps_grader",
+        "route_grader",
+        "route",
+        "note"
       ],
       "additionalProperties": false
     }

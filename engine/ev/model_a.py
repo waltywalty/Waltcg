@@ -21,6 +21,7 @@ from decimal import Decimal
 from typing import Optional
 
 from .breakeven import annualised, expected_proceeds, net_proceeds, solve_break_even_p
+from .comps import comp_basis
 from .config import (MISSING, Config, ConfigIncomplete,
                      business_days_to_calendar)
 from .fees import FeeScheduleError, net_proceeds_from_schedule
@@ -83,6 +84,7 @@ def raw_to_graded_ev(
     set_pop: Optional[dict] = None,
     route: Optional[str] = None,
     route_fx=None,
+    comps_grader: Optional[str] = None,
     buy_route: Optional[str] = None,
     outbound_shipping: Optional[Money] = None,
     shipping_charged: Optional[Money] = None,
@@ -351,6 +353,7 @@ def raw_to_graded_ev(
         ev=ev, roi=roi, annualised_roi=ann, horizon_days=horizon,
         costs=costs, downside_case=downside, grade_distribution=grade_probs,
         provenance=prov,
+        comp_basis=comp_basis(grader, comps_grader, route=route),
         import_charges={
             "applies": import_applies,
             "route": route,

@@ -255,3 +255,136 @@ class TheChargeIsNotDoubleCounted(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class CrossGraderCompsAreFlaggedNotRefused(unittest.TestCase):
+    """A route comparison holds the comps fixed on purpose -- that is how fees,
+    freight and import charges get isolated from slab premium. But a CGC 10 and
+    a PSA 10 are different assets, so the comparison must never render as a
+    choice of slab. Flag, not refusal: refusing would throw away the comparison
+    the route work exists to support."""
+
+    def _run(self, route, grader, tier, comps_grader):
+        cfg = fs.scenario_config()
+        return raw_to_graded_ev(
+            "pkmn:sv3:223/197:sir:EN", Money("140.00", "USD"), tier, COMPS,
+            cfg=cfg, grader=grader, venue="ebay", route=route,
+            route_fx=fs.fx_gbp_usd(), buy_route="uk_domestic_secondhand",
+            comps_grader=comps_grader, card_pop=fs.LADDER_POP,
+            set_pop=fs.SET_POP)
+
+    def test_same_grader_is_not_flagged(self):
+        r = self._run("psa_us", "PSA", "regular", "PSA")
+        self.assertTrue(r)
+        self.assertEqual(r.comp_basis["state"], "match")
+        self.assertFalse(r.comp_basis["flag"])
+
+    def test_a_different_grader_is_flagged(self):
+        r = self._run("cgc_uk", "CGC", "economy", "PSA")
+        self.assertEqual(r.comp_basis["state"], "mismatch")
+        self.assertTrue(r.comp_basis["flag"])
+
+    def test_the_flag_names_which_grader_supplied_the_comps(self):
+        """'Mismatch' on its own is not actionable. The reader has to know
+        whose sales the number rests on."""
+        r = self._run("cgc_uk", "CGC", "economy", "PSA")
+        self.assertEqual(r.comp_basis["comps_grader"], "PSA")
+        self.assertEqual(r.comp_basis["route_grader"], "CGC")
+        self.assertIn("PSA", r.comp_basis["note"])
+        self.assertIn("CGC", r.comp_basis["note"])
+
+    def test_it_flags_rather_than_refusing(self):
+        """The whole point. A mismatched comparison still computes."""
+        r = self._run("cgc_uk", "CGC", "economy", "PSA")
+        self.assertTrue(r, "a cross-grader comparison must still produce a number")
+        self.assertIsNotNone(r.break_even_p_target)
+        self.assertIsNotNone(r.ev)
+
+    def test_an_unstated_comp_source_is_flagged_too(self):
+        """Nobody said is not the same as they agree. Treating silence as a
+        match would be the silent default this repo keeps refusing."""
+        r = self._run("psa_us", "PSA", "regular", None)
+        self.assertEqual(r.comp_basis["state"], "unstated")
+        self.assertTrue(r.comp_basis["flag"])
+        self.assertIsNone(r.comp_basis["comps_grader"])
+
+    def test_the_note_warns_against_reading_it_as_a_slab_choice(self):
+        for comps_grader in ("PSA", None):
+            r = self._run("cgc_uk", "CGC", "economy", comps_grader)
+            self.assertIn("slab", r.comp_basis["note"].lower(),
+                          f"comps_grader={comps_grader}")
+
+    def test_the_route_comparison_still_carries_the_flag_on_every_row(self):
+        """The comparison is exactly where the mismatch bites, so it cannot be
+        rendered on one route and omitted on the other."""
+        for route, grader, tier in (("psa_us", "PSA", "regular"),
+                                    ("cgc_uk", "CGC", "economy")):
+            r = self._run(route, grader, tier, "PSA")
+            self.assertIsNotNone(r.comp_basis, route)
+            self.assertEqual(r.comp_basis["route"], route)
+
+    def test_case_and_whitespace_do_not_decide_a_mismatch(self):
+        """comps_grader is free text I type; the route grader is a config key.
+        A flag raised by capitalisation would be noise, and noise gets ignored
+        along with the real ones."""
+        from engine.ev.comps import comp_basis
+        for supplied in ("PSA", "psa", " PSA ", "Psa"):
+            self.assertEqual(comp_basis("PSA", supplied)["state"], "match",
+                             repr(supplied))
+        self.assertEqual(comp_basis("PSA", "CGC")["state"], "mismatch")
+        self.assertEqual(comp_basis("PSA", "   ")["state"], "unstated",
+                         "blank is not a grader name")
+
+
+class EbayUkChargesVatOnItsOwnFee(unittest.TestCase):
+    """A fee-on-fee: 20% VAT on the 12.8% selling fee, so the cash cost is
+    15.36% of the fee base. It multiplies the FEE, never the sale price, and a
+    private seller cannot reclaim it. Leaving it out understated eBay UK by
+    about 2.5 points of the sale."""
+
+    def setUp(self):
+        from engine.ev.fees import marketplace_fee
+        self.fee = marketplace_fee
+        self.schedule = fs.scenario_config().get(
+            "fees.marketplaces.ebay_uk.fee_schedule")
+
+    def gbp(self, amount):
+        return Money(str(amount), "GBP")
+
+    def test_the_vat_multiplies_the_fee_not_the_sale(self):
+        f = self.fee(self.gbp(1000), self.schedule, shipping_charged=self.gbp(0))
+        self.assertEqual(f["vat_on_fee"].amount,
+                         (f["fee_before_vat"].amount * Decimal("0.20")))
+
+    def test_the_headline_rate_becomes_15_36_percent(self):
+        """12.8% * 1.2. Checked without the fixed fee so the ratio is clean."""
+        schedule = dict(self.schedule)
+        schedule["payment"] = {"pct": 0, "fixed_bands": [{"up_to": None, "fee": 0}]}
+        f = self.fee(self.gbp(1000), schedule, shipping_charged=self.gbp(0))
+        self.assertEqual((f["total"].amount / Decimal(1000)).quantize(
+            Decimal("0.0001")), Decimal("0.1536"))
+
+    def test_it_is_no_longer_understated(self):
+        """The gap this closes: ~2.5 points of the sale on a 1000 card."""
+        without = dict(self.schedule)
+        without.pop("vat_on_fee_pct")
+        with_vat = self.fee(self.gbp(1000), self.schedule,
+                            shipping_charged=self.gbp(0))["total"].amount
+        no_vat = self.fee(self.gbp(1000), without,
+                          shipping_charged=self.gbp(0))["total"].amount
+        gap = (with_vat - no_vat) / Decimal(1000)
+        self.assertGreater(gap, Decimal("0.02"), f"gap only {gap}")
+        self.assertLess(gap, Decimal("0.03"), f"gap {gap}")
+
+    def test_a_venue_without_the_key_is_unaffected(self):
+        us = fs.scenario_config().get("fees.marketplaces.ebay.fee_schedule")
+        f = self.fee(Money("1000", "USD"), us, shipping_charged=Money("0", "USD"))
+        self.assertEqual(f["vat_on_fee"].amount, Decimal(0))
+        self.assertEqual(f["total"].amount, f["fee_before_vat"].amount)
+
+    def test_a_percentage_written_as_20_is_rejected(self):
+        from engine.ev.fees import FeeScheduleError
+        schedule = dict(self.schedule)
+        schedule["vat_on_fee_pct"] = 20
+        with self.assertRaises(FeeScheduleError):
+            self.fee(self.gbp(1000), schedule, shipping_charged=self.gbp(0))

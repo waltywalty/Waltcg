@@ -242,3 +242,10 @@ LEDGER_CARDS = [
 ]
 LEDGER_PLAYS = ["raw_to_10", "nine_to_10", "crossover", "grade_gap",
                 "thin_float", "trending_early"]
+
+
+# Which grader's slabs the ladder comps describe. The worked card's ladder is
+# PSA-priced, so a PSA route matches and a CGC route does not -- and the CGC
+# route comparison is still worth running, which is why the mismatch is a flag
+# rather than a refusal.
+COMPS_GRADER = "PSA"

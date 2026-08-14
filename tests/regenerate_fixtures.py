@@ -201,7 +201,7 @@ def model_a_result():
     result = raw_to_graded_ev(
         WORKED_CARD, Money(ACQUISITION, "USD"), TIER, comps, cfg=cfg,
         grader=GRADER, venue=VENUE, route=fs.ROUTE, route_fx=fs.fx_gbp_usd(),
-        buy_route="uk_domestic_secondhand",
+        buy_route="uk_domestic_secondhand", comps_grader=fs.COMPS_GRADER,
         card_pop=LADDER_POP, set_pop=SET_POP)
     if not result:
         raise SystemExit(f"engine refused: {result.reason} -- {result.detail}")
@@ -220,7 +220,8 @@ def estimated_result():
     result = raw_to_graded_ev(
         ESTIMATED_CARD, Money(ESTIMATED_ACQUISITION, "USD"), TIER, comps, cfg=cfg,
         grader=GRADER, venue=VENUE, route=fs.ROUTE, route_fx=fs.fx_gbp_usd(),
-        buy_route="uk_domestic_secondhand", grade_probs=probs)
+        buy_route="uk_domestic_secondhand", comps_grader=fs.COMPS_GRADER,
+        grade_probs=probs)
     if not result:
         raise SystemExit(f"engine refused: {result.reason} -- {result.detail}")
     return result
@@ -234,7 +235,7 @@ def regrade_result():
     result = regrade_9_to_10_ev(
         fs.REGRADE_CARD, Money(fs.REGRADE_SLAB_VALUE_9, "USD"), comps,
         cfg=scenario_config(), condition_read=fs.REGRADE_CONDITION_READ,
-        tier=TIER, venue=VENUE, route=fs.ROUTE)
+        tier=TIER, venue=VENUE, route=fs.ROUTE, comps_grader=fs.COMPS_GRADER)
     if not result:
         raise SystemExit(f"model B refused: {result.reason} -- {result.detail}")
     return result
@@ -341,6 +342,7 @@ def main():
         f"{q(r.modelled_p_target)}. Do not submit.",
     ]
     ic = r.import_charges
+    lab["comp_basis"] = json.loads(json.dumps(r.comp_basis))
     lab["import_charges"] = {
         "applies": ic["applies"],
         "route": ic["route"],
@@ -363,6 +365,7 @@ def main():
     # would have been charged: "we could not price this" and "and it crosses a
     # border" are separate facts, and the second one survives the first.
     ref = load("grading_lab.refusal")
+    ref["comp_basis"] = json.loads(json.dumps(lab["comp_basis"]))
     ref["import_charges"] = json.loads(json.dumps(lab["import_charges"]))
     ref["import_charges"]["expected"] = None
     ref["import_charges"]["by_grade"] = None
@@ -499,6 +502,7 @@ def main():
         net = (gross - friction).quantize(Decimal("0.01"))
         row["net_spread"] = usd(net)
         row["net_margin_pct"]["value"] = q(net / buy * 100, "0.01")
+        row.setdefault("comp_basis", json.loads(json.dumps(r.comp_basis)))
         row.setdefault("regrade_detail", None)
         row["friction"].setdefault("supplies", None)
         row["friction"].setdefault("import_charges", None)
@@ -550,6 +554,7 @@ def main():
                            "regrade_downgrade_probability",
                            "regrade_condition_adjustments"],
         "estimate_basis": "config_rule",
+        "comp_basis": json.loads(json.dumps(reg.comp_basis)),
         "regrade_detail": {
             "break_even_p_target": derived(
                 q(reg.break_even_p_target), "probability", "engine:model_b",

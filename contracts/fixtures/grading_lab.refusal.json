@@ -279,5 +279,13 @@
     "expected": null,
     "effective_rate_on_goods": "0.2240",
     "by_grade": null
+  },
+  "comp_basis": {
+    "state": "match",
+    "comps_grader": "PSA",
+    "route_grader": "PSA",
+    "route": "psa_us",
+    "flag": false,
+    "note": "Comps are PSA sales against a PSA submission."
   }
 }

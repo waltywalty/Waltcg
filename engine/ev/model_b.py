@@ -25,6 +25,7 @@ from decimal import Decimal
 from typing import Optional
 
 from .breakeven import annualised, net_proceeds, solve_break_even_p
+from .comps import comp_basis
 from .config import MISSING, Config, business_days_to_calendar
 from .fees import FeeScheduleError, net_proceeds_from_schedule
 from .imports import (ImportChargeError, effective_rate, import_charge_by_grade,
@@ -145,6 +146,7 @@ def regrade_9_to_10_ev(
     venue: str = "ebay",
     route: Optional[str] = None,
     route_fx=None,
+    comps_grader: Optional[str] = None,
     outbound_shipping: Optional[Money] = None,
     batch_size: Optional[int] = None,
     days_to_sell: Optional[int] = None,
@@ -310,6 +312,7 @@ def regrade_9_to_10_ev(
         ev=ev, roi=roi, annualised_roi=ann, horizon_days=horizon,
         costs=costs, grade_distribution=dist, branches=branches,
         downside_case=branches[2],
+        comp_basis=comp_basis(grader, comps_grader, route=route),
         import_charges={
             "applies": import_applies, "route": route, "note": import_note,
             "relief_scenario": relief if import_applies else None,
