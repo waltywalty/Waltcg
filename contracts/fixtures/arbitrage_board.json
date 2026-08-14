@@ -87,12 +87,14 @@
           "kind": "derived"
         },
         "needs_primary_verification": true,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "assumption_ids": [
         "grading_fee_schedule",
         "marketplace_fee_schedule"
-      ]
+      ],
+      "estimate_basis": "config_rule"
     },
     {
       "card": {
@@ -181,12 +183,14 @@
           "kind": "derived"
         },
         "needs_primary_verification": true,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "assumption_ids": [
         "marketplace_fee_schedule",
         "fx_conversion_spread"
-      ]
+      ],
+      "estimate_basis": "none"
     }
   ],
   "sorted_by": "net_margin_pct",

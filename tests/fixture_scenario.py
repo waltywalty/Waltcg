@@ -127,3 +127,19 @@ ACQUISITION = "140.00"     # buy it at the observed raw price
 TIER = "regular"
 GRADER = "PSA"
 VENUE = "ebay"
+
+
+# ------------------------------------------------- the hand-estimated card
+#
+# Riftbound has no population source at all, so a grading play on it cannot
+# derive a grade distribution -- the probability has to be typed in. This is
+# the Grading Lab's second mode ("manual grade estimate") and the case
+# estimate_basis: user_estimate exists to mark. It is not a rare path: two of
+# the three games and four of the eight combinations land here.
+
+ESTIMATED_CARD = "riftbound:OGN:OGN-042:signature:EN"
+ESTIMATED_PRICES = {"raw": "45.00", "8": "30.00", "9": "60.00", "10": "240.00"}
+ESTIMATED_ACQUISITION = "45.00"
+# My own read, by eye. No population behind any of it.
+USER_GRADE_PROBS = {"8": "0.30", "9": "0.55", "10": "0.15"}
+USER_PROBS_NOTE = "condition read by eye, centering 60/40"

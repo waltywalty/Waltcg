@@ -42,7 +42,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": true,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "population"
       },
       "headline_label": "break-even P(10)",
       "ladder": [
@@ -70,7 +71,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -88,7 +90,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -115,7 +118,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 410,
@@ -133,7 +137,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -160,7 +165,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 5120,
@@ -178,7 +184,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -205,7 +212,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 1830,
@@ -223,7 +231,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         }
       ],
@@ -232,7 +241,8 @@
         "empirical_bayes_prior_strength",
         "grading_fee_schedule"
       ],
-      "entry_method": "api"
+      "entry_method": "api",
+      "estimate_basis": "population"
     },
     {
       "card": {
@@ -264,7 +274,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "headline_label": "spread residual",
       "ladder": [
@@ -292,7 +303,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -310,7 +322,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -337,7 +350,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 120,
@@ -355,7 +369,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -382,7 +397,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 1980,
@@ -400,7 +416,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -427,7 +444,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 640,
@@ -445,14 +463,16 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         }
       ],
       "assumption_ids": [
         "min_comp_sample_size"
       ],
-      "entry_method": "api"
+      "entry_method": "api",
+      "estimate_basis": "none"
     },
     {
       "card": {
@@ -484,7 +504,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "headline_label": "velocity z",
       "ladder": [
@@ -512,7 +533,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -531,7 +553,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -553,7 +576,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -572,7 +596,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -594,7 +619,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -613,7 +639,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -635,7 +662,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -654,12 +682,14 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         }
       ],
       "assumption_ids": [],
-      "entry_method": "api"
+      "entry_method": "api",
+      "estimate_basis": "none"
     },
     {
       "card": {
@@ -694,7 +724,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "mixed"
+        "entry_method": "mixed",
+        "estimate_basis": "none"
       },
       "headline_label": "float ratio",
       "ladder": [
@@ -725,7 +756,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "manual"
+            "entry_method": "manual",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -744,7 +776,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -767,7 +800,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "manual"
+            "entry_method": "manual",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -786,7 +820,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -809,7 +844,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "manual"
+            "entry_method": "manual",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -828,7 +864,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         }
       ],
@@ -836,7 +873,244 @@
         "min_comp_sample_size",
         "fx_rate_source"
       ],
-      "entry_method": "manual"
+      "entry_method": "manual",
+      "estimate_basis": "none"
+    },
+    {
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-042:signature:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-042",
+        "variant": "signature",
+        "language": "EN",
+        "name": "Viktor",
+        "rarity": "Signature",
+        "artist": null,
+        "image_url": null
+      },
+      "play_type": "raw_to_10",
+      "headline": {
+        "value": "0.527",
+        "source": "engine:model_a",
+        "as_of": "2026-08-13T09:00:00Z",
+        "confidence": "unvalidated",
+        "sample_size": null,
+        "unit": "probability",
+        "assumption_ids": [],
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "user_estimate"
+      },
+      "headline_label": "break-even P(10)",
+      "ladder": [
+        {
+          "grade": "raw",
+          "price": {
+            "amount": "45.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "45.00",
+            "unit": "USD",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "low",
+            "sample_size": 4,
+            "assumption_ids": [],
+            "unavailable_reason": null,
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          },
+          "population": {
+            "value": null,
+            "unit": "cards",
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          }
+        },
+        {
+          "grade": "8",
+          "price": {
+            "amount": "30.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "30.00",
+            "unit": "USD",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "low",
+            "sample_size": 4,
+            "assumption_ids": [],
+            "unavailable_reason": null,
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          },
+          "population": {
+            "value": null,
+            "unit": "cards",
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          }
+        },
+        {
+          "grade": "9",
+          "price": {
+            "amount": "60.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "60.00",
+            "unit": "USD",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "low",
+            "sample_size": 4,
+            "assumption_ids": [],
+            "unavailable_reason": null,
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          },
+          "population": {
+            "value": null,
+            "unit": "cards",
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          }
+        },
+        {
+          "grade": "10",
+          "price": {
+            "amount": "240.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "240.00",
+            "unit": "USD",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "low",
+            "sample_size": 4,
+            "assumption_ids": [],
+            "unavailable_reason": null,
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          },
+          "population": {
+            "value": null,
+            "unit": "cards",
+            "source": "none",
+            "as_of": "2026-08-13T09:00:00Z",
+            "confidence": "unvalidated",
+            "sample_size": 0,
+            "assumption_ids": [],
+            "unavailable_reason": "no_source_for_this_game",
+            "staleness": {
+              "as_of": "2026-08-13T09:00:00Z",
+              "age_seconds": 0,
+              "is_stale": false,
+              "threshold_seconds": 604800,
+              "kind": "population"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none"
+          }
+        }
+      ],
+      "assumption_ids": [],
+      "entry_method": "api",
+      "estimate_basis": "user_estimate"
     }
   ],
   "filtered_by": [

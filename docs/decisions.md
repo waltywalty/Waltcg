@@ -577,3 +577,126 @@ refusal item whose `reason_code` is `manual_price_required` must deep-link to
 enums in the schema, so serving them would be the API telling the UI something
 the UI can read off the contract — a field that exists to be redundant is the
 first step toward two lists that disagree.
+
+---
+
+## ADR-0008 — A transcribed price and an invented prior are different provenance
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/screens.schema.json`
+- **Found by:** Claude Design, building against the contract
+
+### Context
+
+`entry_method` marks a price I typed in. Nothing marked a *probability* I typed
+in, and the two are not the same thing at all:
+
+- A hand-entered price is an **observation of a real market** that happens to
+  have no API behind it. Someone paid ¥5,000 for that card on Mercari. The
+  number is soft because it is one listing, not because it is imaginary.
+- A hand-supplied P(10) is **my own judgement with nothing behind it**. No
+  population source exists for Riftbound or One Piece, so there is no data to
+  derive it from and none to check it against.
+
+Both are "manual", and reporting them the same way would tell a designer they
+carry the same kind of uncertainty. They do not. One is thin evidence; the other
+is not evidence.
+
+An enum could not absorb this, because a Riftbound card routinely needs **both**
+at once — a typed price *and* a typed prior. `entry_method: manual` would have
+had to mean either or both, and the row could never say which.
+
+### Decision
+
+`estimate_basis`, alongside `entry_method` and independent of it:
+
+| Value | Meaning |
+|---|---|
+| `population` | Derived from a pop report, shrunk and haircut. |
+| `user_estimate` | I typed the probability. No population source exists for this printing. |
+| `config_rule` | From the dated crossover rules. |
+| `none` | This figure rests on no grade probability at all. |
+
+`none` is not a null. A **break-even threshold is solved from prices and costs
+alone** — it carries no probability input, which is precisely why it is the
+trustworthy half of the Grading Lab's gauge. The screen shows a hard number
+against a soft one, and the marker is how it can say so.
+
+Carried on every `derived_value`, and at row level on `signal_row`,
+`ledger_entry` and `arbitrage_row` — same test as `entry_method`: a row's
+headline is computed from inputs that do not all appear on the row.
+
+**`trend_row` deliberately does not get it.** A velocity z-score never involves
+a grade probability, so the field would read `none` on every row forever. A
+constant field is decoration, and decoration eventually gets believed.
+
+### What it exposed
+
+Adding the marker forced two things into the fixtures that were missing:
+
+- **A signal row resting on a supplied P(10).** Riftbound has no population, so
+  model A had to run in its second mode — distribution supplied rather than
+  derived. It computes: needed P(10) 0.527 against a typed 0.15, EV −62.28. That
+  mode is named in the design brief and no fixture had exercised it.
+- **Three of the five worst calls now say they rest on a typed prior.** A bad
+  call built on my own guess is a different lesson from a bad call built on a
+  pop report, and the Track Record screen exists to teach exactly that
+  difference. Asserted at three, not "at least one".
+
+A supplied prior is also barred from dressing itself up: `sample_size` must be
+null and `confidence` `unvalidated` on any figure marked `user_estimate`. A
+typed guess carrying a sample size is the most misleading thing this app could
+render. Mutation-tested.
+
+---
+
+## ADR-0009 — The assumption registry carries its own reverse index
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/screens.schema.json`, `contracts/fixtures/settings.json`
+
+### Context
+
+Every `derived_value` already carries `assumption_ids` — the forward edge, from
+a figure to what it depends on. The registry had no edge back. So the one
+question worth asking at the moment of change — *if I move the submission
+haircut from 0.80, what moves with it?* — had no answer anywhere in the
+contract, and the honest way to find out was to read the engine.
+
+That is the moment the answer is needed. An assumption is edited from the
+Settings screen, and the consequence lands on screens the user is not looking at.
+
+### Decision
+
+`assumption_entry_view` gains `used_by` and `used_by_count`. `used_by` lists
+**figures, not card instances**: `{screen, field, label}`. "Used by 6 figures"
+should answer "what moves", and the actionable answer is a set of places in the
+app, not a count of rows — the same haircut feeds one signal row or four
+thousand, and that number tells you nothing.
+
+**It is derived, never typed.** `collect_usage()` walks every fixture, indexes
+`assumption_id → {(screen, field)}` from the `assumption_ids` already present,
+and drops array indices — `rows[0].headline` and `rows[3].headline` are one
+figure seen twice. A hand-kept reverse index is a second list that drifts from
+the first, and it fails silently: you change a haircut believing four figures
+move when six do.
+
+`tests/test_fixture_arithmetic.py` asserts set equality in both directions —
+every citation listed back, and no entry claiming a dependant that does not cite
+it. Mutation-tested against a dropped edge, an invented edge and a count that
+disagrees with its list; all three caught.
+
+### What the index immediately showed
+
+Four registry entries feed nothing: `regrade_conditional_prior`,
+`regrade_downgrade_probability`, `regrade_condition_adjustments` and
+`empirical_bayes_min_card_pop`. The first three are model B, which no screen
+surfaces yet — the Regrade play type exists in `play_type` but no fixture
+carries one. That is a real gap in the contract, found by building the index
+rather than by reading the schema.
+
+Orphans surface as a warning on the Settings payload rather than rendering as a
+quiet zero. An assumption with no dependants is either dead or a screen nobody
+built, and both are worth seeing.

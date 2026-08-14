@@ -36,7 +36,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "own_baseline_z": {
         "value": "3.10",
@@ -54,7 +55,8 @@
           "kind": "sentiment"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "game_baseline_z": {
         "value": "0.39",
@@ -72,7 +74,8 @@
           "kind": "sentiment"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "sources": [
         "youtube"
@@ -115,7 +118,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "own_baseline_z": {
         "value": "1.80",
@@ -133,7 +137,8 @@
           "kind": "sentiment"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "game_baseline_z": {
         "value": "0.38",
@@ -151,7 +156,8 @@
           "kind": "sentiment"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "sources": [
         "youtube",

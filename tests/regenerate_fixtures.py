@@ -27,9 +27,34 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine.ev import Money, raw_to_graded_ev  # noqa: E402
 from engine.ev.fees import net_proceeds_from_schedule  # noqa: E402
-from tests.fixture_scenario import (ACQUISITION, GENERATED_AT, GRADER,  # noqa: E402
-                                    LADDER_POP, LADDER_PRICES, SET_POP, TIER,
-                                    VENUE, WORKED_CARD, scenario_config)
+from engine.ev.results import GradeDistribution  # noqa: E402
+from tests.fixture_scenario import (ACQUISITION, ESTIMATED_ACQUISITION,  # noqa: E402
+                                    ESTIMATED_CARD, ESTIMATED_PRICES, GENERATED_AT,
+                                    GRADER, LADDER_POP, LADDER_PRICES, SET_POP,
+                                    TIER, USER_GRADE_PROBS, USER_PROBS_NOTE, VENUE,
+                                    WORKED_CARD, scenario_config)
+
+# Which grade probability, if any, sits behind each figure. A break-even
+# threshold is solved from prices and costs alone and rests on no probability at
+# all -- that is why it is the half of the Grading Lab's gauge you can trust.
+LAB_BASIS = {
+    "break_even_p_target": "none",
+    "modelled_p_target": "population",
+    "pop_implied_p_target": "population",
+    "roi": "population",
+    "annualised_roi": "population",
+}
+# Three of the five worst calls rest on a probability I typed. Riftbound and One
+# Piece have no population source, so a grading or float play on either had
+# nothing else to use.
+LEDGER_BASIS = {
+    "a-0007": ("user_estimate", "api"),      # One Piece EN, no population
+    "a-0012": ("none", "api"),               # trend play, no probability at all
+    "a-0019": ("user_estimate", "manual"),   # One Piece JP: typed price AND prior
+    "a-0003": ("user_estimate", "api"),      # Riftbound, no population
+    "a-0022": ("config_rule", "api"),        # crossover, from dated rules
+    "a-0031": ("population", "api"),         # Pokemon EN, pop report
+}
 
 FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                    "..", "contracts", "fixtures")
@@ -58,6 +83,54 @@ def usd(amount):
             "currency": "USD", "fx_rate_used": None, "fx_as_of": None}
 
 
+# Field paths are how the API addresses a figure; labels are how a person
+# recognises it. The reverse-dependency list needs both or it reads like a
+# stack trace.
+LABELS = {
+    ("grading_lab", "break_even_p_target"): "Break-even P(10)",
+    ("grading_lab", "modelled_p_target"): "Modelled P(10)",
+    ("grading_lab", "pop_implied_p_target"): "Population-implied P(10)",
+    ("grading_lab", ""): "Grading Lab, this submission",
+    ("signals", "rows.headline"): "Signal headline number",
+    ("signals", "rows"): "Signal row",
+    ("signals", "rows.ladder.price_meta"): "Ladder rung price",
+    ("card_detail", "buy_routes.landed_cost_meta"): "Buy route landed cost",
+    ("arbitrage_board", "rows.net_margin_pct"): "Net margin",
+    ("arbitrage_board", "rows"): "Arbitrage row",
+    ("track_record", "worst_five"): "Worst five calls",
+    ("track_record", "recent"): "Recent alerts",
+}
+
+
+def collect_usage():
+    """Walk every fixture and index assumption id -> {(screen, field path)}.
+
+    Array indices are dropped: 'rows[0].headline' and 'rows[3].headline' are one
+    figure appearing twice, not two figures. The affordance answers "what moves
+    if I change this", and the answer is a place in the app."""
+    import collections
+    usage = collections.defaultdict(set)
+
+    def walk(node, screen, path):
+        if isinstance(node, dict):
+            for aid in node.get("assumption_ids") or []:
+                usage[aid].add((screen, path))
+            for key, value in node.items():
+                if key == "assumption_ids":
+                    continue
+                walk(value, screen, f"{path}.{key}".strip("."))
+        elif isinstance(node, list):
+            for item in node:
+                walk(item, screen, path)          # index dropped on purpose
+
+    for name in ("home", "signals", "card_detail", "grading_lab",
+                 "grading_lab.refusal", "arbitrage_board", "trend_radar",
+                 "track_record", "manual_entry"):
+        payload = load(name)
+        walk(payload, payload["screen"], "")
+    return usage
+
+
 def model_a_result():
     cfg = scenario_config()
     comps = {g: Money(p, "USD") for g, p in LADDER_PRICES.items() if g != "raw"}
@@ -69,8 +142,32 @@ def model_a_result():
     return result
 
 
+def estimated_result():
+    """Model A with the grade distribution supplied rather than derived. This
+    is the only mode available for Riftbound and One Piece."""
+    cfg = scenario_config()
+    comps = {g: Money(p, "USD") for g, p in ESTIMATED_PRICES.items() if g != "raw"}
+    probs = GradeDistribution(
+        probs={g: Decimal(p) for g, p in USER_GRADE_PROBS.items()},
+        prior_used="user estimate: no population source for riftbound",
+        effective_sample_size=None, haircut_applied=None, notes=[USER_PROBS_NOTE])
+    result = raw_to_graded_ev(
+        ESTIMATED_CARD, Money(ESTIMATED_ACQUISITION, "USD"), TIER, comps, cfg=cfg,
+        grader=GRADER, venue=VENUE, grade_probs=probs)
+    if not result:
+        raise SystemExit(f"engine refused: {result.reason} -- {result.detail}")
+    return result
+
+
+def set_basis(node, basis):
+    """Stamp estimate_basis on a derived_value in place."""
+    node["estimate_basis"] = basis
+    return node
+
+
 def main():
     r = model_a_result()
+    est = estimated_result()
 
     # ---------------------------------------------------------- card_detail
     cd = load("card_detail")
@@ -132,6 +229,8 @@ def main():
         f"Needs P(10) = {q(r.break_even_p_target)}; modelled "
         f"{q(r.modelled_p_target)}. Do not submit.",
     ]
+    for key, basis in LAB_BASIS.items():
+        lab[key]["estimate_basis"] = basis
     save("grading_lab", lab)
 
     # -------------------------------------------------------------- signals
@@ -145,6 +244,50 @@ def main():
             row["headline"]["sample_size"] = sum(LADDER_POP.values())
             row["ladder"] = json.loads(json.dumps(
                 [rung for rung in cd["ladder"]]))
+    riftbound = next((row for row in sig["rows"]
+                      if row["card"]["card_uid"] == ESTIMATED_CARD
+                      and row["play_type"] == "raw_to_10"), None)
+    if riftbound is None:
+        template = next(row for row in sig["rows"]
+                        if row["card"]["card_uid"] == ESTIMATED_CARD)
+        riftbound = json.loads(json.dumps(template))
+        riftbound["play_type"] = "raw_to_10"
+        riftbound["headline_label"] = "break-even P(10)"
+        sig["rows"].append(riftbound)
+    riftbound["headline"]["value"] = q(est.break_even_p_target)
+    riftbound["headline"]["unit"] = "probability"
+    riftbound["headline"]["source"] = "engine:model_a"
+    riftbound["headline"]["sample_size"] = None
+    riftbound["headline"]["confidence"] = "unvalidated"
+    riftbound["headline"]["estimate_basis"] = "user_estimate"
+    riftbound["headline"]["assumption_ids"] = []
+    riftbound["estimate_basis"] = "user_estimate"
+    riftbound["ladder"] = [
+        {"grade": g,
+         "price": usd(ESTIMATED_PRICES[g]) if g in ESTIMATED_PRICES else None,
+         "price_meta": {
+             "value": ESTIMATED_PRICES.get(g), "unit": "USD",
+             "source": "tcgapi.dev", "as_of": GENERATED_AT,
+             "confidence": "low", "sample_size": 4, "assumption_ids": [],
+             "unavailable_reason": None,
+             "staleness": {"as_of": GENERATED_AT, "age_seconds": 0,
+                           "is_stale": False, "threshold_seconds": 86400,
+                           "kind": "price"},
+             "needs_primary_verification": False, "entry_method": "api",
+             "estimate_basis": "none"},
+         "population": {
+             "value": None, "unit": "cards", "source": "none",
+             "as_of": GENERATED_AT, "confidence": "unvalidated", "sample_size": 0,
+             "assumption_ids": [], "unavailable_reason": "no_source_for_this_game",
+             "staleness": {"as_of": GENERATED_AT, "age_seconds": 0,
+                           "is_stale": False, "threshold_seconds": 604800,
+                           "kind": "population"},
+             "needs_primary_verification": False, "entry_method": "api",
+             "estimate_basis": "none"}}
+        for g in ("raw", "8", "9", "10")]
+    for row in sig["rows"]:
+        row.setdefault("estimate_basis",
+                       "population" if row["play_type"] == "raw_to_10" else "none")
     save("signals", sig)
 
     # ------------------------------------------------------- arbitrage_board
@@ -170,6 +313,18 @@ def main():
         row["net_margin_pct"]["value"] = q(net / buy * 100, "0.01")
     save("arbitrage_board", arb)
 
+    # -------------------------------------------------------- track_record
+    tr = load("track_record")
+    for entry in tr["worst_five"] + tr["recent"]:
+        basis, method = LEDGER_BASIS[entry["alert_id"]]
+        entry["estimate_basis"] = basis
+        entry["entry_method"] = method
+    typed = sum(1 for e in tr["worst_five"]
+                if e["estimate_basis"] == "user_estimate")
+    tr["warnings"] = [
+        f"{typed} of the five worst calls rest on a grade probability I typed."]
+    save("track_record", tr)
+
     # ----------------------------------------------------------------- home
     home = load("home")
     pv = Decimal(home["portfolio_value"]["amount"])
@@ -184,6 +339,25 @@ def main():
         game = Decimal(row["game_baseline_z"]["value"])
         row["double_demeaned_z"]["value"] = q(own - game, "0.01")
     save("trend_radar", trend)
+
+    # ------------------------------------------------------------- settings
+    # used_by is the INVERSE of the assumption_ids every derived_value already
+    # carries. Deriving it rather than typing it is the whole point: a hand-kept
+    # reverse index is a second list that drifts from the first, and the failure
+    # is silent -- you change a haircut believing four figures move when six do.
+    usage = collect_usage()
+    settings = load("settings")
+    for entry in settings["assumptions"]:
+        used = sorted(usage.get(entry["id"], set()))
+        entry["used_by"] = [{"screen": screen, "field": field,
+                             "label": LABELS.get((screen, field), field)}
+                            for screen, field in used]
+        entry["used_by_count"] = len(entry["used_by"])
+    orphans = [e["id"] for e in settings["assumptions"] if e["used_by_count"] == 0]
+    settings["warnings"] = (
+        [f"{len(orphans)} assumptions feed no figure on any screen: "
+         + ", ".join(orphans)] if orphans else [])
+    save("settings", settings)
 
     print(f"regenerated against the engine: needed P(10)="
           f"{q(r.break_even_p_target)}, modelled={q(r.modelled_p_target)}, "

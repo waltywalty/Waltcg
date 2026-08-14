@@ -52,7 +52,8 @@
     },
     "needs_primary_verification": true,
     "entry_method": "api",
-    "unavailable_reason": "engine_refused_insufficient_evidence"
+    "unavailable_reason": "engine_refused_insufficient_evidence",
+    "estimate_basis": "population"
   },
   "break_even_attainable": false,
   "break_even_note": "Not computable: see the checklist.",
@@ -76,7 +77,8 @@
     },
     "needs_primary_verification": true,
     "entry_method": "api",
-    "unavailable_reason": "engine_refused_insufficient_evidence"
+    "unavailable_reason": "engine_refused_insufficient_evidence",
+    "estimate_basis": "population"
   },
   "pop_implied_p_target": {
     "value": null,
@@ -97,7 +99,8 @@
     },
     "needs_primary_verification": true,
     "entry_method": "api",
-    "unavailable_reason": "engine_refused_insufficient_evidence"
+    "unavailable_reason": "engine_refused_insufficient_evidence",
+    "estimate_basis": "population"
   },
   "ev": null,
   "roi": {
@@ -117,7 +120,8 @@
     },
     "needs_primary_verification": true,
     "entry_method": "api",
-    "unavailable_reason": "engine_refused_insufficient_evidence"
+    "unavailable_reason": "engine_refused_insufficient_evidence",
+    "estimate_basis": "none"
   },
   "annualised_roi": {
     "value": null,
@@ -136,7 +140,8 @@
     },
     "needs_primary_verification": true,
     "entry_method": "api",
-    "unavailable_reason": "engine_refused_insufficient_evidence"
+    "unavailable_reason": "engine_refused_insufficient_evidence",
+    "estimate_basis": "none"
   },
   "horizon_days": null,
   "downside_case": null,

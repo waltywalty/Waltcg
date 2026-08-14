@@ -28,7 +28,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "none"
   },
   "day_change": {
     "amount": "-212.50",
@@ -52,7 +53,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "none"
   },
   "open_alert_count": 3,
   "top_movers": [
@@ -94,7 +96,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -112,7 +115,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -139,7 +143,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 410,
@@ -157,7 +162,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -184,7 +190,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 5120,
@@ -202,7 +209,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -229,7 +237,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": 1830,
@@ -247,7 +256,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         }
       ],
@@ -267,7 +277,8 @@
           "kind": "price"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "entry_method": "api"
     },
@@ -309,7 +320,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -328,7 +340,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -350,7 +363,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -369,7 +383,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -396,7 +411,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -415,7 +431,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -442,7 +459,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -461,7 +479,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         }
       ],
@@ -481,7 +500,8 @@
           "kind": "price"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "entry_method": "api"
     },
@@ -523,7 +543,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -542,7 +563,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -564,7 +586,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -583,7 +606,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -605,7 +629,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -624,7 +649,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         },
         {
@@ -646,7 +672,8 @@
               "kind": "price"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           },
           "population": {
             "value": null,
@@ -665,7 +692,8 @@
               "kind": "population"
             },
             "needs_primary_verification": false,
-            "entry_method": "api"
+            "entry_method": "api",
+            "estimate_basis": "none"
           }
         }
       ],
@@ -685,7 +713,8 @@
           "kind": "price"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "entry_method": "api"
     }

@@ -52,7 +52,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": true,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "none"
   },
   "break_even_attainable": true,
   "break_even_note": "",
@@ -75,7 +76,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "population"
   },
   "pop_implied_p_target": {
     "value": "0.249",
@@ -95,7 +97,8 @@
       "kind": "price"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "population"
   },
   "ev": {
     "amount": "-35.67",
@@ -119,7 +122,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "population"
   },
   "annualised_roi": {
     "value": "-0.425",
@@ -137,7 +141,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "population"
   },
   "horizon_days": 114,
   "downside_case": {

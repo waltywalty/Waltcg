@@ -4,7 +4,7 @@
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
   "warnings": [
-    "31 scored alerts: below the 50 needed before acting with real money"
+    "3 of the five worst calls rest on a grade probability I typed."
   ],
   "hit_rate_7d": {
     "value": "0.516",
@@ -22,7 +22,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "none"
   },
   "hit_rate_30d": {
     "value": "0.452",
@@ -40,7 +41,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "none"
   },
   "hit_rate_90d": {
     "value": "0.387",
@@ -58,7 +60,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "none"
   },
   "median_excess_return": {
     "value": "0.021",
@@ -76,7 +79,8 @@
       "kind": "derived"
     },
     "needs_primary_verification": false,
-    "entry_method": "api"
+    "entry_method": "api",
+    "estimate_basis": "none"
   },
   "scored_alert_count": 31,
   "acting_threshold_met": false,
@@ -120,7 +124,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_30d": {
         "value": "-0.191",
@@ -138,7 +143,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_90d": {
         "value": "-0.263",
@@ -156,11 +162,14 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "assumption_ids": [
         "min_comp_sample_size"
-      ]
+      ],
+      "estimate_basis": "user_estimate",
+      "entry_method": "api"
     },
     {
       "alert_id": "a-0012",
@@ -201,7 +210,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_30d": {
         "value": "-0.140",
@@ -219,7 +229,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_90d": {
         "value": "-0.244",
@@ -237,9 +248,12 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
-      "assumption_ids": []
+      "assumption_ids": [],
+      "estimate_basis": "none",
+      "entry_method": "api"
     },
     {
       "alert_id": "a-0019",
@@ -280,7 +294,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_30d": {
         "value": "-0.098",
@@ -298,7 +313,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_90d": {
         "value": "-0.187",
@@ -316,11 +332,14 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "assumption_ids": [
         "submission_selection_haircut"
-      ]
+      ],
+      "estimate_basis": "user_estimate",
+      "entry_method": "manual"
     },
     {
       "alert_id": "a-0003",
@@ -361,7 +380,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_30d": {
         "value": "-0.077",
@@ -379,7 +399,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_90d": {
         "value": "-0.152",
@@ -397,9 +418,12 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
-      "assumption_ids": []
+      "assumption_ids": [],
+      "estimate_basis": "user_estimate",
+      "entry_method": "api"
     },
     {
       "alert_id": "a-0022",
@@ -440,7 +464,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_30d": {
         "value": "-0.061",
@@ -458,7 +483,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_90d": {
         "value": "-0.121",
@@ -476,11 +502,14 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "assumption_ids": [
         "grading_fee_schedule"
-      ]
+      ],
+      "estimate_basis": "config_rule",
+      "entry_method": "api"
     }
   ],
   "recent": [
@@ -523,7 +552,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_30d": {
         "value": "0.043",
@@ -541,7 +571,8 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "excess_return_90d": {
         "value": "0.088",
@@ -559,12 +590,15 @@
           "kind": "derived"
         },
         "needs_primary_verification": false,
-        "entry_method": "api"
+        "entry_method": "api",
+        "estimate_basis": "none"
       },
       "assumption_ids": [
         "submission_selection_haircut",
         "grading_fee_schedule"
-      ]
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api"
     }
   ]
 }

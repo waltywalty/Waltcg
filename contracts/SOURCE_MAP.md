@@ -186,6 +186,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `edge_flag` | `manual` |
 | `editable` | `contracts/assumptions.json` |
 | `entry_id` | `manual` -- assigned on save; append-only, never reused |
+| `estimate_basis` | `engine` -- which grade probability sits behind the figure: a pop report, a dated crossover rule, one I typed, or none at all |
 | `excess_return_30d` | `engine:alert_ledger` |
 | `excess_return_7d` | `engine:alert_ledger` |
 | `excess_return_90d` | `engine:alert_ledger` |
@@ -240,5 +241,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `turnaround_business_days` | `config/grading.yaml` |
 | `ui_chip_required` | `contracts/assumptions.json` |
 | `unit` | `contracts/assumptions.json` |
+| `used_by` | `engine` -- inverse of the `assumption_ids` carried on every derived value; derived, never hand-kept |
+| `used_by_count` | `engine` -- `len(used_by)`, carried so a chip can render without the list |
 | `window_days` | `engine:trend` (config) |
 | `worst_five` | `engine:alert_ledger` |

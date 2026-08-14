@@ -366,3 +366,183 @@ class NothingIsUncheckedBySilence(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ATypedProbabilityIsMarkedToo(unittest.TestCase):
+    """entry_method marks a price I transcribed. estimate_basis marks a
+    probability I invented. They are independent, and a Riftbound card usually
+    needs both -- there is no population source, so the prior is mine, and often
+    no price API either. One enum could not have said both."""
+
+    def setUp(self):
+        self.fixtures = {n[:-5]: load(n[:-5])
+                         for n in sorted(os.listdir(FIX)) if n.endswith(".json")}
+
+    def _derived(self):
+        found = []
+
+        def walk(node, path):
+            if isinstance(node, dict):
+                if {"value", "source", "as_of", "confidence",
+                        "sample_size"} <= set(node):
+                    found.append((path, node))
+                for k, v in node.items():
+                    walk(v, f"{path}.{k}")
+            elif isinstance(node, list):
+                for i, v in enumerate(node):
+                    walk(v, f"{path}[{i}]")
+
+        for name, payload in self.fixtures.items():
+            walk(payload, name)
+        return found
+
+    def test_every_derived_value_states_its_probability_basis(self):
+        for path, dv in self._derived():
+            self.assertIn("estimate_basis", dv, path)
+
+    def test_a_price_or_population_rests_on_no_probability(self):
+        """A grade probability cannot sit behind an observed price. Marking one
+        'population' would imply the pop report priced the card."""
+        for path, dv in self._derived():
+            if (dv.get("unit") or "") in ("USD", "JPY", "cards", "z-score"):
+                self.assertEqual(dv["estimate_basis"], "none", path)
+
+    def test_the_two_markers_are_independent(self):
+        """Both dimensions must actually vary, or one of them is decoration."""
+        pairs = {(dv["entry_method"], dv["estimate_basis"])
+                 for _, dv in self._derived()}
+        self.assertGreater(len({e for e, _ in pairs}), 1, "entry_method never varies")
+        self.assertGreater(len({b for _, b in pairs}), 1,
+                           "estimate_basis never varies")
+
+    def test_a_signal_row_can_rest_on_a_typed_probability(self):
+        bases = {r["estimate_basis"] for r in self.fixtures["signals"]["rows"]}
+        self.assertIn("user_estimate", bases,
+                      "no signal row uses a supplied P(10), so the marker is "
+                      "untested and the Grading Lab's second mode undesigned")
+
+    def test_no_population_source_means_the_probability_must_be_mine(self):
+        """Riftbound and One Piece have no population at any grade. A figure
+        claiming a population-derived probability for one of them is claiming a
+        source that does not exist."""
+        rows = [("signals", r) for r in self.fixtures["signals"]["rows"]]
+        rows += [("arbitrage_board", r)
+                 for r in self.fixtures["arbitrage_board"]["rows"]]
+        rows += [("track_record", e) for e in
+                 self.fixtures["track_record"]["worst_five"]
+                 + self.fixtures["track_record"]["recent"]]
+        for name, row in rows:
+            if row["card"]["game"] in ("riftbound", "optcg"):
+                self.assertNotEqual(
+                    row["estimate_basis"], "population",
+                    f"{name}: {row['card']['card_uid']} has no population source")
+
+    def test_three_of_the_five_worst_calls_rest_on_a_typed_probability(self):
+        """The Track Record screen is where the marker earns its place: a bad
+        call built on my own prior is a different lesson from a bad call built
+        on a pop report."""
+        worst = load("track_record")["worst_five"]
+        for entry in worst:
+            self.assertIn("estimate_basis", entry, entry["alert_id"])
+            self.assertIn("entry_method", entry, entry["alert_id"])
+        typed = [e for e in worst if e["estimate_basis"] == "user_estimate"]
+        self.assertEqual(len(typed), 3, [e["alert_id"] for e in worst])
+
+
+class TheHandEstimatedCardComputes(unittest.TestCase):
+    """Model A in its second mode: the grade distribution supplied, not
+    derived. The only mode available for four of the eight combinations."""
+
+    @classmethod
+    def setUpClass(cls):
+        from engine.ev.results import GradeDistribution
+        from tests.fixture_scenario import (ESTIMATED_ACQUISITION, ESTIMATED_CARD,
+                                            ESTIMATED_PRICES, USER_GRADE_PROBS)
+        cls.card = ESTIMATED_CARD
+        comps = {g: Money(p, "USD") for g, p in ESTIMATED_PRICES.items()
+                 if g != "raw"}
+        probs = GradeDistribution(
+            probs={g: dec(p) for g, p in USER_GRADE_PROBS.items()},
+            prior_used="user estimate", effective_sample_size=None,
+            haircut_applied=None)
+        cls.r = raw_to_graded_ev(
+            ESTIMATED_CARD, Money(ESTIMATED_ACQUISITION, "USD"), TIER, comps,
+            cfg=scenario_config(), grader=GRADER, venue=VENUE, grade_probs=probs)
+
+    def test_the_engine_computes_from_a_supplied_distribution(self):
+        self.assertTrue(self.r, getattr(self.r, "detail", ""))
+
+    def test_the_signal_headline_matches_the_engine(self):
+        rows = [r for r in load("signals")["rows"]
+                if r["card"]["card_uid"] == self.card
+                and r["play_type"] == "raw_to_10"]
+        self.assertTrue(rows, "no hand-estimated raw_to_10 row")
+        self.assertEqual(dec(rows[0]["headline"]["value"]),
+                         dec(self.r.break_even_p_target).quantize(dec("0.001")))
+
+    def test_a_supplied_prior_is_never_dressed_up_as_evidence(self):
+        """sample_size must be null and confidence unvalidated. A typed prior
+        with a sample size behind it is the single most misleading thing this
+        screen could render."""
+        for row in load("signals")["rows"]:
+            if row["estimate_basis"] != "user_estimate":
+                continue
+            self.assertIsNone(row["headline"]["sample_size"],
+                              row["card"]["card_uid"])
+            self.assertEqual(row["headline"]["confidence"], "unvalidated")
+
+
+class TheRegistryKnowsWhatDependsOnIt(unittest.TestCase):
+    """Before changing a haircut I want to know what moves. The reverse index
+    is derived from the forward references, never typed -- a hand-kept second
+    list drifts from the first and fails silently."""
+
+    def setUp(self):
+        self.settings = load("settings")
+        self.entries = {a["id"]: a for a in self.settings["assumptions"]}
+        from tests.regenerate_fixtures import collect_usage
+        self.observed = collect_usage()
+
+    def test_count_matches_the_list(self):
+        for aid, entry in self.entries.items():
+            self.assertEqual(entry["used_by_count"], len(entry["used_by"]), aid)
+
+    def test_every_citation_is_listed_back(self):
+        """The assertion that matters. A figure citing an assumption the
+        registry does not list is a dependency invisible at the moment of
+        change."""
+        for aid, places in self.observed.items():
+            self.assertIn(aid, self.entries, f"{aid} is cited but not registered")
+            declared = {(u["screen"], u["field"])
+                        for u in self.entries[aid]["used_by"]}
+            self.assertEqual(places, declared,
+                             f"{aid}: cited in {sorted(places - declared)}, "
+                             f"listed but uncited {sorted(declared - places)}")
+
+    def test_no_entry_claims_a_dependency_that_does_not_exist(self):
+        for aid, entry in self.entries.items():
+            for use in entry["used_by"]:
+                self.assertIn((use["screen"], use["field"]),
+                              self.observed.get(aid, set()),
+                              f"{aid} claims {use['screen']}.{use['field']}")
+
+    def test_entries_feeding_nothing_are_surfaced_not_hidden(self):
+        """An assumption with no dependants is either dead or a screen that has
+        not been built. Both are worth seeing; neither should look like zero
+        because the index is broken."""
+        orphans = [a for a, e in self.entries.items() if e["used_by_count"] == 0]
+        if orphans:
+            self.assertTrue(self.settings["warnings"],
+                            f"{orphans} feed no figure and nothing says so")
+
+    def test_the_fragile_assumptions_have_dependants(self):
+        """The four CLAUDE.md calls known-fragile are the ones most likely to
+        be changed, so their reverse index is the one most likely to be read."""
+        for aid in ("submission_selection_haircut",
+                    "empirical_bayes_prior_strength", "pull_rate_estimates"):
+            self.assertGreater(self.entries[aid]["used_by_count"], 0, aid)
+
+    def test_labels_are_readable_rather_than_paths(self):
+        for aid, entry in self.entries.items():
+            for use in entry["used_by"]:
+                self.assertTrue(use["label"], f"{aid} has an unlabelled dependant")

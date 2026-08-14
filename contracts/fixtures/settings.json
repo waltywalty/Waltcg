@@ -4,7 +4,7 @@
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
   "warnings": [
-    "25 config entries are unverified; 8 PSA entries need primary verification"
+    "4 assumptions feed no figure on any screen: regrade_conditional_prior, regrade_downgrade_probability, regrade_condition_adjustments, empirical_bayes_min_card_pop"
   ],
   "assumptions": [
     {
@@ -17,7 +17,45 @@
       "last_reviewed": null,
       "calibration_plan": "Log every card actually submitted and its result. After ~30 submissions, realised P(10) divided by the population gem rate is the number. Split by game and era before trusting it.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "grading_lab",
+          "field": "",
+          "label": "Grading Lab, this submission"
+        },
+        {
+          "screen": "grading_lab",
+          "field": "modelled_p_target",
+          "label": "Modelled P(10)"
+        },
+        {
+          "screen": "grading_lab",
+          "field": "pop_implied_p_target",
+          "label": "Population-implied P(10)"
+        },
+        {
+          "screen": "signals",
+          "field": "rows",
+          "label": "Signal row"
+        },
+        {
+          "screen": "signals",
+          "field": "rows.headline",
+          "label": "Signal headline number"
+        },
+        {
+          "screen": "track_record",
+          "field": "recent",
+          "label": "Recent alerts"
+        },
+        {
+          "screen": "track_record",
+          "field": "worst_five",
+          "label": "Worst five calls"
+        }
+      ],
+      "used_by_count": 7
     },
     {
       "id": "regrade_conditional_prior",
@@ -29,7 +67,9 @@
       "last_reviewed": null,
       "calibration_plan": "Log every 9 resubmitted and its outcome. This calibrates slowly because few are submitted; until n>=20 treat the default as a floor, not an estimate.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [],
+      "used_by_count": 0
     },
     {
       "id": "regrade_downgrade_probability",
@@ -41,7 +81,9 @@
       "last_reviewed": null,
       "calibration_plan": "Same submission log as regrade_conditional_prior; count downgrades separately.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [],
+      "used_by_count": 0
     },
     {
       "id": "regrade_condition_adjustments",
@@ -53,7 +95,9 @@
       "last_reviewed": null,
       "calibration_plan": "Requires outcome data segmented by condition read, which needs a larger submission log than the base prior. Lowest-priority calibration.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [],
+      "used_by_count": 0
     },
     {
       "id": "pull_rate_estimates",
@@ -65,7 +109,15 @@
       "last_reviewed": null,
       "calibration_plan": "Only your own opened-product log produces a trustworthy number, and the sample needed is larger than you will ever open. Treat Model E rankings as indicative and its magnitudes as unreliable, permanently.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "grading_lab",
+          "field": "",
+          "label": "Grading Lab, this submission"
+        }
+      ],
+      "used_by_count": 1
     },
     {
       "id": "marketplace_fee_schedule",
@@ -77,7 +129,40 @@
       "last_reviewed": "2026-08-13",
       "calibration_plan": "Reconcile against a real settled payout every quarter: take one actual sale, compute the expected fee from config, compare to what was withheld. A discrepancy means the schedule moved.",
       "ui_chip_required": false,
-      "editable": false
+      "editable": false,
+      "used_by": [
+        {
+          "screen": "arbitrage_board",
+          "field": "rows",
+          "label": "Arbitrage row"
+        },
+        {
+          "screen": "arbitrage_board",
+          "field": "rows.net_margin_pct",
+          "label": "Net margin"
+        },
+        {
+          "screen": "card_detail",
+          "field": "buy_routes.landed_cost_meta",
+          "label": "Buy route landed cost"
+        },
+        {
+          "screen": "grading_lab",
+          "field": "",
+          "label": "Grading Lab, this submission"
+        },
+        {
+          "screen": "grading_lab",
+          "field": "break_even_p_target",
+          "label": "Break-even P(10)"
+        },
+        {
+          "screen": "signals",
+          "field": "rows.headline",
+          "label": "Signal headline number"
+        }
+      ],
+      "used_by_count": 6
     },
     {
       "id": "grading_fee_schedule",
@@ -89,7 +174,50 @@
       "last_reviewed": "2026-08-13",
       "calibration_plan": "Re-read each grader's own pricing page quarterly and on any announcement. PSA entries carry needs_primary_verification because secondary sources disagree on Value tier pricing, backlog size and membership cost.",
       "ui_chip_required": false,
-      "editable": false
+      "editable": false,
+      "used_by": [
+        {
+          "screen": "arbitrage_board",
+          "field": "rows",
+          "label": "Arbitrage row"
+        },
+        {
+          "screen": "arbitrage_board",
+          "field": "rows.net_margin_pct",
+          "label": "Net margin"
+        },
+        {
+          "screen": "grading_lab",
+          "field": "",
+          "label": "Grading Lab, this submission"
+        },
+        {
+          "screen": "grading_lab",
+          "field": "break_even_p_target",
+          "label": "Break-even P(10)"
+        },
+        {
+          "screen": "signals",
+          "field": "rows",
+          "label": "Signal row"
+        },
+        {
+          "screen": "signals",
+          "field": "rows.headline",
+          "label": "Signal headline number"
+        },
+        {
+          "screen": "track_record",
+          "field": "recent",
+          "label": "Recent alerts"
+        },
+        {
+          "screen": "track_record",
+          "field": "worst_five",
+          "label": "Worst five calls"
+        }
+      ],
+      "used_by_count": 8
     },
     {
       "id": "empirical_bayes_prior_strength",
@@ -101,7 +229,30 @@
       "last_reviewed": null,
       "calibration_plan": "Backtest shrinkage strength against realised grade outcomes once the submission log exists. Until then this is a modelling choice, not a measurement.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "grading_lab",
+          "field": "",
+          "label": "Grading Lab, this submission"
+        },
+        {
+          "screen": "grading_lab",
+          "field": "modelled_p_target",
+          "label": "Modelled P(10)"
+        },
+        {
+          "screen": "signals",
+          "field": "rows",
+          "label": "Signal row"
+        },
+        {
+          "screen": "signals",
+          "field": "rows.headline",
+          "label": "Signal headline number"
+        }
+      ],
+      "used_by_count": 4
     },
     {
       "id": "empirical_bayes_min_card_pop",
@@ -113,7 +264,9 @@
       "last_reviewed": null,
       "calibration_plan": "Sensitivity-test the threshold against the same outcome log; the right value is where out-of-sample error stops improving.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [],
+      "used_by_count": 0
     },
     {
       "id": "days_to_sell",
@@ -125,7 +278,15 @@
       "last_reviewed": null,
       "calibration_plan": "Measure directly from your own sales: median days from list to payout, per venue. This is the easiest entry here to calibrate and should be done first.",
       "ui_chip_required": true,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "grading_lab",
+          "field": "",
+          "label": "Grading Lab, this submission"
+        }
+      ],
+      "used_by_count": 1
     },
     {
       "id": "acquisition_tax_pct",
@@ -137,7 +298,15 @@
       "last_reviewed": null,
       "calibration_plan": "Factual, not a judgement: read it off your own receipts for the region you buy in. Listed here because it is an input the models refuse without.",
       "ui_chip_required": false,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "grading_lab",
+          "field": "",
+          "label": "Grading Lab, this submission"
+        }
+      ],
+      "used_by_count": 1
     },
     {
       "id": "min_comp_sample_size",
@@ -149,7 +318,25 @@
       "last_reviewed": "2026-08-13",
       "calibration_plan": "Methodology floor rather than a market observation, so it has a real default. Revisit only if the suppressed fraction of the universe proves unworkable -- and measure that fraction before changing it.",
       "ui_chip_required": false,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "signals",
+          "field": "rows",
+          "label": "Signal row"
+        },
+        {
+          "screen": "signals",
+          "field": "rows.headline",
+          "label": "Signal headline number"
+        },
+        {
+          "screen": "track_record",
+          "field": "worst_five",
+          "label": "Worst five calls"
+        }
+      ],
+      "used_by_count": 3
     },
     {
       "id": "fx_rate_source",
@@ -161,7 +348,20 @@
       "last_reviewed": null,
       "calibration_plan": "Compare the stored rate against the rate actually received on a real conversion, quarterly. The gap is fx_conversion_spread, not error.",
       "ui_chip_required": false,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "signals",
+          "field": "rows",
+          "label": "Signal row"
+        },
+        {
+          "screen": "signals",
+          "field": "rows.ladder.price_meta",
+          "label": "Ladder rung price"
+        }
+      ],
+      "used_by_count": 2
     },
     {
       "id": "fx_conversion_spread",
@@ -173,7 +373,20 @@
       "last_reviewed": null,
       "calibration_plan": "Read off a real conversion: (rate received / reference rate) - 1.",
       "ui_chip_required": false,
-      "editable": true
+      "editable": true,
+      "used_by": [
+        {
+          "screen": "arbitrage_board",
+          "field": "rows",
+          "label": "Arbitrage row"
+        },
+        {
+          "screen": "arbitrage_board",
+          "field": "rows.net_margin_pct",
+          "label": "Net margin"
+        }
+      ],
+      "used_by_count": 2
     }
   ],
   "fee_schedules": [
