@@ -1,0 +1,13 @@
+:root{
+--rarity-common:#A794D4;--rarity-uncommon:#7CFF4D;--rarity-rare:#4DE8F0;--rarity-holo:#FF3DA5;--rarity-secret:#FFB627;
+--bloom-common:none; /* @kind shadow */
+--bloom-uncommon:0 0 6px var(--rarity-uncommon);
+--bloom-rare:0 0 14px var(--rarity-rare);
+--bloom-holo:0 0 22px var(--rarity-holo);
+--bloom-secret:0 0 34px var(--rarity-secret)
+}
+[data-rarity="common"]{--rarity-ink:var(--rarity-common);--rarity-bloom:none /* @kind shadow */}
+[data-rarity="uncommon"]{--rarity-ink:var(--rarity-uncommon);--rarity-bloom:var(--bloom-uncommon)}
+[data-rarity="rare"]{--rarity-ink:var(--rarity-rare);--rarity-bloom:var(--bloom-rare)}
+[data-rarity="holo"]{--rarity-ink:var(--rarity-holo);--rarity-bloom:var(--bloom-holo)}
+[data-rarity="secret"]{--rarity-ink:var(--rarity-secret);--rarity-bloom:var(--bloom-secret)}

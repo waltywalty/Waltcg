@@ -1,0 +1,3 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+/* Fonts are served from Google Fonts (all three families are Google-hosted originals — no substitution). */
+:root{--font-display:"Press Start 2P",monospace;--font-ui:"Chakra Petch","Chakra Petch Fallback",sans-serif;--font-data:"IBM Plex Mono",ui-monospace,monospace}

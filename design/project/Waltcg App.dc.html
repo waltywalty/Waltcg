@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/tokens/colors.css">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/tokens/typography.css">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/tokens/effects.css">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/tokens/rarity.css">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/tokens/base.css">
+<link rel="stylesheet" href="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/styles.css">
+<script src="_ds/crt-arcade-design-system-70e231a5-273c-4303-a9c7-e6a54493fd1a/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#0B0413;font-family:'Chakra Petch',sans-serif}
+a{color:#4DE8F0}a:hover{color:#FF3DA5}
+.lbl{font:11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;color:#6B5A9E}
+.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.disp{font-family:'Press Start 2P',monospace;color:#EDE6FF}
+.prose{font:15px/1.55 'Chakra Petch',sans-serif;color:#A794D4}
+.fr{width:390px;flex:none;background:#11071F;border:2px solid #3A2470;box-shadow:4px 4px 0 #000;display:flex;flex-direction:column;scroll-margin-top:16px}
+.hd{background:#271650;border-bottom:4px solid #4DE8F0;padding:12px 16px;display:flex;align-items:center;gap:12px;min-height:44px}
+.bd{padding:16px;display:flex;flex-direction:column;gap:24px}
+.tb{border-top:2px solid #3A2470;padding:12px 0;display:flex;justify-content:space-around;background:#0B0413;margin-top:auto}
+.tb span{font:9px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;color:#6B5A9E}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;min-height:44px}
+.alt{background:rgba(39,22,80,.4)}
+.panel{border:2px solid #3A2470;background:#1B0F33;display:flex;flex-direction:column}
+.sec{display:flex;flex-direction:column;gap:12px}
+.oid{font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:#271650;color:#EDE6FF;text-decoration:none;letter-spacing:.14em}
+.olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Mono',monospace;color:#A794D4;text-transform:uppercase;letter-spacing:.1em}
+.badge{font:9px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;color:#6B5A9E;border-bottom:2px solid #3A2470;padding:4px 2px}
+.stale{font:9px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;background:#FF4D5E;color:#11071F;padding:4px 6px}
+.btn{font:11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;border:2px solid #4DE8F0;color:#4DE8F0;padding:14px 8px;text-align:center;box-shadow:4px 4px 0 #11071F;flex:1}
+.btn2{font:11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;border:2px solid #3A2470;color:#A794D4;padding:14px 8px;text-align:center;flex:1}
+</style>
+</helmet>
+
+<section style="padding:40px 44px 32px;border-bottom:2px solid #271650" id="t4">
+<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 20px">
+<a style="font:600 10px 'IBM Plex Mono',monospace;padding:3px 7px;background:#4DE8F0;color:#11071F;text-decoration:none;letter-spacing:.14em" href="#t4">4</a>
+<span style="font:400 13px 'IBM Plex Mono',monospace;color:#A794D4;text-transform:uppercase;letter-spacing:.14em">State matrix · five states × eight screens</span>
+</div>
+
+<div style="max-width:1000px;margin:0 0 28px;display:flex;flex-direction:column;gap:12px">
+<p class="prose" style="margin:0">Four states are one treatment each, applied identically everywhere — drawn full-size once, below. Refusal is the exception: it differs per screen because what it refuses differs, so it is specified per screen in the grid. Nothing here uses a spinner, and no state is signalled by colour alone.</p>
+</div>
+
+<div style="max-width:1000px;border:2px solid #3A2470;margin:0 0 32px;overflow:hidden">
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);background:#271650">
+<span class="lbl" style="padding:10px;color:#EDE6FF">SCREEN</span>
+<span class="lbl" style="padding:10px;border-left:2px solid #3A2470">LOADING</span>
+<span class="lbl" style="padding:10px;border-left:2px solid #3A2470">EMPTY</span>
+<span class="lbl" style="padding:10px;border-left:2px solid #3A2470;color:#FFB627">REFUSAL</span>
+<span class="lbl" style="padding:10px;border-left:2px solid #3A2470;color:#FF4D5E">ERROR</span>
+<span class="lbl" style="padding:10px;border-left:2px solid #3A2470;color:#FF4D5E">STALE</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">1 · HOME</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Hero rules, 3 alert rows</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">NO COMBINATIONS TRACKED</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">Portfolio value withheld; rows still list</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Last-known value + red rule</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Slug counts stale rows in hero</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470;background:rgba(39,22,80,.4)">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">2 · SIGNALS</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">5 rows, ladder rails only</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">NO SIGNALS CLEAR FRICTION</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">Per-row: headline → —, row stays, reason inline</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Whole list keeps last sort, banner on top</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Per-row slug, row drops fill</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">3 · CARD DETAIL</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Ladder rails, no bars</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">NO COMPS AT ANY GRADE</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">Gap panel withheld; rungs still priced</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Ladder from cache, history hidden</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Per-rung slug on the price column</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470;background:rgba(39,22,80,.4)">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">4 · GRADING LAB</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Hero frame, no figure</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">n/a — always has a card</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">The nine-item checklist · <a class="oid" href="#2b">2b</a></span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Inputs stay, EV withheld, retry inline</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Slug on the driving input, not the EV</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">5 · MANUAL ENTRY</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">n/a — local form</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Fields empty, landed hidden</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">No FX rate set → landed withheld, not guessed</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Save failed — row kept locally, retry</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">FX rate older than 7 D</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470;background:rgba(39,22,80,.4)">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">6 · ARB BOARD</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">2 stacks, rails only</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">NO ROUTE CLEARS ITS FRICTION</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">Unconfigured venue → net withheld, gross shown</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Stack collapses to gross + banner</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Slug per leg, both legs dated</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">7 · TRACK RECORD</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Windows row, hero frame empty</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">NO RESOLVED CALLS YET</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">Under 30 resolved → no median, n shown</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Worst five still render from cache</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">n/a — history is settled</span>
+</div>
+<div style="display:grid;grid-template-columns:150px repeat(5,1fr);border-top:2px solid #3A2470;background:rgba(39,22,80,.4)">
+<span class="lbl" style="padding:10px;color:#EDE6FF;font-size:10px">8 · SETTINGS</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Registry rows, values blank</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">n/a — registry is seeded</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0;color:#FFB627">n/a — this screen is where refusals are cleared</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Save failed, value reverts visibly</span>
+<span class="prose" style="padding:10px;font-size:13px;border-left:2px solid #3A2470;margin:0">Fee schedule older than 30 D</span>
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+
+<div style="display:flex;flex-direction:column;gap:10px" id="4a">
+<div class="olabel"><a class="oid" href="#4a">4a</a>Loading · structure first, no spinner</div>
+<div class="fr">
+<div class="hd">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">SIGNALS</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">LOADING · 27 EXPECTED</span>
+</div>
+</div>
+<div class="bd">
+<div style="border:2px solid #3A2470;background:#1B0F33;padding:16px;display:flex;flex-direction:column;gap:8px">
+<span class="lbl">BEST NET EDGE · TOP ROW</span>
+<span class="disp" style="font-size:24px;color:#3A2470">———</span>
+<span class="prose" style="margin:0;font-size:14px">Ranking 27 rows against your friction settings.</span>
+</div>
+<div class="sec">
+<span class="lbl">PLAY · HEADLINE · N · CONF</span>
+<div class="panel">
+<div style="display:flex;flex-direction:column;gap:8px;padding:12px;min-height:44px"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:10px;background:#271650"></div><div style="flex:1;height:2px;background:#271650"></div><div style="width:56px;height:12px;background:#271650"></div></div><div style="width:60%;height:8px;background:#271650"></div></div>
+<div style="display:flex;flex-direction:column;gap:8px;padding:12px;min-height:44px;background:rgba(39,22,80,.4)"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:10px;background:#271650"></div><div style="flex:1;height:2px;background:#271650"></div><div style="width:56px;height:12px;background:#271650"></div></div><div style="width:48%;height:8px;background:#271650"></div></div>
+<div style="display:flex;flex-direction:column;gap:8px;padding:12px;min-height:44px"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:10px;background:#271650"></div><div style="flex:1;height:2px;background:#271650"></div><div style="width:56px;height:12px;background:#271650"></div></div><div style="width:66%;height:8px;background:#271650"></div></div>
+<div style="display:flex;flex-direction:column;gap:8px;padding:12px;min-height:44px;background:rgba(39,22,80,.4)"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:10px;background:#271650"></div><div style="flex:1;height:2px;background:#271650"></div><div style="width:56px;height:12px;background:#271650"></div></div><div style="width:54%;height:8px;background:#271650"></div></div>
+<div style="display:flex;flex-direction:column;gap:8px;padding:12px;min-height:44px"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:10px;background:#271650"></div><div style="flex:1;height:2px;background:#271650"></div><div style="width:56px;height:12px;background:#271650"></div></div><div style="width:58%;height:8px;background:#271650"></div></div>
+</div>
+<span class="prose" style="font-size:13px">Placeholders sit at bezel value — never at an ink, never animated. Row count and column positions are the real ones, so nothing shifts when values land. No spinner anywhere in the app.</span>
+</div>
+</div>
+<div class="tb"><span>HOME</span><span style="color:#4DE8F0">SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="4b">
+<div class="olabel"><a class="oid" href="#4b">4b</a>Empty · one line, and the reason</div>
+<div class="fr">
+<div class="hd">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">SIGNALS</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">0 ROWS · 4 FILTERS ON</span>
+</div>
+<span class="lbl" style="color:#4DE8F0;font-size:11px">FILTER</span>
+</div>
+<div class="bd">
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<span class="lbl" style="font-size:9px;border:2px solid #4DE8F0;color:#4DE8F0;padding:8px">9 → 10</span>
+<span class="lbl" style="font-size:9px;border:2px solid #4DE8F0;color:#4DE8F0;padding:8px">POKÉMON JP</span>
+<span class="lbl" style="font-size:9px;border:2px solid #4DE8F0;color:#4DE8F0;padding:8px">n ≥ 100</span>
+<span class="lbl" style="font-size:9px;border:2px solid #4DE8F0;color:#4DE8F0;padding:8px">NET &gt; $200</span>
+</div>
+<div style="border:2px solid #3A2470;background:#1B0F33;padding:32px 16px;display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center">
+<span class="lbl" style="color:#EDE6FF">NO SIGNALS CLEAR FRICTION</span>
+<span class="prose" style="margin:0;font-size:14px">Six rows matched these filters. All six lost their edge to fees.</span>
+<span class="lbl" style="border:2px solid #4DE8F0;color:#4DE8F0;padding:12px 14px;min-height:44px;display:flex;align-items:center">SHOW THE SIX GROSS</span>
+</div>
+<div class="sec">
+<span class="lbl">WHY EACH FAILED</span>
+<div class="panel">
+<div class="row" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px">VENUE FEE</span><span class="num" style="font-size:12px;color:#A794D4">4 ROWS</span></div>
+<div class="row alt" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px">GRADING FEE</span><span class="num" style="font-size:12px;color:#A794D4">1 ROW</span></div>
+<div class="row" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px">n BELOW 100</span><span class="num" style="font-size:12px;color:#A794D4">1 ROW</span></div>
+</div>
+<span class="prose" style="font-size:13px">Empty is one uppercase mono line, then the reason and the way out. An empty screen that only says "nothing here" hides the fact that six rows were found and rejected.</span>
+</div>
+</div>
+<div class="tb"><span>HOME</span><span style="color:#4DE8F0">SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="4c">
+<div class="olabel"><a class="oid" href="#4c">4c</a>Error · last-known kept, never blanked</div>
+<div class="fr" style="border-color:#FF4D5E">
+<div class="hd" style="border-bottom-color:#FF4D5E">
+<span class="lbl" style="color:#FF4D5E;font-size:11px">←</span>
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px;color:#FF4D5E">CARD DETAIL</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">FEED UNREACHABLE</span>
+</div>
+</div>
+<div class="bd">
+<div style="border:4px solid #FF4D5E;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:10px">
+<span class="lbl" style="color:#FF4D5E">PRICE FEED UNREACHABLE · 3 ATTEMPTS</span>
+<p class="prose" style="margin:0;font-size:15px">Showing the ladder as of 11:04 today. Nothing below has been refreshed since.</p>
+<div style="display:flex;gap:8px">
+<span class="lbl" style="border:2px solid #FF4D5E;color:#FF4D5E;padding:12px 14px;min-height:44px;display:flex;align-items:center">RETRY NOW</span>
+<span class="lbl" style="border:2px solid #3A2470;color:#A794D4;padding:12px 14px;min-height:44px;display:flex;align-items:center">USE CACHE</span>
+</div>
+</div>
+<div class="sec">
+<span class="lbl">LADDER · FROM CACHE 11:04</span>
+<div class="panel" style="padding:14px 12px;gap:14px">
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px;white-space:nowrap;color:#6B5A9E">RAW</span><div style="flex:1;height:16px;display:flex;align-items:center"><div style="width:12%;height:3px;background:#6B5A9E"></div></div><span class="num" style="font-size:12px;color:#6B5A9E;width:112px;text-align:right">$140.00 USD</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px;white-space:nowrap;color:#6B5A9E">PSA 9</span><div style="flex:1;height:22px;display:flex;align-items:center"><div style="width:27%;height:20px;background:#6B5A9E"></div></div><span class="num" style="font-size:12px;color:#6B5A9E;width:112px;text-align:right">$142.00 USD</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px;white-space:nowrap;color:#6B5A9E">PSA 10</span><div style="flex:1;height:16px;display:flex;align-items:center"><div style="width:88%;height:10px;background:#6B5A9E"></div></div><span class="num" style="font-size:12px;color:#6B5A9E;width:112px;text-align:right">$540.00 USD</span></div>
+<div style="border-top:2px solid #FF4D5E;padding-top:10px;display:flex;flex-direction:column;gap:8px">
+<span class="prose" style="margin:0;font-size:13px;color:#A794D4">Every figure drops to muted and the whole panel loses its ink — the ladder still reads, but nothing in it looks live. The gap panel is withheld entirely: a spread computed from three stale rungs is a claim about now.</span>
+<span class="stale">STALE · 4H 12M</span>
+</div>
+</div>
+</div>
+</div>
+<div class="tb"><span>HOME</span><span>SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="4d">
+<div class="olabel"><a class="oid" href="#4d">4d</a>Stale · mixed freshness in one list</div>
+<div class="fr">
+<div class="hd">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">SIGNALS</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">27 ROWS · 4 STALE</span>
+</div>
+<span class="stale">4 STALE</span>
+</div>
+<div class="bd">
+<div class="sec">
+<span class="lbl">FRESH AND STALE, SAME SORT</span>
+<div class="panel">
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="badge" style="border-bottom-color:#4DE8F0;color:#4DE8F0">9 → 10</span><div style="flex:1;display:flex;align-items:center;gap:5px;height:8px"><div style="width:30%;height:8px;background:#4DE8F0"></div><div style="width:52%;height:5px;background:#4DE8F0"></div></div><span class="num" style="font-size:15px;color:#EDE6FF;width:64px;text-align:right">×2.44</span></div>
+<div style="display:flex;justify-content:space-between"><span class="num" style="font-size:11px;color:#A794D4">UMBREON VMAX · 215/203 EN</span><span class="num" style="font-size:10px;color:#6B5A9E">30M · HIGH</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;background:rgba(39,22,80,.4);border-bottom:2px solid #FF4D5E">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="badge" style="border-bottom-color:#6B5A9E;color:#6B5A9E">RAW → 10</span><div style="flex:1;display:flex;align-items:center;gap:5px;height:8px"><div style="width:14%;height:2px;background:#6B5A9E"></div><div style="width:16%;height:4px;background:#6B5A9E"></div><div style="width:27%;height:7px;background:#6B5A9E"></div><div style="width:40%;height:5px;background:#6B5A9E"></div></div><span class="num" style="font-size:15px;color:#6B5A9E;width:64px;text-align:right">0.301</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center"><span class="num" style="font-size:11px;color:#6B5A9E">CHARIZARD EX · 223/197 EN</span><span class="stale">STALE 31H</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;border-bottom:2px solid #FF4D5E">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="badge" style="border-bottom-color:#6B5A9E;color:#6B5A9E">CROSSOVER</span><div style="flex:1;display:flex;align-items:center;gap:5px;height:8px"><div style="width:44%;height:7px;background:#6B5A9E"></div><div style="width:38%;height:6px;background:#6B5A9E"></div></div><span class="num" style="font-size:15px;color:#6B5A9E;width:64px;text-align:right">+18.4%</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center"><span class="num" style="font-size:11px;color:#6B5A9E">RAYQUAZA VMAX · CGC 9.5 → PSA</span><span class="stale">STALE 2D</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;background:rgba(39,22,80,.4)">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="badge" style="border-bottom-color:#FF3DA5;color:#FF3DA5">GRADE GAP</span><div style="flex:1;display:flex;align-items:center;gap:5px;height:8px"><div style="width:22%;height:6px;background:#4DE8F0"></div><div style="width:34%;height:9px;background:#4DE8F0"></div><div style="width:30%;height:4px;background:#4DE8F0"></div></div><span class="num" style="font-size:15px;color:#EDE6FF;width:64px;text-align:right">−0.284</span></div>
+<div style="display:flex;justify-content:space-between"><span class="num" style="font-size:11px;color:#A794D4">GENGAR VMAX · 271/264 EN</span><span class="num" style="font-size:10px;color:#6B5A9E">30M · LOW</span></div>
+</div>
+</div>
+<span class="prose" style="font-size:13px">A stale row keeps its position — re-sorting stale rows to the bottom would hide that the best-looking edge is the oldest one. It loses every ink, gains a red bottom rule and the one filled badge in the app.</span>
+</div>
+<div class="sec">
+<span class="lbl">MIXED FRESHNESS · ONE ROW</span>
+<div class="panel" style="padding:12px;gap:8px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="color:#A794D4">PRICE</span><div style="display:flex;gap:8px;align-items:center"><span class="num" style="font-size:12px;color:#6B5A9E">$540.00 USD</span><span class="stale">31H</span></div></div>
+<div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="color:#A794D4">POPULATION</span><div style="display:flex;gap:8px;align-items:center"><span class="num" style="font-size:12px;color:#EDE6FF">7,360</span><span class="badge">2D · FRESH FOR POP</span></div></div>
+<span class="prose" style="margin:0;font-size:13px">Each kind ages on its own clock: 2 days is stale for a price and current for a population report. The slug is per figure, never per row — the schema can't say this yet.</span>
+</div>
+</div>
+</div>
+<div class="tb"><span>HOME</span><span style="color:#4DE8F0">SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+</div>
+
+<div style="max-width:1000px;margin:28px 0 0;border:2px solid #FF4D5E;padding:16px;display:flex;flex-direction:column;gap:10px">
+<div style="font:11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;color:#FF4D5E">BLOCKERS FOR THE PROTOTYPE</div>
+<ul class="prose" style="margin:0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:6px">
+<li>Per-figure staleness (<a class="oid" href="#4d">4d</a>, bottom panel) has no carrier: <code class="num" style="color:#4DE8F0">staleness</code> is one <code class="num" style="color:#4DE8F0">kind</code> per row, so a fresh-pop / stale-price row can't be expressed.</li>
+<li>Empty (<a class="oid" href="#4b">4b</a>) counts rows that matched but failed friction. Nothing returns rejected candidates — without it, empty degrades to a bare line.</li>
+<li>Error (<a class="oid" href="#4c">4c</a>) needs a cache timestamp distinct from <code class="num" style="color:#4DE8F0">as_of</code>: "as of 11:04" is not the same claim as "fetched at 11:04".</li>
+<li>Track Record's median needs a minimum-n floor (I used 30) before it shows at all — a policy decision, not a design one.</li>
+</ul>
+</div>
+
+<p style="margin:22px 0 0;font:12px/1.6 'Chakra Petch',sans-serif;color:#A794D4">Next: the clickable Home → Signals → Card Detail → Grading Lab path, with the refusal and stale states reachable inside it.</p>
+</section>
+
+<section style="padding:40px 44px 32px;border-bottom:2px solid #271650" id="t3">
+<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 20px">
+<a style="font:600 10px 'IBM Plex Mono',monospace;padding:3px 7px;background:#4DE8F0;color:#11071F;text-decoration:none;letter-spacing:.14em" href="#t3">3</a>
+<span style="font:400 13px 'IBM Plex Mono',monospace;color:#A794D4;text-transform:uppercase;letter-spacing:.14em">Eight screens · locked pattern</span>
+</div>
+
+<div style="max-width:1000px;margin:0 0 28px;display:flex;flex-direction:column;gap:12px">
+<p class="prose" style="margin:0">Cabinet Ledger, both rulings applied. Magenta stays the one gap ink on either sign. And the hero rule now has two forms: <b style="color:#EDE6FF">measured inputs → the hero is the verdict figure</b> (EV, margin, hit rate); <b style="color:#EDE6FF">user-supplied input drives it → the hero is the claim pair</b>, needed vs yours, with the money demoted to a secondary row and marked as resting on your number. That holds on Grading Lab <a class="oid" href="#3d2">3d2</a>, Manual Entry <a class="oid" href="#3e">3e</a>, and any Signals row whose P(10) you typed. Trend Radar is out; Manual Entry is the eighth. Figures express relationships, not audited arithmetic — ladder widths, gap signs and hierarchy survive a fixture correction.</p>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3a">
+<div class="olabel"><a class="oid" href="#3a">3a</a>1 · Home</div>
+<div class="fr">
+<div class="hd">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">CABINET</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">8 COMBINATIONS · 4 MANUAL</span>
+</div>
+<span class="lbl" style="color:#4DE8F0;font-size:11px">RECORD ↗</span>
+</div>
+<div class="bd">
+
+<div style="border:2px solid #7CFF4D;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:8px">
+<span class="lbl" style="color:#7CFF4D">PORTFOLIO · MARKED TO MARKET</span>
+<span class="disp" style="font-size:24px;color:#7CFF4D;text-shadow:0 0 16px rgba(124,255,77,.4)">$42,180</span>
+<div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+<span class="num" style="font-size:14px;color:#FFB627">$42,180.00 USD</span>
+<span class="num" style="font-size:14px;color:#7CFF4D">+$744.00 · +1.8% 24H</span>
+</div>
+<div style="border-top:2px solid #3A2470;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+<span class="badge">tcgapi.dev · 30M</span>
+<span class="badge" style="border-bottom-color:#FFB627;color:#FFB627">12 MANUAL ROWS</span>
+<span class="stale">4 STALE &gt;24H</span>
+</div>
+</div>
+
+<div class="sec">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">ACTIVE ALERTS</span><span class="num" style="font-size:11px;color:#6B5A9E">3</span></div>
+<div class="panel">
+<div class="row" style="border-left:4px solid #4DE8F0;gap:10px">
+<div style="flex:1;display:flex;flex-direction:column;gap:3px">
+<span class="lbl" style="color:#EDE6FF;font-size:10px">RAW → 10 · CHARIZARD EX</span>
+<div style="display:flex;align-items:center;gap:6px;height:8px">
+<div style="width:14%;height:2px;background:#4DE8F0"></div><div style="width:16%;height:4px;background:#4DE8F0"></div><div style="width:27%;height:7px;background:#4DE8F0"></div><div style="width:40%;height:5px;background:#4DE8F0"></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">
+<span class="num" style="font-size:14px;color:#EDE6FF">0.301</span>
+<span class="lbl" style="font-size:9px">NEEDED</span>
+</div>
+</div>
+<div class="row alt" style="border-left:4px solid #FFB627;gap:10px">
+<div style="flex:1;display:flex;flex-direction:column;gap:3px">
+<span class="lbl" style="color:#EDE6FF;font-size:10px">GRADE GAP · MONKEY D. LUFFY</span>
+<div style="display:flex;align-items:center;gap:6px;height:8px">
+<div style="width:14%;height:6px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div><div style="width:22%;height:6px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div><div style="width:38%;height:6px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">
+<span class="num" style="font-size:14px;color:#EDE6FF">−0.284</span>
+<span class="lbl" style="font-size:9px">RESIDUAL</span>
+</div>
+</div>
+<div class="row" style="border-left:4px solid #3A2470;gap:10px">
+<div style="flex:1;display:flex;flex-direction:column;gap:3px">
+<span class="lbl" style="color:#EDE6FF;font-size:10px">9 → 10 · UMBREON VMAX</span>
+<div style="display:flex;align-items:center;gap:6px;height:8px">
+<div style="width:30%;height:8px;background:#4DE8F0"></div><div style="width:52%;height:5px;background:#4DE8F0"></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">
+<span class="num" style="font-size:14px;color:#EDE6FF">×2.44</span>
+<span class="lbl" style="font-size:9px">SPREAD</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">TOP MOVERS · 24H</span>
+<div class="panel">
+<div class="row">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">MOONBREON</span><span class="num" style="font-size:10px;color:#6B5A9E">SWSH7 215/203 · EN</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#FFB627">$1,180.00 USD</span><span class="num" style="font-size:11px;color:#7CFF4D">+6.2%</span></div>
+</div>
+<div class="row alt" style="border-left:4px solid #FFB627">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">LUFFY · MANGA RARE</span><span class="num" style="font-size:10px;color:#6B5A9E">OP01-121 · CN-S · MANUAL</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#FFB627">¥890.00 CNY</span><span class="num" style="font-size:11px;color:#FF4D5E">−3.4%</span></div>
+</div>
+<div class="row">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">LUGIA V ALT</span><span class="num" style="font-size:10px;color:#6B5A9E">S12a 200/172 · JP</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#FFB627">¥12,400 JPY</span><span class="num" style="font-size:11px;color:#7CFF4D">+2.1%</span></div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="tb"><span style="color:#4DE8F0">HOME</span><span>SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3b">
+<div class="olabel"><a class="oid" href="#3b">3b</a>2 · Signals · heterogeneous headlines</div>
+<div class="fr">
+<div class="hd">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">SIGNALS</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">27 ROWS · NET OF FRICTION</span>
+</div>
+<span class="lbl" style="color:#4DE8F0;font-size:11px">FILTER</span>
+</div>
+<div class="bd">
+
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<span class="lbl" style="font-size:9px;border:2px solid #4DE8F0;color:#4DE8F0;padding:8px">ALL</span>
+<span class="lbl" style="font-size:9px;border:2px solid #3A2470;padding:8px">RAW → 10</span>
+<span class="lbl" style="font-size:9px;border:2px solid #3A2470;padding:8px">9 → 10</span>
+<span class="lbl" style="font-size:9px;border:2px solid #3A2470;padding:8px">CROSSOVER</span>
+<span class="lbl" style="font-size:9px;border:2px solid #3A2470;padding:8px">GRADE GAP</span>
+</div>
+
+<div style="border:2px solid #4DE8F0;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:8px">
+<span class="lbl" style="color:#4DE8F0">BEST NET EDGE · TOP ROW</span>
+<span class="disp" style="font-size:24px;color:#4DE8F0;text-shadow:0 0 16px rgba(77,232,240,.45)">×2.44</span>
+<span class="prose" style="margin:0;font-size:14px">Umbreon VMAX, 9 → 10. Widest spread that clears its own friction.</span>
+</div>
+
+<div class="sec">
+<div style="display:flex;justify-content:space-between"><span class="lbl">PLAY · HEADLINE · N · CONF</span><span class="lbl" style="font-size:9px">SORT NET ↓</span></div>
+<div class="panel">
+
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span class="lbl" style="font-size:9px;border-bottom:2px solid #4DE8F0;color:#4DE8F0;padding:2px">9 → 10</span>
+<div style="flex:1;display:flex;align-items:center;gap:5px;height:8px">
+<div style="width:30%;height:8px;background:#4DE8F0"></div><div style="width:52%;height:5px;background:#4DE8F0"></div>
+</div>
+<span class="num" style="font-size:15px;color:#EDE6FF;width:64px;text-align:right">×2.44</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline">
+<span class="num" style="font-size:11px;color:#A794D4">UMBREON VMAX · 215/203 EN</span>
+<span class="num" style="font-size:10px;color:#6B5A9E">n=118 · HIGH</span>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;background:rgba(39,22,80,.4)">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span class="lbl" style="font-size:9px;border-bottom:2px solid #4DE8F0;color:#4DE8F0;padding:2px">RAW → 10</span>
+<div style="flex:1;display:flex;align-items:center;gap:5px;height:8px">
+<div style="width:14%;height:2px;background:#4DE8F0"></div><div style="width:16%;height:4px;background:#4DE8F0"></div><div style="width:27%;height:7px;background:#4DE8F0"></div><div style="width:40%;height:5px;background:#4DE8F0"></div>
+</div>
+<span class="num" style="font-size:15px;color:#EDE6FF;width:64px;text-align:right">0.301</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline">
+<span class="num" style="font-size:11px;color:#A794D4">CHARIZARD EX · 223/197 EN</span>
+<span class="num" style="font-size:10px;color:#6B5A9E">n=7,360 · MED</span>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;border-left:4px solid #FFB627">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span class="lbl" style="font-size:9px;border-bottom:2px dashed #A794D4;color:#A794D4;padding:2px">RAW → 10 · YOURS</span>
+<div style="flex:1;display:flex;align-items:center;gap:5px;height:8px">
+<div style="width:16%;height:6px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div><div style="width:26%;height:6px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div><div style="width:44%;height:6px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div>
+</div>
+<div style="width:64px;display:flex;flex-direction:column;align-items:flex-end">
+<span class="num" style="font-size:13px;color:#EDE6FF">0.341</span>
+<span class="num" style="font-size:11px;color:#A794D4;border-bottom:2px dashed #A794D4">0.480</span>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline">
+<span class="num" style="font-size:11px;color:#A794D4">LUFFY MR · OP01-121 EN</span>
+<span class="num" style="font-size:10px;color:#6B5A9E">NEEDED / YOURS · NO POP</span>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;background:rgba(39,22,80,.4)">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span class="lbl" style="font-size:9px;border-bottom:2px solid #FF3DA5;color:#FF3DA5;padding:2px">GRADE GAP</span>
+<div style="flex:1;display:flex;align-items:center;gap:5px;height:8px">
+<div style="width:22%;height:6px;background:#4DE8F0"></div><div style="width:34%;height:9px;background:#4DE8F0"></div><div style="width:30%;height:4px;background:#4DE8F0"></div>
+</div>
+<span class="num" style="font-size:15px;color:#EDE6FF;width:64px;text-align:right">−0.284</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline">
+<span class="num" style="font-size:11px;color:#A794D4">GENGAR VMAX · 271/264 EN</span>
+<span class="num" style="font-size:10px;color:#6B5A9E">n=27 · LOW</span>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span class="lbl" style="font-size:9px;border-bottom:2px solid #4DE8F0;color:#4DE8F0;padding:2px">CROSSOVER</span>
+<div style="flex:1;display:flex;align-items:center;gap:5px;height:8px">
+<div style="width:44%;height:7px;background:#4DE8F0"></div><div style="width:38%;height:6px;background:#4DE8F0"></div>
+</div>
+<span class="num" style="font-size:15px;color:#EDE6FF;width:64px;text-align:right">+18.4%</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline">
+<span class="num" style="font-size:11px;color:#A794D4">RAYQUAZA VMAX · CGC 9.5 → PSA</span>
+<span class="num" style="font-size:10px;color:#6B5A9E">n=64 · MED</span>
+</div>
+</div>
+
+</div>
+<span class="prose" style="font-size:13px">Every row is the same three-part frame: play tag, compact ladder, right-aligned headline in one column. The unit differs, the column never moves — so a probability, a residual and a percent still scan as one list.</span>
+</div>
+
+</div>
+<div class="tb"><span>HOME</span><span style="color:#4DE8F0">SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3c">
+<div class="olabel"><a class="oid" href="#3c">3c</a>3 · Card Detail · ladder full-bleed</div>
+<div class="fr">
+<div class="hd">
+<span class="lbl" style="color:#4DE8F0;font-size:11px">←</span>
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">CHARIZARD EX</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">SV3 223/197 · SIR</span>
+</div>
+</div>
+
+<div style="display:flex;border-bottom:2px solid #3A2470">
+<span class="lbl" style="flex:1;text-align:center;padding:12px 0;color:#4DE8F0;box-shadow:inset 0 -3px 0 #4DE8F0">EN</span>
+<span class="lbl" style="flex:1;text-align:center;padding:12px 0;border-left:2px solid #3A2470">JP</span>
+<span class="lbl" style="flex:1;text-align:center;padding:12px 0;border-left:2px solid #3A2470;color:#6B5A9E">CN-S</span>
+<span class="lbl" style="flex:1;text-align:center;padding:12px 0;border-left:2px solid #3A2470;color:#6B5A9E">CN-T</span>
+</div>
+
+<div class="bd">
+
+<div style="position:relative;border:2px solid #3A2470;background:#1B0F33;overflow:hidden">
+<div style="position:absolute;inset:0;opacity:.2;background:repeating-conic-gradient(from 0deg at 0 0,#FF3DA5 0% 25%,#4DE8F0 25% 50%) 0 0/6px 6px;mix-blend-mode:screen;pointer-events:none"></div>
+<div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(17,7,31,.42) 0 1px,transparent 1px 3px);pointer-events:none"></div>
+<div style="position:relative;padding:16px 12px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="lbl" style="width:48px;white-space:nowrap;color:#A794D4">RAW</span>
+<div style="flex:1;height:22px;display:flex;align-items:center"><div style="width:12%;height:3px;background:#4DE8F0;border-top:1px dashed #4DE8F0"></div></div>
+<span class="num" style="font-size:12px;color:#FFB627;width:112px;white-space:nowrap;text-align:right">$140.00 USD</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span class="lbl" style="width:48px;white-space:nowrap;color:#A794D4">PSA 8</span>
+<div style="flex:1;height:22px;display:flex;align-items:center"><div style="width:16%;height:5px;background:#4DE8F0"></div><span class="num" style="font-size:10px;color:#6B5A9E;margin-left:6px">410</span></div>
+<span class="num" style="font-size:12px;color:#FFB627;width:112px;white-space:nowrap;text-align:right">$190.00 USD</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span class="lbl" style="width:48px;white-space:nowrap;color:#EDE6FF">PSA 9</span>
+<div style="flex:1;height:26px;display:flex;align-items:center"><div style="width:27%;height:22px;background:#4DE8F0"></div><span class="num" style="font-size:10px;color:#6B5A9E;margin-left:6px">5,120</span></div>
+<span class="num" style="font-size:12px;color:#FFB627;width:112px;white-space:nowrap;text-align:right">$320.00 USD</span>
+</div>
+<div style="display:flex;align-items:stretch;gap:8px">
+<span class="lbl" style="width:48px;white-space:nowrap;color:#FF3DA5;align-self:center">GAP</span>
+<div style="flex:1;border-left:4px solid #FF3DA5;padding-left:8px;display:flex;flex-direction:column;gap:2px">
+<span class="num" style="font-size:15px;color:#FF3DA5">×3.69</span>
+<span class="lbl" style="font-size:9px;color:#FF3DA5">9 → 10 · THE TRADE</span>
+</div>
+<span class="num" style="font-size:12px;color:#FF3DA5;width:112px;white-space:nowrap;text-align:right;align-self:center">+$860.00 USD</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span class="lbl" style="width:48px;white-space:nowrap;color:#EDE6FF">PSA 10</span>
+<div style="flex:1;height:20px;display:flex;align-items:center"><div style="width:88%;height:11px;background:#4DE8F0"></div><span class="num" style="font-size:10px;color:#6B5A9E;margin-left:6px">1,830</span></div>
+<span class="num" style="font-size:12px;color:#FFB627;width:112px;white-space:nowrap;text-align:right">$1,180.00 USD</span>
+</div>
+<div style="border-top:2px solid #3A2470;padding-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+<span class="badge">tcgapi.dev · 30M</span>
+<span class="badge">POP · pokemonpricetracker · 2D</span>
+</div>
+</div>
+</div>
+
+<div class="sec">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">PRICE HISTORY · RAW / 9 / 10</span><span class="num" style="font-size:10px;color:#6B5A9E">2 POINTS</span></div>
+<div class="panel" style="padding:12px;gap:10px">
+<div style="height:96px;display:flex;align-items:flex-end;gap:0;position:relative;border-left:2px solid #3A2470;border-bottom:2px solid #3A2470">
+<div style="position:absolute;left:8px;bottom:66px;width:8px;height:8px;background:#EDE6FF"></div>
+<div style="position:absolute;right:8px;bottom:82px;width:8px;height:8px;background:#EDE6FF"></div>
+<div style="position:absolute;left:14px;right:14px;bottom:70px;height:2px;background:#EDE6FF;transform:rotate(-3deg)"></div>
+<div style="position:absolute;left:8px;bottom:28px;width:8px;height:8px;background:#4DE8F0"></div>
+<div style="position:absolute;right:8px;bottom:34px;width:8px;height:8px;background:#4DE8F0"></div>
+<div style="position:absolute;left:14px;right:14px;bottom:32px;height:2px;background:#4DE8F0"></div>
+<div style="position:absolute;left:8px;bottom:8px;width:8px;height:8px;background:#A794D4"></div>
+<div style="position:absolute;right:8px;bottom:10px;width:8px;height:8px;background:#A794D4"></div>
+<div style="position:absolute;left:14px;right:14px;bottom:11px;height:2px;background:#A794D4"></div>
+</div>
+<div style="display:flex;justify-content:space-between"><span class="lbl" style="font-size:9px">14 JUL</span><span class="lbl" style="font-size:9px">13 AUG</span></div>
+<span class="prose" style="font-size:13px;margin:0">Two comps per grade is what the source has. Drawn as two dots and a connecting rule — a sparse series, not a broken chart.</span>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">POPULATION PYRAMID</span>
+<div class="panel" style="padding:12px;gap:8px">
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px">10</span><div style="height:14px;width:25%;background:#3A2470"></div><span class="num" style="font-size:11px;color:#A794D4">1,830</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px">9</span><div style="height:14px;width:70%;background:#3A2470"></div><span class="num" style="font-size:11px;color:#A794D4">5,120</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px">8</span><div style="height:14px;width:6%;background:#3A2470"></div><span class="num" style="font-size:11px;color:#A794D4">410</span></div>
+<div style="display:flex;justify-content:space-between;border-top:2px solid #3A2470;padding-top:8px"><span class="lbl" style="font-size:9px">TOTAL 7,360</span><span class="lbl" style="font-size:9px;color:#7CFF4D">P(10) IMPL 0.249 · MODEL CEILING</span></div>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">OBTAINMENT</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<span class="badge" style="border-bottom-color:#4DE8F0;color:#4DE8F0;padding:8px 2px">BOOSTER · SV3</span>
+<span class="badge" style="padding:8px 2px">PULL RATE UNVALIDATED ↗</span>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">BUY ROUTES · LANDED</span>
+<div class="panel">
+<div class="row"><div style="display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">TCGPLAYER</span><span class="num" style="font-size:10px;color:#6B5A9E">API · 30M</span></div><span class="num" style="font-size:13px;color:#FFB627">$148.30 USD</span></div>
+<div class="row alt" style="border-left:4px solid #FFB627"><div style="display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#FFB627;font-size:10px">XIANYU · MANUAL</span><span class="num" style="font-size:10px;color:#6B5A9E">TYPED · 6D</span></div><span class="num" style="font-size:13px;color:#FFB627">¥890.00 CNY</span></div>
+<div class="row"><div style="display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">MERCARI JP</span><span class="num" style="font-size:10px;color:#6B5A9E">API · 31H</span></div><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end"><span class="num" style="font-size:13px;color:#6B5A9E">¥12,400 JPY</span><span class="stale">STALE 31H</span></div></div>
+</div>
+</div>
+
+<div style="display:flex;gap:8px"><span class="btn">OPEN GRADING LAB</span></div>
+
+</div>
+<div class="tb"><span>HOME</span><span>SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3d2">
+<div class="olabel"><a class="oid" href="#3d2">3d2</a>4 · Grading Lab · user-supplied P(10) · hero is the claim pair</div>
+<div class="fr">
+<div class="hd">
+<span class="lbl" style="color:#4DE8F0;font-size:11px">←</span>
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">GRADING LAB</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">PSA · REGULAR · ONE PIECE</span>
+</div>
+<span class="num" style="font-size:11px;color:#A794D4">EN</span>
+</div>
+<div class="bd">
+
+<div style="display:flex;gap:12px;align-items:flex-start">
+<div style="width:56px;height:78px;border:2px solid #3A2470;background:#0B0413;display:flex;align-items:center;justify-content:center;flex:none"><span class="num" style="font-size:9px;color:#6B5A9E;text-align:center;line-height:1.3">OP01<br>121<br>MR</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;flex:1">
+<span class="disp" style="font-size:13px;line-height:1.4">MONKEY D. LUFFY</span>
+<span class="prose" style="font-size:14px;margin:0">Manga Rare · OP01-121</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">COST $62.00 USD · MANUAL</span>
+</div>
+</div>
+
+<div style="border:2px solid #4DE8F0;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:12px">
+<span class="lbl" style="color:#4DE8F0">P(10) · NEEDED VS YOURS</span>
+<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+<div style="display:flex;flex-direction:column;gap:4px">
+<span class="disp" style="font-size:24px;color:#4DE8F0;text-shadow:0 0 16px rgba(77,232,240,.45)">0.341</span>
+<span class="lbl" style="font-size:9px;color:#4DE8F0">NEEDED · COMPUTED</span>
+</div>
+<span class="disp" style="font-size:13px;color:#6B5A9E">VS</span>
+<div style="display:flex;flex-direction:column;gap:4px">
+<span class="disp" style="font-size:24px;color:#EDE6FF;border-bottom:3px dashed #A794D4;padding-bottom:4px">0.480</span>
+<span class="lbl" style="font-size:9px;color:#A794D4">YOURS · TYPED</span>
+</div>
+</div>
+<p class="prose" style="margin:0;font-size:15px">You need 0.341. You're claiming 0.480. No population source exists for this game, so nothing here measures your claim.</p>
+<div style="border-left:4px solid #FF3DA5;padding-left:8px;display:flex;justify-content:space-between;align-items:center">
+<div style="display:flex;flex-direction:column;gap:2px">
+<span class="num" style="font-size:15px;color:#FF3DA5">+0.139</span>
+<span class="lbl" style="font-size:9px;color:#FF3DA5">HEADROOM · YOURS − NEEDED</span>
+</div>
+<span class="lbl" style="font-size:9px;color:#FF3DA5;text-align:right">ATTAINABLE<br>IF TRUE</span>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">SECONDARY · RESTS ON YOUR 0.480</span>
+<div class="panel">
+<div class="row"><span class="lbl" style="color:#A794D4">EV</span><div style="display:flex;gap:8px;align-items:center"><span class="num" style="font-size:14px;color:#7CFF4D">+$46.10 USD</span><span class="badge" style="border-bottom-style:dashed;border-bottom-color:#A794D4;color:#A794D4">YOURS</span></div></div>
+<div class="row alt"><span class="lbl" style="color:#A794D4">ROI · ANN</span><span class="num" style="font-size:14px;color:#7CFF4D">+84.0%</span></div>
+<div class="row"><span class="lbl" style="color:#A794D4">HORIZON</span><span class="num" style="font-size:14px;color:#EDE6FF">138 D</span></div>
+<div class="row alt"><span class="lbl" style="color:#A794D4">DOWNSIDE · RETURNS 9</span><span class="num" style="font-size:14px;color:#FF4D5E">−$57.70 USD</span></div>
+</div>
+<span class="prose" style="font-size:13px">Money is demoted wherever your input drives it — small, in a row, dashed-marked. It never gets the hero panel.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">P(10) RAILS · TAP TO SET</span>
+<div class="panel" style="padding:14px 12px;gap:14px">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="lbl" style="width:72px;white-space:nowrap;color:#6B5A9E">MODELLED</span>
+<div style="flex:1;height:22px;display:flex;align-items:center"><div style="width:100%;height:16px;border:2px dotted #3A2470"></div></div>
+<span class="num" style="font-size:13px;color:#6B5A9E;width:56px;text-align:right">—</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span class="lbl" style="width:72px;white-space:nowrap;color:#6B5A9E">POP-IMPL</span>
+<div style="flex:1;height:22px;display:flex;align-items:center"><div style="width:100%;height:16px;border:2px dotted #3A2470"></div></div>
+<span class="num" style="font-size:13px;color:#6B5A9E;width:56px;text-align:right">—</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;border:2px solid #4DE8F0;background:#271650;padding:8px;min-height:44px">
+<span class="lbl" style="width:72px;white-space:nowrap;color:#4DE8F0;font-size:9px">YOUR P(10)</span>
+<div style="flex:1;height:22px;display:flex;align-items:center"><div style="width:48%;height:18px;background:repeating-linear-gradient(135deg,#4DE8F0 0 2px,transparent 2px 5px);border:2px solid #4DE8F0"></div></div>
+<span class="num" style="font-size:13px;color:#EDE6FF;width:56px;text-align:right">0.480</span>
+</div>
+<div style="border-top:2px solid #3A2470;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+<span class="badge" style="color:#A794D4">POP — · no_source_for_this_game</span>
+<span class="stale">STALE 31H · PRICE</span>
+</div>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">ASSUMPTIONS BEHIND THIS · 3</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<span class="badge" style="border-bottom-style:dashed;border-bottom-color:#A794D4;color:#A794D4;padding:6px 2px">YOUR P(10) ↗</span>
+<span class="badge" style="border-bottom-color:#FFB627;color:#FFB627;padding:6px 2px">DAYS TO SELL ↗</span>
+<span class="badge" style="border-bottom-color:#FFB627;color:#FFB627;padding:6px 2px">GRADING FEES ↗</span>
+</div>
+</div>
+
+<div style="display:flex;gap:8px"><span class="btn">LOG SUBMISSION</span><span class="btn2">EDIT P(10)</span></div>
+
+</div>
+<div class="tb"><span>HOME</span><span>SIGNALS</span><span style="color:#4DE8F0">LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+<span class="prose" style="font-size:13px;max-width:390px">Computed and refusal states are <a class="oid" href="#2a">2a</a> / <a class="oid" href="#2b">2b</a> in the previous turn, unchanged. This is 2c rebuilt to your ruling.</span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3e">
+<div class="olabel"><a class="oid" href="#3e">3e</a>5 · Manual Entry · forty seconds, one hand</div>
+<div class="fr">
+<div class="hd" style="border-bottom-color:#FFB627">
+<span class="lbl" style="color:#FFB627;font-size:11px">×</span>
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px;color:#FFB627">MANUAL ENTRY</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">ONE PIECE JP · NO CATALOG</span>
+</div>
+</div>
+<div class="bd">
+
+<div style="border:2px solid #FFB627;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:10px">
+<span class="lbl" style="color:#FFB627">LANDED · ON WHAT YOU TYPED</span>
+<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+<span class="disp" style="font-size:24px;color:#FFB627;border-bottom:3px dashed #A794D4;padding-bottom:4px">¥8,400</span>
+<span class="num" style="font-size:14px;color:#FFB627">¥8,400 JPY · $54.20 USD</span>
+</div>
+<p class="prose" style="margin:0;font-size:14px">Converted at the rate you selected, not a live one.</p>
+<div style="border-top:2px solid #3A2470;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+<span class="badge" style="border-bottom-style:dashed;border-bottom-color:#A794D4;color:#A794D4">FX · MANUAL 1D</span>
+<span class="badge" style="border-bottom-color:#FFB627;color:#FFB627">SPREAD ASSUMED ↗</span>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">PRICE · CURRENCY</span>
+<div style="display:flex;gap:8px">
+<div style="flex:2;border:2px solid #3A2470;background:#0B0413;padding:12px;min-height:44px;display:flex;align-items:center"><span class="num" style="font-size:20px;color:#EDE6FF">8,400</span></div>
+<div style="flex:1;border:2px solid #4DE8F0;background:#0B0413;padding:12px;min-height:44px;display:flex;align-items:center;justify-content:space-between"><span class="num" style="font-size:14px;color:#4DE8F0">JPY</span><span class="lbl" style="color:#4DE8F0">▼</span></div>
+</div>
+<div style="display:flex;gap:8px">
+<span class="badge" style="border:2px solid #3A2470;padding:10px 8px;flex:1;text-align:center">JPY</span>
+<span class="badge" style="border:2px solid #3A2470;padding:10px 8px;flex:1;text-align:center">CNY</span>
+<span class="badge" style="border:2px solid #3A2470;padding:10px 8px;flex:1;text-align:center">USD</span>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">SOURCE</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<span class="badge" style="border:2px solid #4DE8F0;color:#4DE8F0;padding:12px 10px">XIANYU</span>
+<span class="badge" style="border:2px solid #3A2470;padding:12px 10px">TAOBAO</span>
+<span class="badge" style="border:2px solid #3A2470;padding:12px 10px">MERCARI JP</span>
+<span class="badge" style="border:2px solid #3A2470;padding:12px 10px">SNKRDUNK</span>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">CONDITION READ</span>
+<div class="panel">
+<div class="row"><span class="lbl" style="color:#A794D4">CENTERING</span><div style="display:flex;gap:8px;align-items:center"><span class="lbl" style="border:2px solid #3A2470;padding:8px 12px;min-width:44px;text-align:center">−</span><span class="num" style="font-size:14px;color:#EDE6FF">60%</span><span class="lbl" style="border:2px solid #3A2470;padding:8px 12px;min-width:44px;text-align:center">+</span></div></div>
+<div class="row alt"><span class="lbl" style="color:#A794D4">CORNERS</span><div style="display:flex;gap:6px"><span class="badge" style="border:2px solid #7CFF4D;color:#7CFF4D;padding:8px">CLEAN</span><span class="badge" style="border:2px solid #3A2470;padding:8px">SOFT</span><span class="badge" style="border:2px solid #3A2470;padding:8px">WHITE</span></div></div>
+<div class="row"><span class="lbl" style="color:#A794D4">SURFACE</span><div style="display:flex;gap:6px"><span class="badge" style="border:2px solid #7CFF4D;color:#7CFF4D;padding:8px">CLEAN</span><span class="badge" style="border:2px solid #3A2470;padding:8px">PRINT</span><span class="badge" style="border:2px solid #3A2470;padding:8px">SCRATCH</span></div></div>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">AS OF</span>
+<div class="panel">
+<div class="row"><span class="lbl" style="color:#A794D4">OBSERVED</span><span class="num" style="font-size:14px;color:#EDE6FF">2026-08-13 14:20</span></div>
+<div class="row alt"><span class="lbl" style="color:#A794D4">AGES AS</span><span class="num" style="font-size:12px;color:#FFB627">MANUAL · 7D WINDOW</span></div>
+</div>
+<span class="prose" style="font-size:13px">Unmeasured rails are drawn at full width, unfilled and dotted — the rung exists and holds no value. Hatch is reserved for bars whose length means something. Manual prices age on their own clock and carry the amber edge into every screen they reach.</span>
+</div>
+
+<div style="display:flex;gap:8px"><span class="btn" style="border-color:#FFB627;color:#FFB627">SAVE ROW</span><span class="btn2">SAVE + NEXT</span></div>
+
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3f">
+<div class="olabel"><a class="oid" href="#3f">3f</a>6 · Arbitrage Board · friction stack open</div>
+<div class="fr">
+<div class="hd">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">ARB BOARD</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">POKÉMON EN + JP ONLY</span>
+</div>
+<span class="lbl" style="color:#4DE8F0;font-size:11px">NET ↓</span>
+</div>
+<div class="bd">
+
+<div style="border:2px solid #7CFF4D;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:8px">
+<span class="lbl" style="color:#7CFF4D">BEST NET MARGIN</span>
+<span class="disp" style="font-size:24px;color:#7CFF4D;text-shadow:0 0 16px rgba(124,255,77,.4)">+$212</span>
+<span class="num" style="font-size:14px;color:#FFB627">+$212.40 USD · NET OF FRICTION</span>
+<span class="prose" style="margin:0;font-size:14px">Capped-downside crossover. Gross was +$318.00 USD.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">CAPPED DOWNSIDE · CROSSOVER</span>
+<div class="panel" style="border-left:4px solid #7CFF4D">
+<div class="row"><div style="display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">RAYQUAZA VMAX ALT</span><span class="num" style="font-size:10px;color:#6B5A9E">CGC 9.5 → PSA · MIN 9 GUARD</span></div><div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:14px;color:#7CFF4D">+$212.40</span><span class="lbl" style="font-size:9px">NET USD</span></div></div>
+<div style="border-top:2px solid #3A2470;display:flex;flex-direction:column">
+<div class="row" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px">GROSS SPREAD</span><span class="num" style="font-size:12px;color:#FFB627">+$318.00 USD</span></div>
+<div class="row alt" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px">CROSSOVER FEE · TIER 2 · ≤$1,500 DV</span><span class="num" style="font-size:12px;color:#FF4D5E">−$45.00</span></div>
+<div class="row" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px">VENUE · 12.75% TO $250 · 2.35% OVER</span><span class="num" style="font-size:12px;color:#FF4D5E">−$48.60</span></div>
+<div class="row alt" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px">PAYMENT · 2.9% + $0.30</span><span class="num" style="font-size:12px;color:#FF4D5E">−$8.30</span></div>
+<div class="row" style="min-height:36px;padding:8px 12px;border-left:4px solid #FFB627"><span class="lbl" style="font-size:9px;color:#FFB627">SHIP + INSURANCE · PROVISIONAL</span><span class="num" style="font-size:12px;color:#FF4D5E">−$3.70</span></div>
+<div class="row" style="border-top:2px solid #3A2470"><span class="lbl" style="color:#EDE6FF">MAX LOSS · GRADE HELD</span><span class="num" style="font-size:13px;color:#FFB627">−$105.60 USD</span></div>
+</div>
+</div>
+<span class="prose" style="font-size:13px">Bands are shown as bands. The label states the tier and its boundary, so a number that changes at $250 never looks like a flat percentage.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">FULL GRADE RISK · CRACK &amp; RESUBMIT</span>
+<div class="panel" style="border-left:4px solid #FF4D5E;border-style:dashed">
+<div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+<span class="lbl" style="color:#FF4D5E">9 → 10 · NOT BUILT</span>
+<p class="prose" style="margin:0;font-size:14px">The regrade model isn't wired. Its conditional prior — P(10 | already 9) — is a different distribution from the base rate, so no figure from the base model belongs under this label.</p>
+<div style="display:flex;flex-direction:column;gap:6px;border-top:2px solid #3A2470;padding-top:10px">
+<div style="display:flex;justify-content:space-between"><span class="lbl" style="font-size:9px">NET</span><span class="num" style="font-size:12px;color:#6B5A9E">—</span></div>
+<div style="display:flex;justify-content:space-between"><span class="lbl" style="font-size:9px">DOWNSIDE · UNCAPPED</span><span class="num" style="font-size:12px;color:#6B5A9E">—</span></div>
+<div style="display:flex;justify-content:space-between"><span class="lbl" style="font-size:9px">P(10 | 9)</span><span class="num" style="font-size:12px;color:#6B5A9E">—</span></div>
+</div>
+</div>
+</div>
+<span class="prose" style="font-size:13px">The stack's shape is reserved and dashed — placeholder, not a result. Two stacks, never interleaved: lime edge = downside is fees only; red edge = the slab is at risk.</span>
+</div>
+
+<div class="panel" style="padding:12px;gap:6px">
+<span class="lbl" style="color:#A794D4">COVERAGE</span>
+<span class="prose" style="margin:0;font-size:13px">Pokémon EN and JP only. Crossover needs population at both graders; four combinations have none. Crack &amp; resubmit is withheld pending the regrade model.</span>
+</div>
+
+</div>
+<div class="tb"><span>HOME</span><span>SIGNALS</span><span>LAB</span><span style="color:#4DE8F0">BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3g">
+<div class="olabel"><a class="oid" href="#3g">3g</a>7 · Track Record · worst five never collapsed</div>
+<div class="fr">
+<div class="hd">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">TRACK RECORD</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">EVERY ALERT EVER FIRED</span>
+</div>
+<span class="num" style="font-size:11px;color:#A794D4">n=214</span>
+</div>
+<div class="bd">
+
+<div style="border:2px solid #7CFF4D;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:10px">
+<span class="lbl" style="color:#7CFF4D">MEDIAN EXCESS RETURN · 90 D · LONGEST WINDOW</span>
+<span class="disp" style="font-size:24px;color:#7CFF4D;text-shadow:0 0 16px rgba(124,255,77,.4)">+1.6%</span>
+<span class="prose" style="margin:0;font-size:14px">Against the game index, over 154 resolved calls — above the n ≥ 30 display floor. The longest available window is always the hero; the screen never chooses its own.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">ALL WINDOWS · EQUAL WEIGHT</span>
+<div class="panel">
+<div class="row" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px;width:44px">7 D</span><div style="flex:1;display:flex;justify-content:flex-end;gap:20px"><div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#7CFF4D">+2.8%</span><span class="lbl" style="font-size:9px">EXCESS</span></div><div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#EDE6FF">51.0%</span><span class="lbl" style="font-size:9px">HIT RATE</span></div></div></div>
+<div class="row alt" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px;width:44px">30 D</span><div style="flex:1;display:flex;justify-content:flex-end;gap:20px"><div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#7CFF4D">+4.2%</span><span class="lbl" style="font-size:9px">EXCESS</span></div><div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#EDE6FF">58.4%</span><span class="lbl" style="font-size:9px">HIT RATE</span></div></div></div>
+<div class="row" style="min-height:36px;padding:8px 12px"><span class="lbl" style="font-size:9px;width:44px">90 D</span><div style="flex:1;display:flex;justify-content:flex-end;gap:20px"><div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#7CFF4D">+1.6%</span><span class="lbl" style="font-size:9px">EXCESS</span></div><div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span class="num" style="font-size:13px;color:#FF4D5E">46.8%</span><span class="lbl" style="font-size:9px">HIT RATE</span></div></div></div>
+</div>
+<span class="prose" style="font-size:13px">Hit rate never appears without excess return beside it. 30 D hits 58.4% and 90 D sits below a coin flip, yet both clear the index — either number alone is the flattering half.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">EXCESS RETURN VS GAME INDEX</span>
+<div class="panel" style="padding:12px;gap:10px">
+<div style="border-left:2px solid #3A2470;display:flex;flex-direction:column">
+<div style="height:36px;display:flex;align-items:flex-end;gap:3px">
+<div style="flex:1;height:19px;background:#7CFF4D"></div>
+<div style="flex:1;height:27px;background:#7CFF4D"></div>
+<div style="flex:1;height:0"></div>
+<div style="flex:1;height:32px;background:#7CFF4D"></div>
+<div style="flex:1;height:22px;background:#7CFF4D"></div>
+<div style="flex:1;height:0"></div>
+<div style="flex:1;height:16px;background:#7CFF4D"></div>
+<div style="flex:1;height:0"></div>
+</div>
+<div style="height:2px;background:#3A2470"></div>
+<div style="height:36px;display:flex;align-items:flex-start;gap:3px">
+<div style="flex:1;height:0"></div>
+<div style="flex:1;height:0"></div>
+<div style="flex:1;height:13px;background:#FF4D5E"></div>
+<div style="flex:1;height:0"></div>
+<div style="flex:1;height:0"></div>
+<div style="flex:1;height:24px;background:#FF4D5E"></div>
+<div style="flex:1;height:0"></div>
+<div style="flex:1;height:9px;background:#FF4D5E"></div>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between"><span class="lbl" style="font-size:9px">BY MONTH</span><span class="lbl" style="font-size:9px">MEDIAN +4.2%</span></div>
+</div>
+</div>
+
+<div class="sec">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl" style="color:#FF4D5E">FIVE WORST CALLS</span><span class="lbl" style="font-size:9px;color:#FF4D5E">PERMANENT</span></div>
+<div class="panel" style="border-color:#FF4D5E">
+<div class="row"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">GENGAR VMAX · GRADE GAP</span><span class="num" style="font-size:10px;color:#6B5A9E">2026-03-04 · n=27 LOW</span></div><span class="num" style="font-size:14px;color:#FF4D5E">−31.8%</span></div>
+<div class="row alt"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">GIRATINA V ALT · 9 → 10</span><span class="num" style="font-size:10px;color:#6B5A9E">2026-01-19 · n=41 MED</span></div><span class="num" style="font-size:14px;color:#FF4D5E">−24.0%</span></div>
+<div class="row" style="border-left:4px solid #FFB627"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#FFB627;font-size:10px">LUFFY MR · RAW → 10 · MANUAL</span><span class="num" style="font-size:10px;color:#6B5A9E">2025-12-02 · YOUR P(10) 0.52</span></div><span class="num" style="font-size:14px;color:#FF4D5E">−19.4%</span></div>
+<div class="row alt"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">CHARIZARD VMAX · CROSSOVER</span><span class="num" style="font-size:10px;color:#6B5A9E">2025-11-14 · n=64 MED</span></div><span class="num" style="font-size:14px;color:#FF4D5E">−16.2%</span></div>
+<div class="row"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="color:#EDE6FF;font-size:10px">MEW VMAX · GRADE GAP</span><span class="num" style="font-size:10px;color:#6B5A9E">2025-10-30 · n=33 LOW</span></div><span class="num" style="font-size:14px;color:#FF4D5E">−14.8%</span></div>
+</div>
+<span class="prose" style="font-size:13px">Three of five were low-n grade-gap calls, and one rested on a P(10) you typed. The provenance marker earns its keep here.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">BY PLAY TYPE · 30 D · HIT RATE / n</span>
+<div class="panel">
+<div class="row" style="min-height:44px;padding:10px 12px;gap:10px">
+<div style="width:74px;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="font-size:9px;color:#EDE6FF">RAW → 10</span><span class="num" style="font-size:10px;color:#6B5A9E">n=86</span></div>
+<div style="flex:1;height:8px;background:#3A2470"><div style="width:64%;height:8px;background:#7CFF4D"></div></div>
+<span class="num" style="font-size:12px;color:#7CFF4D;width:34px;text-align:right">64%</span>
+</div>
+<div class="row alt" style="min-height:44px;padding:10px 12px;gap:10px">
+<div style="width:74px;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="font-size:9px;color:#EDE6FF">9 → 10</span><span class="num" style="font-size:10px;color:#FFB627">n=41 · &lt;50</span></div>
+<div style="flex:1;height:8px;background:#3A2470"><div style="width:59%;height:8px;background:#7CFF4D"></div></div>
+<span class="num" style="font-size:12px;color:#7CFF4D;width:34px;text-align:right">59%</span>
+</div>
+<div class="row" style="min-height:44px;padding:10px 12px;gap:10px">
+<div style="width:74px;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="font-size:9px;color:#EDE6FF">CROSSOVER</span><span class="num" style="font-size:10px;color:#6B5A9E">n=64</span></div>
+<div style="flex:1;height:8px;background:#3A2470"><div style="width:52%;height:8px;background:#7CFF4D"></div></div>
+<span class="num" style="font-size:12px;color:#7CFF4D;width:34px;text-align:right">52%</span>
+</div>
+<div class="row alt" style="min-height:44px;padding:10px 12px;gap:10px">
+<div style="width:74px;display:flex;flex-direction:column;gap:2px"><span class="lbl" style="font-size:9px;color:#EDE6FF">GRADE GAP</span><span class="num" style="font-size:10px;color:#FFB627">n=12 · &lt;30</span></div>
+<div style="flex:1;height:8px;background:#3A2470"><div style="width:38%;height:8px;background:#FF4D5E"></div></div>
+<span class="num" style="font-size:12px;color:#FF4D5E;width:34px;text-align:right">38%</span>
+</div>
+</div>
+<div style="border:2px solid #3A2470;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="font-size:9px">n ≥ 30</span><span class="num" style="font-size:11px;color:#A794D4">MEDIAN SHOWN</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="font-size:9px;color:#FFB627">n ≥ 50</span><span class="num" style="font-size:11px;color:#FFB627">ACTIONABLE</span></div>
+</div>
+<span class="prose" style="font-size:13px">Two thresholds, deliberately different: 30 resolved calls to show a median at all, 50 before a play type counts as actionable. Grade gap's 38% rests on 12 calls — it shows a rate and is marked below the display floor; 9 → 10 clears display but not action.</span>
+</div>
+
+</div>
+<div class="tb"><span>HOME</span><span>SIGNALS</span><span>LAB</span><span>BOARD</span><span style="color:#4DE8F0">RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3h">
+<div class="olabel"><a class="oid" href="#3h">3h</a>8 · Settings · assumption registry</div>
+<div class="fr">
+<div class="hd">
+<span class="lbl" style="color:#4DE8F0;font-size:11px">←</span>
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span class="disp" style="font-size:10px">ASSUMPTIONS</span>
+<span class="num" style="font-size:11px;color:#6B5A9E;letter-spacing:.06em">REGISTRY · 12 ENTRIES</span>
+</div>
+</div>
+<div class="bd">
+
+<div style="border:2px solid #FFB627;background:#1B0F33;box-shadow:4px 4px 0 #11071F;padding:16px;display:flex;flex-direction:column;gap:8px">
+<span class="lbl" style="color:#FFB627">UNVALIDATED · DRIVING LIVE FIGURES</span>
+<span class="disp" style="font-size:24px;color:#FFB627;text-shadow:0 0 16px rgba(255,182,39,.4)">4 OF 12</span>
+<span class="prose" style="margin:0;font-size:14px">Every figure downstream of one carries a chip back to this screen.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">REGISTRY</span>
+<div class="panel">
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;border-left:4px solid #FFB627">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl" style="color:#EDE6FF;font-size:10px">SUBMISSION HAIRCUT</span><span class="num" style="font-size:14px;color:#EDE6FF">0.72</span></div>
+<span class="prose" style="margin:0;font-size:13px">Pop reports count cards people chose to submit.</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge" style="border-bottom-color:#FFB627;color:#FFB627">UNVALIDATED</span><span class="badge">USED BY 6 FIGURES</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;background:rgba(39,22,80,.4);border-left:4px solid #FFB627">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl" style="color:#EDE6FF;font-size:10px">EB PRIOR STRENGTH</span><span class="num" style="font-size:14px;color:#EDE6FF">40</span></div>
+<span class="prose" style="margin:0;font-size:13px">Pseudo-cards of set-level shrinkage.</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge" style="border-bottom-color:#FFB627;color:#FFB627">UNVALIDATED</span><span class="badge">USED BY 3</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl" style="color:#EDE6FF;font-size:10px">DAYS TO SELL</span><span class="num" style="font-size:14px;color:#EDE6FF">78 D</span></div>
+<span class="prose" style="margin:0;font-size:13px">Rescales every annualised figure.</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge" style="border-bottom-color:#7CFF4D;color:#7CFF4D">CALIBRATED · YOUR SALES</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;min-height:44px;background:rgba(39,22,80,.4);border-left:4px solid #FFB627">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl" style="color:#EDE6FF;font-size:10px">GRADING FEES · PSA REGULAR</span><span class="num" style="font-size:14px;color:#EDE6FF">$79.99 USD</span></div>
+<span class="prose" style="margin:0;font-size:13px">Secondary summary. Not verified against the grader's own page.</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge" style="border-bottom-color:#FFB627;color:#FFB627">PROVISIONAL</span><span class="badge">NEEDS PRIMARY VERIFY</span></div>
+</div>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">FEE SCHEDULES · PER VENUE</span>
+<div class="panel">
+<div class="row"><span class="lbl" style="color:#A794D4">EBAY US · BANDED</span><span class="num" style="font-size:12px;color:#EDE6FF">12.75% / 2.35%</span></div>
+<div class="row alt"><span class="lbl" style="color:#A794D4">MERCARI JP</span><span class="num" style="font-size:12px;color:#EDE6FF">10.00%</span></div>
+<div class="row" style="border-left:4px solid #FFB627"><span class="lbl" style="color:#FFB627">XIANYU · UNCONFIGURED</span><span class="num" style="font-size:12px;color:#6B5A9E">—</span></div>
+</div>
+<span class="prose" style="font-size:13px">An unconfigured venue is what makes the engine refuse. The row that causes it looks the same here as the checklist item it produces.</span>
+</div>
+
+<div class="sec">
+<span class="lbl">FX</span>
+<div class="panel">
+<div class="row"><span class="lbl" style="color:#A794D4">REFERENCE RATE</span><span class="num" style="font-size:12px;color:#6B5A9E">NOT SET</span></div>
+<div class="row alt"><span class="lbl" style="color:#A794D4">CONVERSION SPREAD</span><span class="num" style="font-size:12px;color:#6B5A9E">NOT SET</span></div>
+</div>
+</div>
+
+</div>
+<div class="tb"><span>HOME</span><span>SIGNALS</span><span>LAB</span><span>BOARD</span><span>RECORD</span></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px" id="3i">
+<div class="olabel"><a class="oid" href="#3i">3i</a>Component set</div>
+<div class="fr" style="border-color:#4DE8F0">
+<div class="bd">
+
+<div class="sec">
+<span class="lbl">GRADE LADDER · THREE SIZES</span>
+<div class="panel" style="padding:12px;gap:14px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<span class="lbl" style="font-size:9px">FULL-BLEED · CARD DETAIL</span>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px">RAW</span><div style="flex:1;height:14px;display:flex;align-items:center"><div style="width:12%;height:3px;background:#4DE8F0;border-top:1px dashed #4DE8F0"></div></div><span class="num" style="font-size:11px;color:#FFB627">$140.00 USD</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px">PSA 9</span><div style="flex:1;height:22px;display:flex;align-items:center"><div style="width:27%;height:20px;background:#4DE8F0"></div></div><span class="num" style="font-size:11px;color:#FFB627">$320.00 USD</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="width:48px">PSA 10</span><div style="flex:1;height:14px;display:flex;align-items:center"><div style="width:88%;height:10px;background:#4DE8F0"></div></div><span class="num" style="font-size:11px;color:#FFB627">$1,180.00 USD</span></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;border-top:2px solid #3A2470;padding-top:12px">
+<span class="lbl" style="font-size:9px">COMPACT · LIST ROW</span>
+<div style="display:flex;align-items:center;gap:5px;height:8px"><div style="width:14%;height:2px;background:#4DE8F0"></div><div style="width:16%;height:4px;background:#4DE8F0"></div><div style="width:27%;height:7px;background:#4DE8F0"></div><div style="width:40%;height:5px;background:#4DE8F0"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;border-top:2px solid #3A2470;padding-top:12px">
+<span class="lbl" style="font-size:9px">SINGLE-LINE · ALERT</span>
+<div style="display:flex;align-items:center;gap:4px"><div style="width:16px;height:2px;background:#4DE8F0"></div><div style="width:22px;height:5px;background:#4DE8F0"></div><div style="width:38px;height:8px;background:#4DE8F0"></div><div style="width:52px;height:4px;background:#4DE8F0"></div><span class="num" style="font-size:11px;color:#FF3DA5;margin-left:4px">×3.69</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;border-top:2px solid #3A2470;padding-top:12px">
+<span class="lbl" style="font-size:9px">NO-POP FORM · ALL THREE SIZES</span>
+<div style="display:flex;align-items:center;gap:5px;height:10px"><div style="width:16%;height:8px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div><div style="width:26%;height:8px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div><div style="width:44%;height:8px;border:1px solid #A794D4;background:repeating-linear-gradient(135deg,#A794D4 0 1px,transparent 1px 4px)"></div></div>
+</div>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">BADGES</span>
+<div class="panel" style="padding:12px;gap:12px">
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<span class="badge">tcgapi.dev · 30M</span>
+<span class="badge" style="border-bottom-color:#FFB627;color:#FFB627">MANUAL · XIANYU · 6D</span>
+<span class="stale">STALE 31H</span>
+<span class="badge" style="border-bottom-style:dashed;border-bottom-color:#A794D4;color:#A794D4">PROVISIONAL</span>
+<span class="badge" style="border-bottom-color:#7CFF4D;color:#7CFF4D">n=118 · HIGH</span>
+<span class="badge" style="border-bottom-color:#FFB627;color:#FFB627">HAIRCUT ↗</span>
+</div>
+<span class="prose" style="margin:0;font-size:13px">Underlines throughout; the solid red slug is the only filled badge in the app.</span>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">MONEY · PLAY TYPE · MANUAL MARKER</span>
+<div class="panel" style="padding:12px;gap:12px">
+<div style="display:flex;gap:12px;flex-wrap:wrap"><span class="num" style="font-size:14px;color:#FFB627">¥12,400 JPY</span><span class="num" style="font-size:14px;color:#FFB627">$1,180.00 USD</span><span class="num" style="font-size:14px;color:#FFB627">¥890.00 CNY</span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge" style="border-bottom-color:#4DE8F0;color:#4DE8F0">RAW → 10</span><span class="badge" style="border-bottom-color:#4DE8F0;color:#4DE8F0">9 → 10</span><span class="badge" style="border-bottom-color:#FF3DA5;color:#FF3DA5">GRADE GAP</span></div>
+<div style="border:2px solid #3A2470;border-left:4px solid #FFB627;padding:10px;display:flex;justify-content:space-between"><span class="lbl" style="color:#FFB627">MANUAL ROW</span><span class="num" style="font-size:12px;color:#FFB627">¥890.00 CNY</span></div>
+</div>
+</div>
+
+<div class="sec">
+<span class="lbl">HERO PANEL · FOUR INKS, ONE RULE</span>
+<div class="panel" style="padding:12px;gap:8px">
+<div style="border:2px solid #7CFF4D;padding:8px;display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="color:#7CFF4D;font-size:9px">MEASURED · POSITIVE</span><span class="num" style="font-size:13px;color:#7CFF4D">+$212.40</span></div>
+<div style="border:2px solid #FF4D5E;padding:8px;display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="color:#FF4D5E;font-size:9px">MEASURED · NEGATIVE</span><span class="num" style="font-size:13px;color:#FF4D5E">−$38.40</span></div>
+<div style="border:4px solid #FFB627;padding:8px;display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="color:#FFB627;font-size:9px">REFUSED</span><span class="num" style="font-size:13px;color:#FFB627">9 INPUTS</span></div>
+<div style="border:2px solid #4DE8F0;padding:8px;display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="color:#4DE8F0;font-size:9px">YOUR INPUT DRIVES IT</span><span class="num" style="font-size:13px;color:#EDE6FF">0.341 / <span style="border-bottom:2px dashed #A794D4">0.480</span></span></div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+
+</div>
+
+<div style="max-width:1000px;margin:28px 0 0;border:2px solid #FF4D5E;padding:16px;display:flex;flex-direction:column;gap:10px">
+<div style="font:11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.14em;color:#FF4D5E">STILL OUTRUNNING THE SCHEMA</div>
+<ul class="prose" style="margin:0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:6px">
+<li>Nothing marks a signal row's P(10) as user-supplied, so the <a class="oid" href="#3b">3b</a> needed/yours row and the <a class="oid" href="#3g">3g</a> worst-call provenance both need the manual-entry marker you're having added to reach signals, not just prices.</li>
+<li>Track Record has no fixture. Hit rate, excess return, per-play breakdown and the worst-five ordering are all invented shapes — they need a schema before <a class="oid" href="#3g">3g</a> is real.</li>
+<li>The friction stack in <a class="oid" href="#3f">3f</a> assumes fee bands are expressible as ordered tiers with boundaries. If the backend stores a flat effective rate, the expansion has nothing structural to show.</li>
+<li>Assumption entries in <a class="oid" href="#3h">3h</a> show a "used by N figures" count — a reverse dependency the registry doesn't currently expose.</li>
+</ul>
+</div>
+
+<p style="margin:22px 0 0;font:12px/1.6 'Chakra Petch',sans-serif;color:#A794D4">Next: the state matrix — loading, empty, refusal, error and stale for each of the eight — then the Home → Signals → Card Detail → Grading Lab prototype.</p>
+</section>
+
+</x-dc>
+</body>
+</html>

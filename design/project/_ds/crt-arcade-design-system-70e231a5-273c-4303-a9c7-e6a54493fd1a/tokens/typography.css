@@ -1,0 +1,11 @@
+:root{
+--type-marquee:24px;--type-title:13px;--type-body:16px;--type-data:14px;--type-label:11px;--type-pixel-sm:10px;
+--leading-body:1.55;--leading-tight:1.2;--leading-display:1.4;
+--tracking-label:0.14em;--tracking-display:0.02em;
+--weight-body:400;--weight-body-strong:600
+}
+/* Data figures always tabular */
+.crt-num,[data-crt-num]{font-family:var(--font-data);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.crt-label{font-family:var(--font-data);font-size:var(--type-label);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--text-label)}
+.crt-marquee{font-family:var(--font-display);font-size:var(--type-marquee);line-height:var(--leading-display);color:var(--text-primary)}
+.crt-title{font-family:var(--font-display);font-size:var(--type-title);line-height:var(--leading-display);color:var(--text-primary)}

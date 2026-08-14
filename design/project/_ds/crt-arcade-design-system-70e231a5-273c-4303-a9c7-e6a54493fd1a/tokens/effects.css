@@ -1,0 +1,15 @@
+:root{
+--shadow-offset:4px 4px 0 var(--void);
+--shadow-offset-lg:8px 8px 0 var(--void);
+--shadow-offset-ink:4px 4px 0 var(--bezel);
+--focus-ring:3px solid var(--amber);--focus-ring-offset:2px;
+--ease-quantized:steps(4,end); /* @kind other */
+--dur-fast:90ms; /* @kind other */
+--dur-slow:180ms; /* @kind other */
+--transition:all var(--dur-fast) var(--ease-quantized);
+--scanline:repeating-linear-gradient(180deg,rgba(17,7,31,.42) 0 1px,transparent 1px 3px); /* @kind other */
+--vignette:radial-gradient(120% 90% at 50% 45%,transparent 40%,var(--void) 100%);
+--foil:repeating-conic-gradient(from 0deg at 0 0,var(--magenta) 0% 25%,var(--cyan) 25% 50%) 0 0/12px 12px
+}
+.crt-scanlines{position:relative}
+.crt-scanlines::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:var(--scanline),var(--vignette);z-index:50}

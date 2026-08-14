@@ -1,0 +1,17 @@
+:root{
+/* cabinet surfaces, deepest to raised */
+--void:#11071F;--screen:#1B0F33;--screen-lift:#271650;--bezel:#3A2470;
+/* phosphor inks — one job each */
+--cyan:#4DE8F0;--magenta:#FF3DA5;--amber:#FFB627;--lime:#7CFF4D;--red:#FF4D5E;
+/* text */
+--text-primary:#EDE6FF;--text-dim:#A794D4;--text-muted:#6B5A9E;--text-on-fill:#11071F;
+
+/* semantic aliases */
+--surface-page:var(--void);--surface-screen:var(--screen);--surface-panel:var(--screen);
+--surface-raised:var(--screen-lift);--surface-bezel:var(--bezel);
+--border-default:var(--bezel);--border-strong:var(--screen-lift);--border-ink:var(--cyan);
+--ink-primary:var(--cyan);--ink-secondary:var(--magenta);--ink-warning:var(--amber);
+--ink-success:var(--lime);--ink-danger:var(--red);
+--text-link:var(--cyan);--text-label:var(--text-muted);--focus-ring-color:var(--amber);
+--currency:var(--amber);--ev-positive:var(--lime);--ev-negative:var(--red)
+}

@@ -32,6 +32,12 @@ probe/out/
 # structural data hand-written to reproduce failure modes. No provider
 # response is ever copied in here, so the no-provider-data rule holds.
 !probe/fixtures/**/*.json
+# Design-system config from the Claude Design handoff: the component manifest
+# and the token-adherence lint rules. Design metadata - component names,
+# viewports, lint severities - not observations. Deliberately left OUT of the
+# no_provider_data allowlist, so these are scanned for payload keys like any
+# unprivileged JSON and CI fails if a real response is ever dropped in here.
+!design/**/*.json
 
 # ─── Documents: PDFs are not a source format ──────────────────
 # Source documents arrive as pasted text. A PDF that reaches the tree gets
