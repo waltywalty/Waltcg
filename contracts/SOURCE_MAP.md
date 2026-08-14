@@ -169,10 +169,13 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `availability` | `config/grading.yaml` |
 | `availability_note` | `config/grading.yaml` |
 | `backfilled_excluded` | `engine:trend` |
+| `branch` | `engine:model_b` |
+| `branches` | `engine:model_b` -- upgrade / regrade / downgrade, each with its realised EV |
 | `break_even_attainable` | `engine:model_a` |
 | `break_even_note` | `engine:model_a` |
 | `buy_cost` | `engine:model_c` -- landed cost of the buy leg; the denominator of net_margin_pct and the base the sale fee is charged on |
 | `buy_venue` | `engine:model_c` |
+| `by_play_type` | `engine:alert_ledger` -- per-play hit rate and median, each with its own n |
 | `calibration_plan` | `contracts/assumptions.json` |
 | `category` | `manual` classification |
 | `centering_pct` | `manual` (my condition read) |
@@ -187,6 +190,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `editable` | `contracts/assumptions.json` |
 | `entry_id` | `manual` -- assigned on save; append-only, never reused |
 | `estimate_basis` | `engine` -- which grade probability sits behind the figure: a pop report, a dated crossover rule, one I typed, or none at all |
+| `ev_if_realised` | `engine:model_b` -- EV conditional on that branch happening |
 | `excess_return_30d` | `engine:alert_ledger` |
 | `excess_return_7d` | `engine:alert_ledger` |
 | `excess_return_90d` | `engine:alert_ledger` |
@@ -207,8 +211,10 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `last_entered_at` | `manual` -- when that entry was saved; null if never entered |
 | `last_price` | `manual` -- most recent hand-entered price for a card still awaiting one |
 | `last_reviewed` | `contracts/assumptions.json` |
+| `ledger` | `engine:alert_ledger` -- every alert ever fired, newest first |
 | `marketplace_fee` | `config/fees.yaml` |
 | `median_excess_return` | `engine:alert_ledger` |
+| `median_excess_return_30d` | `engine:alert_ledger` |
 | `meta` | `manual` |
 | `missing` | `engine` (refusal detail) |
 | `modelled_p_target` | `engine:model_a` |
@@ -218,6 +224,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `observed_at` | `manual` -- when I typed it in; never earlier than `as_of` |
 | `organiser_url` | `manual` |
 | `own_baseline_z` | `engine:trend` over `youtube` |
+| `p` | `engine:model_b` -- branch probability |
 | `pair` | `alpha_vantage` |
 | `payment_fee` | `config/fees.yaml` |
 | `play_type` | `engine` |
@@ -228,12 +235,14 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `price_meta` | `tcgapi.dev` |
 | `reason_code` | `engine` (refusal detail) -- closed enum, one per Refusal the models raise |
 | `recent_entries` | `manual` -- what I typed, from Xianyu, Taobao, Mercari JP and SNKRDUNK |
+| `regrade_detail` | `engine:model_b` -- conditional prior, never the base gem rate |
 | `roi` | `engine:model_a` |
 | `sell_venue` | `engine:model_c` |
 | `set_code` | `tcgapi.dev`, `apitcg.com` catalog |
 | `shipping` | `config/fees.yaml` |
 | `sorted_by` | `engine` |
 | `supersedes` | `manual` -- the entry this one corrects. History is append-only; nothing is edited in place |
+| `supplies` | `config/grading.yaml` -- sleeve, semi-rigid, team bag, per card |
 | `surface_flag` | `manual` |
 | `thesis` | `engine:alert_ledger` (rule text at fire time) |
 | `threshold_seconds` | `engine` (config) |

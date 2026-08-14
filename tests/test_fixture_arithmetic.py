@@ -46,11 +46,6 @@ NOT_RECOMPUTABLE = {
         "no holdings list in the payload; the total is an input, not a result",
     "home.top_movers[].change_pct_24h":
         "no prior-day price per mover; the row carries today's ladder only",
-    "track_record.hit_rate_*":
-        "31 scored alerts, 6 visible. The screen shows the worst five and the "
-        "most recent by design, so the rate cannot be re-derived from them",
-    "track_record.median_excess_return":
-        "same: the median is over 31 alerts, of which 6 are in the payload",
     "signals.suppressed_count":
         "counts rows filtered before serialisation, which are by definition "
         "not in the payload",
@@ -324,13 +319,19 @@ class SmallIdentities(unittest.TestCase):
             self.assertGreaterEqual(value, 0, key)
             self.assertLessEqual(value, 1, key)
 
-    def test_aggregates_agree_on_how_many_alerts_they_cover(self):
+    def test_a_longer_horizon_never_covers_more_alerts(self):
+        """The shipped fixture claimed all three hit rates rested on 31 alerts.
+        They cannot: an alert fired ten days ago has no 90-day return yet. The
+        90-day rate is the thinnest number on the screen and had been rendering
+        as the most authoritative."""
         tr = load("track_record")
-        sizes = {tr[k]["sample_size"] for k in
-                 ("hit_rate_7d", "hit_rate_30d", "hit_rate_90d",
-                  "median_excess_return")}
-        self.assertEqual(sizes, {tr["scored_alert_count"]},
-                         "four aggregates over the same ledger, one count")
+        sizes = [tr[f"hit_rate_{h}d"]["sample_size"] for h in (7, 30, 90)]
+        self.assertEqual(sizes, sorted(sizes, reverse=True), sizes)
+        for size in sizes:
+            self.assertLessEqual(size, tr["scored_alert_count"])
+        self.assertLess(sizes[2], sizes[0],
+                        "no horizon has matured less than another, so the "
+                        "fixture cannot show the case that matters")
 
 
 class TheRefusalFixtureActuallyRefuses(unittest.TestCase):
@@ -428,25 +429,36 @@ class ATypedProbabilityIsMarkedToo(unittest.TestCase):
         rows = [("signals", r) for r in self.fixtures["signals"]["rows"]]
         rows += [("arbitrage_board", r)
                  for r in self.fixtures["arbitrage_board"]["rows"]]
-        rows += [("track_record", e) for e in
-                 self.fixtures["track_record"]["worst_five"]
-                 + self.fixtures["track_record"]["recent"]]
+        rows += [("track_record", e)
+                 for e in self.fixtures["track_record"]["ledger"]]
         for name, row in rows:
             if row["card"]["game"] in ("riftbound", "optcg"):
                 self.assertNotEqual(
                     row["estimate_basis"], "population",
                     f"{name}: {row['card']['card_uid']} has no population source")
 
-    def test_three_of_the_five_worst_calls_rest_on_a_typed_probability(self):
+    def test_the_worst_calls_say_what_they_rested_on(self):
         """The Track Record screen is where the marker earns its place: a bad
         call built on my own prior is a different lesson from a bad call built
-        on a pop report."""
-        worst = load("track_record")["worst_five"]
-        for entry in worst:
+        on a pop report.
+
+        Asserted as a property, not a count. worst_five is now DERIVED from the
+        ledger, so how many of them rest on a typed prior is an outcome, not a
+        choice -- pinning it at three would be pinning a coincidence, and the
+        next honest ledger change would 'fail' a test that was never testing
+        anything."""
+        tr = load("track_record")
+        for entry in tr["worst_five"]:
             self.assertIn("estimate_basis", entry, entry["alert_id"])
             self.assertIn("entry_method", entry, entry["alert_id"])
-        typed = [e for e in worst if e["estimate_basis"] == "user_estimate"]
-        self.assertEqual(len(typed), 3, [e["alert_id"] for e in worst])
+        typed = [e for e in tr["ledger"]
+                 if e["estimate_basis"] == "user_estimate"]
+        self.assertTrue(typed, "no alert in the ledger rests on a typed prior")
+        # The warning must state the true count, whatever it is.
+        stated = int(tr["warnings"][0].split()[0])
+        actual = sum(1 for e in tr["worst_five"]
+                     if e["estimate_basis"] == "user_estimate")
+        self.assertEqual(stated, actual, tr["warnings"][0])
 
 
 class TheHandEstimatedCardComputes(unittest.TestCase):
@@ -546,3 +558,282 @@ class TheRegistryKnowsWhatDependsOnIt(unittest.TestCase):
         for aid, entry in self.entries.items():
             for use in entry["used_by"]:
                 self.assertTrue(use["label"], f"{aid} has an unlabelled dependant")
+
+
+class ModelBComputesItsOwnFigures(unittest.TestCase):
+    """The regrade play was half-present: `nine_to_10` in play_type,
+    `crack_resubmit` in the arbitrage paths, three registry assumptions feeding
+    nothing, and the design rendering model A's Charizard numbers under a
+    regrade label. A play that looks live on another model's figures is worse
+    than one that is absent, because nothing about it looks wrong."""
+
+    @classmethod
+    def setUpClass(cls):
+        from engine.ev.model_b import regrade_9_to_10_ev
+        from tests import fixture_scenario as fs
+        cls.fs = fs
+        comps = {g: Money(v, "USD") for g, v in fs.REGRADE_COMPS.items()}
+        cls.r = regrade_9_to_10_ev(
+            fs.REGRADE_CARD, Money(fs.REGRADE_SLAB_VALUE_9, "USD"), comps,
+            cfg=scenario_config(), condition_read=fs.REGRADE_CONDITION_READ,
+            tier=TIER, venue=VENUE)
+        cls.unread = regrade_9_to_10_ev(
+            fs.UNREAD_REGRADE_CARD, Money("300.00", "USD"), comps,
+            cfg=scenario_config(), condition_read=None, tier=TIER, venue=VENUE)
+        cls.crack = next(row for row in load("arbitrage_board")["rows"]
+                         if row["path"] == "crack_resubmit")
+
+    def test_model_b_runs_against_shipped_fee_config(self):
+        """It could not, before this session. required_paths demanded the flat
+        fee trio from a venue whose config supplies a banded schedule instead,
+        so model B refused on eBay for a reason unrelated to the regrade prior
+        it exists to apply."""
+        self.assertTrue(self.r, getattr(self.r, "detail", ""))
+
+    def test_the_regrade_prior_is_not_the_base_gem_rate(self):
+        """Non-negotiable 6. The card is conditioned on PSA having declined a
+        10; using the base rate double-counts what the grader already did."""
+        lab = load("grading_lab")
+        base = dec(lab["modelled_p_target"]["value"])
+        regrade = dec(self.crack["regrade_detail"]["modelled_p_target"]["value"])
+        self.assertNotEqual(regrade, base)
+        self.assertLess(regrade, base,
+                        "a card PSA already refused a 10 is not more likely to "
+                        "get one than a random copy")
+
+    def test_the_panel_carries_model_bs_numbers_not_model_as(self):
+        detail = self.crack["regrade_detail"]
+        self.assertEqual(dec(detail["break_even_p_target"]["value"]),
+                         dec(self.r.break_even_p_target).quantize(dec("0.001")))
+        self.assertEqual(dec(detail["modelled_p_target"]["value"]),
+                         dec(self.r.modelled_p_target).quantize(dec("0.001")))
+        lab = load("grading_lab")
+        self.assertNotEqual(dec(self.crack["net_spread"]["amount"]),
+                            dec(lab["ev"]["amount"]),
+                            "the regrade EV is model A's EV again")
+
+    def test_the_row_nets_to_the_engines_ev(self):
+        self.assertEqual(dec(self.crack["net_spread"]["amount"]),
+                         self.r.ev.amount.quantize(dec("0.01")))
+
+    def test_all_three_branches_are_priced_and_sum_to_one(self):
+        """The modal outcome of a resubmission is paying fees for the same slab
+        back, and it has to be on screen."""
+        branches = self.crack["regrade_detail"]["branches"]
+        self.assertEqual({b["branch"] for b in branches},
+                         {"upgrade_to_10", "regrade_9", "downgrade_below_9"})
+        total = sum(dec(b["p"]) for b in branches)
+        self.assertLess(abs(total - 1), dec("0.001"), total)
+
+    def test_a_crack_resubmit_row_must_carry_the_detail(self):
+        """Pinned in the schema too, so the half-present state cannot return."""
+        for row in load("arbitrage_board")["rows"]:
+            if row["path"] == "crack_resubmit":
+                self.assertIsInstance(row["regrade_detail"], dict)
+            else:
+                self.assertIsNone(row["regrade_detail"])
+
+    def test_no_condition_read_means_no_number(self):
+        """Model B refuses rather than falling back to anything."""
+        self.assertFalse(self.unread)
+        self.assertEqual(set(self.unread.missing),
+                         {"centering_pct", "corner_flag", "surface_flag",
+                          "edge_flag"})
+
+    def test_the_feed_shows_both_states(self):
+        rows = [r for r in load("signals")["rows"]
+                if r["play_type"] == "nine_to_10"]
+        self.assertEqual(len(rows), 2, "the 9 -> 10 filter needs a priced row "
+                                       "and a refusing one; most real rows refuse")
+        priced = [r for r in rows if r["refusal"] is None]
+        refused = [r for r in rows if r["refusal"] is not None]
+        self.assertEqual(len(priced), 1)
+        self.assertEqual(len(refused), 1)
+        self.assertIsNone(refused[0]["headline"]["value"])
+        self.assertEqual(refused[0]["headline"]["unavailable_reason"],
+                         "engine_refused_insufficient_evidence")
+        for item in refused[0]["refusal"]["missing"]:
+            self.assertEqual(item["reason_code"], "condition_read_missing")
+            self.assertTrue(item["fixable"])
+
+    def test_the_play_type_is_filterable(self):
+        self.assertIn("nine_to_10", load("signals")["filtered_by"])
+
+    def test_the_regrade_assumptions_now_feed_something(self):
+        """The orphan index is what found this. All three had zero dependants
+        while the play rendered on screen with borrowed numbers."""
+        entries = {a["id"]: a for a in load("settings")["assumptions"]}
+        for aid in ("regrade_conditional_prior", "regrade_downgrade_probability",
+                    "regrade_condition_adjustments"):
+            self.assertGreater(entries[aid]["used_by_count"], 0, aid)
+
+
+class TrackRecordIsDerivedFromItsLedger(unittest.TestCase):
+    """The screen whose entire purpose is honesty cannot be the one screen
+    whose numbers were typed."""
+
+    def setUp(self):
+        self.tr = load("track_record")
+
+    def _scored(self, horizon):
+        key = f"excess_return_{horizon}d"
+        return [e for e in self.tr["ledger"] if e[key]["value"] is not None]
+
+    def test_the_ledger_is_every_scored_alert(self):
+        self.assertEqual(len(self.tr["ledger"]), self.tr["scored_alert_count"])
+
+    def test_the_ledger_is_newest_first(self):
+        fired = [e["fired_at"] for e in self.tr["ledger"]]
+        self.assertEqual(fired, sorted(fired, reverse=True))
+
+    def test_alert_ids_are_unique(self):
+        ids = [e["alert_id"] for e in self.tr["ledger"]]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_every_hit_rate_recomputes_from_the_ledger(self):
+        for horizon in (7, 30, 90):
+            scored = self._scored(horizon)
+            values = [dec(e[f"excess_return_{horizon}d"]["value"]) for e in scored]
+            hits = sum(1 for v in values if v > 0)
+            rate = self.tr[f"hit_rate_{horizon}d"]
+            self.assertEqual(dec(rate["value"]),
+                             (dec(hits) / dec(len(scored))).quantize(dec("0.001")),
+                             f"{horizon}d")
+            self.assertEqual(rate["sample_size"], len(scored), f"{horizon}d n")
+
+    def test_the_median_excess_return_recomputes(self):
+        from statistics import median
+        values = sorted(dec(e["excess_return_30d"]["value"])
+                        for e in self._scored(30))
+        self.assertEqual(dec(self.tr["median_excess_return"]["value"]),
+                         median(values).quantize(dec("0.0001")))
+
+    def test_worst_five_are_the_five_worst_in_the_ledger(self):
+        matured = [e for e in self.tr["ledger"]
+                   if e["excess_return_90d"]["value"] is not None]
+        expected = [e["alert_id"] for e in sorted(
+            matured, key=lambda e: dec(e["excess_return_90d"]["value"]))[:5]]
+        self.assertEqual([e["alert_id"] for e in self.tr["worst_five"]], expected)
+
+    def test_an_unmatured_horizon_says_so_rather_than_reading_as_a_miss(self):
+        """A null 90-day return is not a zero and not a loss. Counting it as
+        either would quietly bias the rate the screen exists to report."""
+        unmatured = [e for e in self.tr["ledger"]
+                     if e["excess_return_90d"]["value"] is None]
+        self.assertTrue(unmatured, "no alert is too young to have matured")
+        for entry in unmatured:
+            self.assertEqual(entry["excess_return_90d"]["unavailable_reason"],
+                             "horizon_not_elapsed")
+
+
+class EveryHitRateCarriesItsSampleSize(unittest.TestCase):
+    """A 38% hit rate on n=5 and on n=200 are different claims. Every other
+    figure in this app carries n; this one had not."""
+
+    def setUp(self):
+        self.tr = load("track_record")
+
+    def test_per_play_rates_carry_n(self):
+        self.assertTrue(self.tr["by_play_type"])
+        for record in self.tr["by_play_type"]:
+            for key in ("hit_rate_30d", "median_excess_return_30d"):
+                size = record[key]["sample_size"]
+                self.assertIsNotNone(size, f"{record['play_type']}.{key}")
+                self.assertGreater(size, 0)
+
+    def test_per_play_rates_recompute_from_the_ledger(self):
+        by_play = {}
+        for entry in self.tr["ledger"]:
+            if entry["excess_return_30d"]["value"] is None:
+                continue
+            by_play.setdefault(entry["rule"], []).append(
+                dec(entry["excess_return_30d"]["value"]))
+        for record in self.tr["by_play_type"]:
+            values = by_play[record["play_type"]]
+            hits = sum(1 for v in values if v > 0)
+            self.assertEqual(record["hit_rate_30d"]["sample_size"], len(values),
+                             record["play_type"])
+            self.assertEqual(dec(record["hit_rate_30d"]["value"]),
+                             (dec(hits) / dec(len(values))).quantize(dec("0.001")),
+                             record["play_type"])
+
+    def test_the_per_play_counts_account_for_every_matured_alert(self):
+        total = sum(r["hit_rate_30d"]["sample_size"] for r in self.tr["by_play_type"])
+        matured = sum(1 for e in self.tr["ledger"]
+                      if e["excess_return_30d"]["value"] is not None)
+        self.assertEqual(total, matured, "a play type is missing from the split")
+
+    def test_a_thin_sample_is_flagged_rather_than_rendered_bare(self):
+        thin = [r["play_type"] for r in self.tr["by_play_type"]
+                if r["hit_rate_30d"]["sample_size"] < 10]
+        if thin:
+            self.assertTrue(any("Thin per-play samples" in w
+                                for w in self.tr["warnings"]), self.tr["warnings"])
+
+    def test_low_confidence_on_a_thin_sample(self):
+        for record in self.tr["by_play_type"]:
+            if record["hit_rate_30d"]["sample_size"] < 10:
+                self.assertEqual(record["hit_rate_30d"]["confidence"], "low",
+                                 record["play_type"])
+
+
+class FetchedAtIsNotAsOf(unittest.TestCase):
+    """"as of 11:04" is a claim about the market. "fetched at 11:04" is a claim
+    about us. CLAUDE.md Conventions/Time has always required both; the contract
+    shipped only one, so an error state could not say which of the two it
+    meant."""
+
+    def setUp(self):
+        self.fixtures = {n[:-5]: load(n[:-5])
+                         for n in sorted(os.listdir(FIX)) if n.endswith(".json")}
+
+    def _derived(self):
+        found = []
+
+        def walk(node, path):
+            if isinstance(node, dict):
+                if {"value", "source", "as_of", "confidence",
+                        "sample_size"} <= set(node):
+                    found.append((path, node))
+                for k, v in node.items():
+                    walk(v, f"{path}.{k}")
+            elif isinstance(node, list):
+                for i, v in enumerate(node):
+                    walk(v, f"{path}[{i}]")
+
+        for name, payload in self.fixtures.items():
+            walk(payload, name)
+        return found
+
+    def test_every_value_says_when_it_was_fetched(self):
+        for path, dv in self._derived():
+            self.assertIn("observed_at", dv, path)
+
+    def test_observed_at_is_never_earlier_than_as_of(self):
+        """We cannot have seen a value before it referred to anything."""
+        for path, dv in self._derived():
+            self.assertGreaterEqual(dv["observed_at"], dv["as_of"], path)
+
+    def test_the_staleness_badge_carries_the_same_pair(self):
+        for path, dv in self._derived():
+            self.assertEqual(dv["staleness"]["observed_at"], dv["observed_at"], path)
+            self.assertEqual(dv["staleness"]["as_of"], dv["as_of"], path)
+
+    def test_at_least_one_value_shows_the_two_diverging(self):
+        """A price refers to the last trade and is fetched later. If no fixture
+        shows the gap, the design has no reason to render two timestamps and
+        will render one."""
+        diverging = [p for p, dv in self._derived()
+                     if dv["observed_at"] != dv["as_of"]]
+        self.assertTrue(diverging,
+                        "as_of and observed_at are identical everywhere, so the "
+                        "distinction is untested")
+        # And specifically on a price, because that is the badge the design
+        # renders hundreds of times. A ladder whose two timestamps always match
+        # gives it no reason to draw both.
+        ladder = self.fixtures["card_detail"]["ladder"]
+        self.assertTrue(
+            any(r["price_meta"]["observed_at"] != r["price_meta"]["as_of"]
+                for r in ladder),
+            "no ladder rung distinguishes when the price refers to from when "
+            "we fetched it")

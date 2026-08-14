@@ -3,7 +3,9 @@
   "screen": "arbitrage_board",
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
-  "warnings": [],
+  "warnings": [
+    "Crack & resubmit uses the regrade conditional prior, not the base gem rate. The two are different numbers on purpose."
+  ],
   "rows": [
     {
       "card": {
@@ -66,7 +68,8 @@
         },
         "fx_spread": null,
         "tax": null,
-        "needs_primary_verification": true
+        "needs_primary_verification": true,
+        "supplies": null
       },
       "net_margin_pct": {
         "value": "10.08",
@@ -84,17 +87,20 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": true,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "assumption_ids": [
         "grading_fee_schedule",
         "marketplace_fee_schedule"
       ],
-      "estimate_basis": "config_rule"
+      "estimate_basis": "config_rule",
+      "regrade_detail": null
     },
     {
       "card": {
@@ -162,7 +168,8 @@
           "fx_rate_used": null,
           "fx_as_of": null
         },
-        "needs_primary_verification": true
+        "needs_primary_verification": true,
+        "supplies": null
       },
       "net_margin_pct": {
         "value": "4.06",
@@ -180,17 +187,212 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": true,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "assumption_ids": [
         "marketplace_fee_schedule",
         "fx_conversion_spread"
       ],
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "regrade_detail": null
+    },
+    {
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "path": "crack_resubmit",
+      "buy_venue": "hold",
+      "sell_venue": "ebay",
+      "buy_cost": {
+        "amount": "142.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "gross_spread": {
+        "amount": "66.07",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "net_spread": {
+        "amount": "-46.44",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "friction": {
+        "marketplace_fee": {
+          "amount": "27.57",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "payment_fee": {
+          "amount": "0.40",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "shipping": {
+          "amount": "3.70",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "grading_fee": {
+          "amount": "79.99",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "supplies": {
+          "amount": "0.85",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
+        "fx_spread": null,
+        "tax": null,
+        "needs_primary_verification": true
+      },
+      "net_margin_pct": {
+        "value": "-32.70",
+        "unit": "percent",
+        "source": "engine:model_b",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "unvalidated",
+        "sample_size": null,
+        "assumption_ids": [
+          "regrade_conditional_prior",
+          "grading_fee_schedule"
+        ],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": true,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "assumption_ids": [
+        "regrade_conditional_prior",
+        "regrade_downgrade_probability",
+        "regrade_condition_adjustments"
+      ],
+      "estimate_basis": "config_rule",
+      "regrade_detail": {
+        "break_even_p_target": {
+          "value": "0.306",
+          "unit": "probability",
+          "source": "engine:model_b",
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "confidence": "medium",
+          "sample_size": null,
+          "assumption_ids": [],
+          "unavailable_reason": null,
+          "staleness": {
+            "as_of": "2026-08-13T09:00:00Z",
+            "observed_at": "2026-08-13T09:00:00Z",
+            "age_seconds": 0,
+            "is_stale": false,
+            "threshold_seconds": 86400,
+            "kind": "derived"
+          },
+          "needs_primary_verification": false,
+          "entry_method": "api",
+          "estimate_basis": "none"
+        },
+        "modelled_p_target": {
+          "value": "0.173",
+          "unit": "probability",
+          "source": "engine:model_b",
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "confidence": "unvalidated",
+          "sample_size": null,
+          "assumption_ids": [
+            "regrade_conditional_prior",
+            "regrade_condition_adjustments"
+          ],
+          "unavailable_reason": null,
+          "staleness": {
+            "as_of": "2026-08-13T09:00:00Z",
+            "observed_at": "2026-08-13T09:00:00Z",
+            "age_seconds": 0,
+            "is_stale": false,
+            "threshold_seconds": 86400,
+            "kind": "derived"
+          },
+          "needs_primary_verification": false,
+          "entry_method": "api",
+          "estimate_basis": "config_rule"
+        },
+        "condition_read": {
+          "centering_pct": "60",
+          "corner_flag": "clean",
+          "surface_flag": "clean",
+          "edge_flag": "clean"
+        },
+        "branches": [
+          {
+            "branch": "upgrade_to_10",
+            "p": "0.1728",
+            "ev_if_realised": {
+              "amount": "241.51",
+              "currency": "USD",
+              "fx_rate_used": null,
+              "fx_as_of": null
+            },
+            "note": null
+          },
+          {
+            "branch": "regrade_9",
+            "p": "0.7772",
+            "ev_if_realised": {
+              "amount": "-103.76",
+              "currency": "USD",
+              "fx_rate_used": null,
+              "fx_as_of": null
+            },
+            "note": "modal outcome: fees paid for the same slab back"
+          },
+          {
+            "branch": "downgrade_below_9",
+            "p": "0.0500",
+            "ev_if_realised": {
+              "amount": "-150.60",
+              "currency": "USD",
+              "fx_rate_used": null,
+              "fx_as_of": null
+            },
+            "note": "the intact 9 no longer exists in this branch"
+          }
+        ],
+        "refusal": null
+      }
     }
   ],
   "sorted_by": "net_margin_pct",

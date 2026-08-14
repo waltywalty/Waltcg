@@ -25,11 +25,13 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "day_change": {
     "amount": "-212.50",
@@ -50,11 +52,13 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "open_alert_count": 3,
   "top_movers": [
@@ -93,11 +97,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -112,11 +118,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -140,11 +148,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 410,
@@ -159,11 +169,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -187,11 +199,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 5120,
@@ -206,11 +220,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -234,11 +250,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 1830,
@@ -253,11 +271,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         }
       ],
@@ -274,11 +294,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "entry_method": "api"
     },
@@ -317,11 +339,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -337,11 +361,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -360,11 +386,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -380,11 +408,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -408,11 +438,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -428,11 +460,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -456,11 +490,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -476,11 +512,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         }
       ],
@@ -497,11 +535,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "entry_method": "api"
     },
@@ -540,11 +580,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -560,11 +602,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -583,11 +627,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -603,11 +649,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -626,11 +674,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -646,11 +696,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -669,11 +721,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -689,11 +743,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         }
       ],
@@ -710,11 +766,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "entry_method": "api"
     }

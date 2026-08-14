@@ -39,11 +39,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": true,
         "entry_method": "api",
-        "estimate_basis": "population"
+        "estimate_basis": "population",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "headline_label": "break-even P(10)",
       "ladder": [
@@ -58,21 +60,23 @@
           "price_meta": {
             "value": "140.00",
             "source": "tcgapi.dev",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-12T21:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -87,11 +91,13 @@
               "age_seconds": 1036800,
               "is_stale": true,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
           }
         },
         {
@@ -105,21 +111,23 @@
           "price_meta": {
             "value": "88.00",
             "source": "tcgapi.dev",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-12T21:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 410,
@@ -134,11 +142,13 @@
               "age_seconds": 1036800,
               "is_stale": true,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
           }
         },
         {
@@ -152,21 +162,23 @@
           "price_meta": {
             "value": "142.00",
             "source": "tcgapi.dev",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-12T21:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 5120,
@@ -181,11 +193,13 @@
               "age_seconds": 1036800,
               "is_stale": true,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
           }
         },
         {
@@ -199,21 +213,23 @@
           "price_meta": {
             "value": "540.00",
             "source": "tcgapi.dev",
-            "as_of": "2026-08-13T09:00:00Z",
+            "as_of": "2026-08-12T21:00:00Z",
             "confidence": "medium",
             "sample_size": null,
             "unit": "USD",
             "assumption_ids": [],
             "staleness": {
-              "as_of": "2026-08-13T09:00:00Z",
-              "age_seconds": 0,
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 1830,
@@ -228,11 +244,13 @@
               "age_seconds": 1036800,
               "is_stale": true,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
           }
         }
       ],
@@ -242,7 +260,8 @@
         "grading_fee_schedule"
       ],
       "entry_method": "api",
-      "estimate_basis": "population"
+      "estimate_basis": "population",
+      "refusal": null
     },
     {
       "card": {
@@ -271,11 +290,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "headline_label": "spread residual",
       "ladder": [
@@ -300,11 +321,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -319,11 +342,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -347,11 +372,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 120,
@@ -366,11 +393,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -394,11 +423,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 1980,
@@ -413,11 +444,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -441,11 +474,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": 640,
@@ -460,11 +495,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         }
       ],
@@ -472,7 +509,8 @@
         "min_comp_sample_size"
       ],
       "entry_method": "api",
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "refusal": null
     },
     {
       "card": {
@@ -501,11 +539,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "headline_label": "velocity z",
       "ladder": [
@@ -530,11 +570,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -550,11 +592,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -573,11 +617,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -593,11 +639,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -616,11 +664,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -636,11 +686,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -659,11 +711,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -679,17 +733,20 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         }
       ],
       "assumption_ids": [],
       "entry_method": "api",
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "refusal": null
     },
     {
       "card": {
@@ -721,11 +778,13 @@
           "age_seconds": 172800,
           "is_stale": true,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-11T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "mixed",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-11T09:00:00Z"
       },
       "headline_label": "float ratio",
       "ladder": [
@@ -753,11 +812,13 @@
               "age_seconds": 172800,
               "is_stale": true,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-11T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "manual",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-11T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -773,11 +834,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -797,11 +860,13 @@
               "age_seconds": 172800,
               "is_stale": true,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-11T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "manual",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-11T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -817,11 +882,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -841,11 +908,13 @@
               "age_seconds": 172800,
               "is_stale": true,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-11T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "manual",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-11T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -861,11 +930,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         }
       ],
@@ -874,7 +945,8 @@
         "fx_rate_source"
       ],
       "entry_method": "manual",
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "refusal": null
     },
     {
       "card": {
@@ -903,11 +975,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "user_estimate"
+        "estimate_basis": "user_estimate",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "headline_label": "break-even P(10)",
       "ladder": [
@@ -933,11 +1007,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -953,11 +1029,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -982,11 +1060,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -1002,11 +1082,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -1031,11 +1113,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -1051,11 +1135,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         },
         {
@@ -1080,11 +1166,13 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 86400,
-              "kind": "price"
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           },
           "population": {
             "value": null,
@@ -1100,22 +1188,586 @@
               "age_seconds": 0,
               "is_stale": false,
               "threshold_seconds": 604800,
-              "kind": "population"
+              "kind": "population",
+              "observed_at": "2026-08-13T09:00:00Z"
             },
             "needs_primary_verification": false,
             "entry_method": "api",
-            "estimate_basis": "none"
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
           }
         }
       ],
       "assumption_ids": [],
       "entry_method": "api",
-      "estimate_basis": "user_estimate"
+      "estimate_basis": "user_estimate",
+      "refusal": null
+    },
+    {
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "play_type": "nine_to_10",
+      "headline": {
+        "value": "0.306",
+        "unit": "probability",
+        "source": "engine:model_b",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "unvalidated",
+        "sample_size": null,
+        "assumption_ids": [
+          "regrade_conditional_prior",
+          "regrade_downgrade_probability",
+          "regrade_condition_adjustments",
+          "grading_fee_schedule"
+        ],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": true,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "headline_label": "break-even P(10) on regrade",
+      "ladder": [
+        {
+          "grade": "raw",
+          "price": {
+            "amount": "140.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "140.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": null,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        },
+        {
+          "grade": "8",
+          "price": {
+            "amount": "88.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "88.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": 410,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        },
+        {
+          "grade": "9",
+          "price": {
+            "amount": "142.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "142.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": 5120,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        },
+        {
+          "grade": "10",
+          "price": {
+            "amount": "540.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "540.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": 1830,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        }
+      ],
+      "assumption_ids": [
+        "regrade_conditional_prior",
+        "regrade_downgrade_probability"
+      ],
+      "entry_method": "api",
+      "estimate_basis": "config_rule",
+      "refusal": null
+    },
+    {
+      "card": {
+        "card_uid": "pkmn:sv3:108/108:sar:JP",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "108/108",
+        "variant": "sar",
+        "language": "JP",
+        "name": "Lizardon ex",
+        "rarity": "SAR",
+        "artist": "takuyoa",
+        "image_url": null
+      },
+      "play_type": "nine_to_10",
+      "headline": {
+        "value": null,
+        "unit": "probability",
+        "source": "engine:model_b",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "unvalidated",
+        "sample_size": null,
+        "assumption_ids": [],
+        "unavailable_reason": "engine_refused_insufficient_evidence",
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "headline_label": "break-even P(10) on regrade",
+      "ladder": [
+        {
+          "grade": "raw",
+          "price": {
+            "amount": "140.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "140.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": null,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        },
+        {
+          "grade": "8",
+          "price": {
+            "amount": "88.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "88.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": 410,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        },
+        {
+          "grade": "9",
+          "price": {
+            "amount": "142.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "142.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": 5120,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        },
+        {
+          "grade": "10",
+          "price": {
+            "amount": "540.00",
+            "currency": "USD",
+            "fx_rate_used": null,
+            "fx_as_of": null
+          },
+          "price_meta": {
+            "value": "540.00",
+            "source": "tcgapi.dev",
+            "as_of": "2026-08-12T21:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "USD",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-12T21:00:00Z",
+              "age_seconds": 43200,
+              "is_stale": false,
+              "threshold_seconds": 86400,
+              "kind": "price",
+              "observed_at": "2026-08-13T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-13T09:00:00Z"
+          },
+          "population": {
+            "value": 1830,
+            "source": "pokemonpricetracker",
+            "as_of": "2026-08-01T09:00:00Z",
+            "confidence": "medium",
+            "sample_size": null,
+            "unit": "cards",
+            "assumption_ids": [],
+            "staleness": {
+              "as_of": "2026-08-01T09:00:00Z",
+              "age_seconds": 1036800,
+              "is_stale": true,
+              "threshold_seconds": 604800,
+              "kind": "population",
+              "observed_at": "2026-08-01T09:00:00Z"
+            },
+            "needs_primary_verification": false,
+            "entry_method": "api",
+            "estimate_basis": "none",
+            "observed_at": "2026-08-01T09:00:00Z"
+          }
+        }
+      ],
+      "assumption_ids": [
+        "regrade_conditional_prior"
+      ],
+      "entry_method": "api",
+      "estimate_basis": "config_rule",
+      "refusal": {
+        "reason": "no condition read supplied",
+        "detail": "P(10) for a card already slabbed at 9 cannot come from the base gem rate -- PSA already saw this card and said no. Supply a condition read with centering_pct, corner_flag, surface_flag, edge_flag so the conservative default can be adjusted, or accept that this model will not produce a number.",
+        "missing": [
+          {
+            "id": "condition_read.centering_pct",
+            "title": "Measure centering",
+            "reason_code": "condition_read_missing",
+            "fixable": true,
+            "deep_link": {
+              "screen": "grading_lab",
+              "anchor": "condition_read",
+              "card_uid": "pkmn:sv3:108/108:sar:JP",
+              "assumption_id": null
+            }
+          },
+          {
+            "id": "condition_read.corner_flag",
+            "title": "Rate the corners",
+            "reason_code": "condition_read_missing",
+            "fixable": true,
+            "deep_link": {
+              "screen": "grading_lab",
+              "anchor": "condition_read",
+              "card_uid": "pkmn:sv3:108/108:sar:JP",
+              "assumption_id": null
+            }
+          },
+          {
+            "id": "condition_read.surface_flag",
+            "title": "Rate the surface",
+            "reason_code": "condition_read_missing",
+            "fixable": true,
+            "deep_link": {
+              "screen": "grading_lab",
+              "anchor": "condition_read",
+              "card_uid": "pkmn:sv3:108/108:sar:JP",
+              "assumption_id": null
+            }
+          },
+          {
+            "id": "condition_read.edge_flag",
+            "title": "Rate the edges",
+            "reason_code": "condition_read_missing",
+            "fixable": true,
+            "deep_link": {
+              "screen": "grading_lab",
+              "anchor": "condition_read",
+              "card_uid": "pkmn:sv3:108/108:sar:JP",
+              "assumption_id": null
+            }
+          }
+        ]
+      }
     }
   ],
   "filtered_by": [
-    "raw_to_10",
     "grade_gap",
+    "nine_to_10",
+    "raw_to_10",
+    "thin_float",
     "trending_early"
   ],
   "suppressed_count": 11

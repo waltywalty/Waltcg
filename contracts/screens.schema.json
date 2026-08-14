@@ -144,6 +144,11 @@
         },
         "estimate_basis": {
           "$ref": "#/$defs/estimate_basis"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When we last successfully retrieved this value. Never earlier than as_of, and unchanged while a value is served from cache -- that gap IS the error state's headline."
         }
       },
       "required": [
@@ -155,7 +160,8 @@
         "staleness",
         "needs_primary_verification",
         "entry_method",
-        "estimate_basis"
+        "estimate_basis",
+        "observed_at"
       ],
       "additionalProperties": false
     },
@@ -176,9 +182,10 @@
         "source_unreachable",
         "awaiting_manual_entry",
         "engine_refused_insufficient_evidence",
-        "config_incomplete"
+        "config_incomplete",
+        "horizon_not_elapsed"
       ],
-      "description": "Why a nullable field is null. The UI renders a designed empty state naming the reason -- never a blank or a zero."
+      "description": "Why a nullable field is null. The UI renders a designed empty state naming the reason -- never a blank or a zero. `horizon_not_elapsed` is distinct from every other reason here: the value is not missing, it does not exist yet. An alert fired ten days ago has no 90-day return and never will have one until it does, and reading that as 'no data' would drop it from a denominator it belongs in later."
     },
     "staleness": {
       "type": "object",
@@ -210,6 +217,11 @@
             "derived"
           ],
           "description": "What sort of data this is, which is what sets the threshold -- >24h for price, >7d for population. 'derived' is an engine output whose age is the age of its oldest input."
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Mirror of the value's observed_at, so a badge needs one object."
         }
       },
       "required": [
@@ -217,7 +229,8 @@
         "age_seconds",
         "is_stale",
         "threshold_seconds",
-        "kind"
+        "kind",
+        "observed_at"
       ],
       "additionalProperties": false
     },
@@ -517,6 +530,9 @@
         },
         "estimate_basis": {
           "$ref": "#/$defs/estimate_basis"
+        },
+        "refusal": {
+          "$ref": "#/$defs/refusal"
         }
       },
       "required": [
@@ -527,7 +543,8 @@
         "ladder",
         "assumption_ids",
         "entry_method",
-        "estimate_basis"
+        "estimate_basis",
+        "refusal"
       ],
       "additionalProperties": false
     },
@@ -1076,6 +1093,16 @@
         "needs_primary_verification": {
           "type": "boolean",
           "description": "True when any component is priced from unverified config. The components are Money, which carries no provenance of its own, so the stack states it once for the group."
+        },
+        "supplies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1085,7 +1112,8 @@
         "grading_fee",
         "fx_spread",
         "tax",
-        "needs_primary_verification"
+        "needs_primary_verification",
+        "supplies"
       ],
       "additionalProperties": false
     },
@@ -1131,6 +1159,17 @@
         },
         "estimate_basis": {
           "$ref": "#/$defs/estimate_basis"
+        },
+        "regrade_detail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/regrade_detail"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Non-null exactly on a crack_resubmit row. Pinned below."
         }
       },
       "required": [
@@ -1144,9 +1183,32 @@
         "friction",
         "net_margin_pct",
         "assumption_ids",
-        "estimate_basis"
+        "estimate_basis",
+        "regrade_detail"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "path": {
+                "const": "crack_resubmit"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          },
+          "then": {
+            "properties": {
+              "regrade_detail": {
+                "type": "object"
+              }
+            },
+            "description": "A crack-and-resubmit row without model B's own figures is the half-present state this replaces."
+          }
+        }
+      ]
     },
     "screen_arbitrage_board": {
       "type": "object",
@@ -1447,10 +1509,17 @@
           "maxItems": 5,
           "description": "Permanently visible. Never collapsed, never behind a toggle."
         },
-        "recent": {
+        "ledger": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/ledger_entry"
+          },
+          "description": "Every alert ever fired, newest first -- the brief's words. Shipping the whole ledger is what makes the aggregates checkable rather than asserted; worst_five and every rate on this screen are derived from it and nothing else."
+        },
+        "by_play_type": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/play_type_record"
           }
         }
       },
@@ -1466,7 +1535,8 @@
         "scored_alert_count",
         "acting_threshold_met",
         "worst_five",
-        "recent"
+        "ledger",
+        "by_play_type"
       ],
       "additionalProperties": false
     },
@@ -2163,6 +2233,104 @@
         "screen",
         "field",
         "label"
+      ],
+      "additionalProperties": false
+    },
+    "regrade_branch": {
+      "type": "object",
+      "description": "One outcome of a resubmission. All three are real, and the modal one is paying fees to get the same slab back.",
+      "properties": {
+        "branch": {
+          "type": "string",
+          "enum": [
+            "upgrade_to_10",
+            "regrade_9",
+            "downgrade_below_9"
+          ]
+        },
+        "p": {
+          "$ref": "#/$defs/decimal_string"
+        },
+        "ev_if_realised": {
+          "$ref": "#/$defs/money"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "branch",
+        "p",
+        "ev_if_realised",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "regrade_detail": {
+      "type": "object",
+      "description": "Model B's own output. It exists because the play was previously rendered with model A's figures under a regrade label -- and those are not the same numbers, because a card already slabbed at 9 is not a random card. PSA examined it and declined a 10. Using the base gem rate here double-counts information the grader has already acted on.",
+      "properties": {
+        "break_even_p_target": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "modelled_p_target": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "condition_read": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/condition_read"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/regrade_branch"
+          },
+          "maxItems": 3
+        },
+        "refusal": {
+          "$ref": "#/$defs/refusal"
+        }
+      },
+      "required": [
+        "break_even_p_target",
+        "modelled_p_target",
+        "condition_read",
+        "branches",
+        "refusal"
+      ],
+      "additionalProperties": false
+    },
+    "play_type_record": {
+      "type": "object",
+      "description": "Per-play performance. The hit rate carries its sample size like every other figure here: 38% on n=5 and 38% on n=200 are not the same claim and must not render alike.",
+      "properties": {
+        "play_type": {
+          "$ref": "#/$defs/play_type"
+        },
+        "hit_rate_30d": {
+          "$ref": "#/$defs/derived_value"
+        },
+        "median_excess_return_30d": {
+          "$ref": "#/$defs/derived_value"
+        }
+      },
+      "required": [
+        "play_type",
+        "hit_rate_30d",
+        "median_excess_return_30d"
       ],
       "additionalProperties": false
     }

@@ -25,7 +25,8 @@ from decimal import Decimal
 from typing import Optional
 
 from .breakeven import annualised, net_proceeds, solve_break_even_p
-from .config import Config, business_days_to_calendar
+from .config import MISSING, Config, business_days_to_calendar
+from .fees import FeeScheduleError, net_proceeds_from_schedule
 from .money import Money
 from .results import CostBreakdown, EVResult, GradeDistribution, Provenance, Refusal
 
@@ -34,8 +35,22 @@ MODEL = "regrade_9_to_10_ev"
 CONDITION_FIELDS = ("centering_pct", "corner_flag", "surface_flag", "edge_flag")
 
 
-def required_paths(grader: str, tier: str, venue: str) -> list:
-    return [
+def required_paths(grader: str, tier: str, venue: str, schedule: bool = False) -> list:
+    # A venue carries either a modern banded fee_schedule or the older flat
+    # trio. Model A already branched on this; model B did not, so it demanded
+    # `final_value_fee_pct` from a venue whose config supplies a schedule
+    # instead -- and eBay is exactly that venue. The model could not run
+    # against shipped config at all, for a reason that had nothing to do with
+    # the regrade prior it exists to apply. Two models must also not price the
+    # same venue's fees two different ways, or two screens disagree about eBay.
+    venue_fee_paths = (
+        [f"fees.marketplaces.{venue}.fee_schedule.base",
+         f"fees.marketplaces.{venue}.fee_schedule.bands"]
+        if schedule else
+        [f"fees.marketplaces.{venue}.final_value_fee_pct",
+         f"fees.marketplaces.{venue}.payment_pct",
+         f"fees.marketplaces.{venue}.payment_fixed"])
+    return venue_fee_paths + [
         "grading.meta.currency",
         f"grading.graders.{grader}.tiers.{tier}.fee",
         f"grading.graders.{grader}.tiers.{tier}.turnaround_business_days",
@@ -44,9 +59,6 @@ def required_paths(grader: str, tier: str, venue: str) -> list:
         "grading.submission_costs.return_shipping_insured",
         "grading.submission_costs.supplies_per_card",
         "grading.submission_costs.default_batch_size",
-        f"fees.marketplaces.{venue}.final_value_fee_pct",
-        f"fees.marketplaces.{venue}.payment_pct",
-        f"fees.marketplaces.{venue}.payment_fixed",
         f"fees.marketplaces.{venue}.currency",
         "fees.region_defaults.default_days_to_sell",
         "assumptions.regrade_conditional_prior.current_value",
@@ -142,7 +154,8 @@ def regrade_9_to_10_ev(
         refusal.subject = card_uid
         return refusal
 
-    cfg.require(required_paths(grader, tier, venue)
+    uses_schedule = cfg.get(f"fees.marketplaces.{venue}.fee_schedule") is not MISSING
+    cfg.require(required_paths(grader, tier, venue, schedule=uses_schedule)
                 + [f"{ADJ_ROOT}.{k}" for k in _adjustment_keys(condition_read)],
                 context=f"{MODEL} for {card_uid}")
 
@@ -185,9 +198,12 @@ def regrade_9_to_10_ev(
     total_cost = costs.total()
 
     # -- proceeds ---------------------------------------------------------
-    fvf = cfg.decimal(f"fees.marketplaces.{venue}.final_value_fee_pct")
-    pay_pct = cfg.decimal(f"fees.marketplaces.{venue}.payment_pct")
-    fixed = Money(str(cfg.decimal(f"fees.marketplaces.{venue}.payment_fixed")), currency)
+    schedule = cfg.get(f"fees.marketplaces.{venue}.fee_schedule") if uses_schedule else None
+    if not uses_schedule:
+        fvf = cfg.decimal(f"fees.marketplaces.{venue}.final_value_fee_pct")
+        pay_pct = cfg.decimal(f"fees.marketplaces.{venue}.payment_pct")
+        fixed = Money(str(cfg.decimal(f"fees.marketplaces.{venue}.payment_fixed")),
+                      currency)
     ship_out = outbound_shipping or Money.zero(currency)
 
     proceeds = {}
@@ -199,7 +215,16 @@ def regrade_9_to_10_ev(
                            "branches must be priced", subject=card_uid)
         if not isinstance(comp, Money):
             raise TypeError(f"comp for {grade} must be Money")
-        proceeds[grade] = net_proceeds(comp, fvf, pay_pct, fixed, ship_out)
+        if schedule:
+            try:
+                proceeds[grade] = net_proceeds_from_schedule(
+                    comp, schedule, outbound_shipping=ship_out)
+            except FeeScheduleError as e:
+                return Refusal(MODEL, "fee schedule unusable", str(e),
+                               missing=[f"fees.marketplaces.{venue}.fee_schedule"],
+                               subject=card_uid)
+        else:
+            proceeds[grade] = net_proceeds(comp, fvf, pay_pct, fixed, ship_out)
 
     ev = Money.zero(currency)
     for grade, p in probs.items():

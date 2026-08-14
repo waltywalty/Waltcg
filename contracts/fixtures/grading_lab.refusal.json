@@ -48,12 +48,14 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": true,
     "entry_method": "api",
     "unavailable_reason": "engine_refused_insufficient_evidence",
-    "estimate_basis": "population"
+    "estimate_basis": "population",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "break_even_attainable": false,
   "break_even_note": "Not computable: see the checklist.",
@@ -73,12 +75,14 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": true,
     "entry_method": "api",
     "unavailable_reason": "engine_refused_insufficient_evidence",
-    "estimate_basis": "population"
+    "estimate_basis": "population",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "pop_implied_p_target": {
     "value": null,
@@ -95,12 +99,14 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": true,
     "entry_method": "api",
     "unavailable_reason": "engine_refused_insufficient_evidence",
-    "estimate_basis": "population"
+    "estimate_basis": "population",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "ev": null,
   "roi": {
@@ -116,12 +122,14 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": true,
     "entry_method": "api",
     "unavailable_reason": "engine_refused_insufficient_evidence",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "annualised_roi": {
     "value": null,
@@ -136,12 +144,14 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": true,
     "entry_method": "api",
     "unavailable_reason": "engine_refused_insufficient_evidence",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "horizon_days": null,
   "downside_case": null,

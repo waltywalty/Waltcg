@@ -4,7 +4,9 @@
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
   "warnings": [
-    "3 of the five worst calls rest on a grade probability I typed."
+    "1 of the five worst calls rest on a grade probability I typed.",
+    "90-day hit rate covers 18 of 31 alerts; the rest have not matured.",
+    "Thin per-play samples: crossover, grade_gap, nine_to_10, raw_to_10, thin_float, trending_early."
   ],
   "hit_rate_7d": {
     "value": "0.516",
@@ -19,18 +21,20 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "hit_rate_30d": {
-    "value": "0.452",
+    "value": "0.464",
     "source": "engine:ledger",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "medium",
-    "sample_size": 31,
+    "sample_size": 28,
     "unit": "ratio",
     "assumption_ids": [],
     "staleness": {
@@ -38,18 +42,20 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "hit_rate_90d": {
-    "value": "0.387",
+    "value": "0.500",
     "source": "engine:ledger",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "low",
-    "sample_size": 31,
+    "sample_size": 18,
     "unit": "ratio",
     "assumption_ids": [],
     "staleness": {
@@ -57,18 +63,20 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "median_excess_return": {
-    "value": "0.021",
+    "value": "-0.0175",
     "source": "engine:ledger",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "low",
-    "sample_size": 31,
+    "sample_size": 28,
     "unit": "ratio",
     "assumption_ids": [],
     "staleness": {
@@ -76,274 +84,20 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "scored_alert_count": 31,
   "acting_threshold_met": false,
   "worst_five": [
     {
-      "alert_id": "a-0007",
-      "fired_at": "2026-05-02T08:00:00Z",
-      "card": {
-        "card_uid": "optcg:P:P-001:promo:EN",
-        "game": "optcg",
-        "set_code": "P",
-        "number": "P-001",
-        "variant": "promo",
-        "language": "EN",
-        "name": "Monkey.D.Luffy",
-        "rarity": "Promo",
-        "artist": null,
-        "image_url": null
-      },
-      "rule": "grade_gap",
-      "thesis": "P10 cheap vs pop gap",
-      "price_at_alert": {
-        "amount": "310.00",
-        "currency": "USD",
-        "fx_rate_used": null,
-        "fx_as_of": null
-      },
-      "excess_return_7d": {
-        "value": "-0.084",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "excess_return_30d": {
-        "value": "-0.191",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "excess_return_90d": {
-        "value": "-0.263",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "assumption_ids": [
-        "min_comp_sample_size"
-      ],
-      "estimate_basis": "user_estimate",
-      "entry_method": "api"
-    },
-    {
-      "alert_id": "a-0012",
-      "fired_at": "2026-05-02T08:00:00Z",
-      "card": {
-        "card_uid": "riftbound:VDT:VDT-017:base:EN",
-        "game": "riftbound",
-        "set_code": "VDT",
-        "number": "VDT-017",
-        "variant": "base",
-        "language": "EN",
-        "name": "Lee Sin",
-        "rarity": "Epic",
-        "artist": null,
-        "image_url": null
-      },
-      "rule": "trending_early",
-      "thesis": "Velocity spike pre-price",
-      "price_at_alert": {
-        "amount": "42.00",
-        "currency": "USD",
-        "fx_rate_used": null,
-        "fx_as_of": null
-      },
-      "excess_return_7d": {
-        "value": "-0.052",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "excess_return_30d": {
-        "value": "-0.140",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "excess_return_90d": {
-        "value": "-0.244",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "assumption_ids": [],
-      "estimate_basis": "none",
-      "entry_method": "api"
-    },
-    {
-      "alert_id": "a-0019",
-      "fired_at": "2026-05-02T08:00:00Z",
-      "card": {
-        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
-        "game": "optcg",
-        "set_code": "OP01",
-        "number": "OP01-078",
-        "variant": "parallel",
-        "language": "JP",
-        "name": "Boa Hancock",
-        "rarity": "SR Parallel",
-        "artist": null,
-        "image_url": null
-      },
-      "rule": "raw_to_10",
-      "thesis": "Thin float, high gem rate",
-      "price_at_alert": {
-        "amount": "180.00",
-        "currency": "USD",
-        "fx_rate_used": null,
-        "fx_as_of": null
-      },
-      "excess_return_7d": {
-        "value": "-0.031",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "excess_return_30d": {
-        "value": "-0.098",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "excess_return_90d": {
-        "value": "-0.187",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
-        "unit": "ratio",
-        "assumption_ids": [],
-        "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
-          "is_stale": false,
-          "threshold_seconds": 86400,
-          "kind": "derived"
-        },
-        "needs_primary_verification": false,
-        "entry_method": "api",
-        "estimate_basis": "none"
-      },
-      "assumption_ids": [
-        "submission_selection_haircut"
-      ],
-      "estimate_basis": "user_estimate",
-      "entry_method": "manual"
-    },
-    {
       "alert_id": "a-0003",
-      "fired_at": "2026-05-02T08:00:00Z",
+      "fired_at": "2026-02-13T08:00:00Z",
       "card": {
         "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
         "game": "riftbound",
@@ -356,24 +110,30 @@
         "artist": null,
         "image_url": null
       },
-      "rule": "thin_float",
-      "thesis": "Overnumbered scarcity",
+      "rule": "crossover",
+      "thesis": "crossover on Jinx",
       "price_at_alert": {
-        "amount": "76.00",
+        "amount": "134.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
       "excess_return_7d": {
-        "value": "-0.020",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": "-0.0125",
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": null,
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-02-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -381,18 +141,21 @@
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "config_rule"
       },
       "excess_return_30d": {
-        "value": "-0.077",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": "0.1200",
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": null,
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-02-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -400,18 +163,21 @@
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "config_rule"
       },
       "excess_return_90d": {
-        "value": "-0.152",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": "-0.3609",
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": null,
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-02-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -419,15 +185,105 @@
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0010",
+      "fired_at": "2026-03-27T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "Parallel Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "grade_gap",
+      "thesis": "grade gap on Boa Hancock",
+      "price_at_alert": {
+        "amount": "393.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
       },
       "assumption_ids": [],
       "estimate_basis": "user_estimate",
-      "entry_method": "api"
+      "entry_method": "manual",
+      "excess_return_7d": {
+        "value": "0.0025",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-27T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-27T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_30d": {
+        "value": "0.1500",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-27T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-27T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_90d": {
+        "value": "-0.3158",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-27T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-27T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      }
     },
     {
-      "alert_id": "a-0022",
-      "fired_at": "2026-05-02T08:00:00Z",
+      "alert_id": "a-0017",
+      "fired_at": "2026-05-08T08:00:00Z",
       "card": {
         "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
         "game": "pkmn",
@@ -435,29 +291,130 @@
         "number": "070/SM-P",
         "variant": "promo",
         "language": "JP",
-        "name": "Eevee (Yu Nagaba)",
+        "name": "Yu Nagaba Eevee",
         "rarity": "Promo",
-        "artist": "Yu Nagaba",
+        "artist": null,
         "image_url": null
       },
-      "rule": "crossover",
-      "thesis": "BGS 9.5 balanced subgrades",
+      "rule": "thin_float",
+      "thesis": "thin float on Yu Nagaba Eevee",
       "price_at_alert": {
-        "amount": "540.00",
+        "amount": "252.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
       "excess_return_7d": {
-        "value": "-0.014",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": "0.0175",
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": null,
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-05-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "0.1800",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "-0.2707",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0006",
+      "fired_at": "2026-03-03T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:VDT:VDT-017:base:EN",
+        "game": "riftbound",
+        "set_code": "VDT",
+        "number": "VDT-017",
+        "variant": "base",
+        "language": "EN",
+        "name": "Vendetta",
+        "rarity": "Base",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "trending_early",
+      "thesis": "trending early on Vendetta",
+      "price_at_alert": {
+        "amount": "245.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "none",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0300",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-03T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-03T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -468,15 +425,18 @@
         "estimate_basis": "none"
       },
       "excess_return_30d": {
-        "value": "-0.061",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": "0.2050",
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-03T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": null,
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-03-03T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -487,15 +447,18 @@
         "estimate_basis": "none"
       },
       "excess_return_90d": {
-        "value": "-0.121",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": "-0.2331",
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-03T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": null,
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-03-03T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -504,18 +467,11 @@
         "needs_primary_verification": false,
         "entry_method": "api",
         "estimate_basis": "none"
-      },
-      "assumption_ids": [
-        "grading_fee_schedule"
-      ],
-      "estimate_basis": "config_rule",
-      "entry_method": "api"
-    }
-  ],
-  "recent": [
+      }
+    },
     {
-      "alert_id": "a-0031",
-      "fired_at": "2026-05-02T08:00:00Z",
+      "alert_id": "a-0013",
+      "fired_at": "2026-04-14T08:00:00Z",
       "card": {
         "card_uid": "pkmn:sv3:223/197:sir:EN",
         "game": "pkmn",
@@ -525,27 +481,225 @@
         "language": "EN",
         "name": "Charizard ex",
         "rarity": "Special Illustration Rare",
-        "artist": "takuyoa",
+        "artist": null,
         "image_url": null
       },
       "rule": "raw_to_10",
-      "thesis": "Break-even P below pop-implied",
+      "thesis": "raw to 10 on Charizard ex",
       "price_at_alert": {
-        "amount": "140.00",
+        "amount": "104.00",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
       },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
       "excess_return_7d": {
-        "value": "0.012",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": "0.0450",
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": null,
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-04-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "0.2350",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "-0.1880",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "alert_id": "a-0031",
+      "fired_at": "2026-07-31T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "raw to 10 on Charizard ex",
+      "price_at_alert": {
+        "amount": "370.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0475",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-31T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-31T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-31T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-07-31T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-31T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-07-31T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0030",
+      "fired_at": "2026-07-25T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:VDT:VDT-017:base:EN",
+        "game": "riftbound",
+        "set_code": "VDT",
+        "number": "VDT-017",
+        "variant": "base",
+        "language": "EN",
+        "name": "Vendetta",
+        "rarity": "Base",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "trending_early",
+      "thesis": "trending early on Vendetta",
+      "price_at_alert": {
+        "amount": "333.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "none",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.1175",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -556,15 +710,18 @@
         "estimate_basis": "none"
       },
       "excess_return_30d": {
-        "value": "0.043",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": null,
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-07-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -575,15 +732,536 @@
         "estimate_basis": "none"
       },
       "excess_return_90d": {
-        "value": "0.088",
-        "source": "engine:ledger",
-        "as_of": "2026-08-13T09:00:00Z",
-        "confidence": "high",
-        "sample_size": null,
+        "value": null,
         "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
         "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
+          "as_of": "2026-07-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "alert_id": "a-0029",
+      "fired_at": "2026-07-19T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+        "game": "pkmn",
+        "set_code": "SM-P",
+        "number": "070/SM-P",
+        "variant": "promo",
+        "language": "JP",
+        "name": "Yu Nagaba Eevee",
+        "rarity": "Promo",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "thin_float",
+      "thesis": "thin float on Yu Nagaba Eevee",
+      "price_at_alert": {
+        "amount": "296.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0650",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-07-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-07-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0028",
+      "fired_at": "2026-07-13T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "Parallel Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "grade_gap",
+      "thesis": "grade gap on Boa Hancock",
+      "price_at_alert": {
+        "amount": "259.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "user_estimate",
+      "entry_method": "manual",
+      "excess_return_7d": {
+        "value": "0.0050",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_30d": {
+        "value": "0.1550",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-07-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      }
+    },
+    {
+      "alert_id": "a-0027",
+      "fired_at": "2026-07-07T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-301",
+        "variant": "overnumbered",
+        "language": "EN",
+        "name": "Jinx",
+        "rarity": "Overnumbered",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "crossover",
+      "thesis": "crossover on Jinx",
+      "price_at_alert": {
+        "amount": "222.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0750",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "-0.2100",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-07-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0026",
+      "fired_at": "2026-07-01T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+        "game": "optcg",
+        "set_code": "OP05",
+        "number": "OP05-119",
+        "variant": "manga_rare",
+        "language": "EN",
+        "name": "Monkey.D.Luffy",
+        "rarity": "Manga Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "nine_to_10",
+      "thesis": "nine to 10 on Monkey.D.Luffy",
+      "price_at_alert": {
+        "amount": "185.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.1075",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "-0.0700",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-07-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-07-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-07-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0025",
+      "fired_at": "2026-06-25T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "raw to 10 on Charizard ex",
+      "price_at_alert": {
+        "amount": "148.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0375",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "0.0700",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-06-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0024",
+      "fired_at": "2026-06-19T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:VDT:VDT-017:base:EN",
+        "game": "riftbound",
+        "set_code": "VDT",
+        "number": "VDT-017",
+        "variant": "base",
+        "language": "EN",
+        "name": "Vendetta",
+        "rarity": "Base",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "trending_early",
+      "thesis": "trending early on Vendetta",
+      "price_at_alert": {
+        "amount": "111.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "none",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0325",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
@@ -593,12 +1271,2489 @@
         "entry_method": "api",
         "estimate_basis": "none"
       },
+      "excess_return_30d": {
+        "value": "0.2100",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-06-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "alert_id": "a-0023",
+      "fired_at": "2026-06-13T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+        "game": "pkmn",
+        "set_code": "SM-P",
+        "number": "070/SM-P",
+        "variant": "promo",
+        "language": "JP",
+        "name": "Yu Nagaba Eevee",
+        "rarity": "Promo",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "thin_float",
+      "thesis": "thin float on Yu Nagaba Eevee",
+      "price_at_alert": {
+        "amount": "74.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
       "assumption_ids": [
-        "submission_selection_haircut",
-        "grading_fee_schedule"
+        "submission_selection_haircut"
       ],
       "estimate_basis": "population",
-      "entry_method": "api"
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.1025",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "-0.1550",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-06-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0022",
+      "fired_at": "2026-06-07T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "Parallel Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "grade_gap",
+      "thesis": "grade gap on Boa Hancock",
+      "price_at_alert": {
+        "amount": "437.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "user_estimate",
+      "entry_method": "manual",
+      "excess_return_7d": {
+        "value": "-0.0800",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_30d": {
+        "value": "-0.0150",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-06-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      }
+    },
+    {
+      "alert_id": "a-0021",
+      "fired_at": "2026-06-01T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-301",
+        "variant": "overnumbered",
+        "language": "EN",
+        "name": "Jinx",
+        "rarity": "Overnumbered",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "crossover",
+      "thesis": "crossover on Jinx",
+      "price_at_alert": {
+        "amount": "400.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0100",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "0.1250",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-06-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-06-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-06-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0020",
+      "fired_at": "2026-05-26T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+        "game": "optcg",
+        "set_code": "OP05",
+        "number": "OP05-119",
+        "variant": "manga_rare",
+        "language": "EN",
+        "name": "Monkey.D.Luffy",
+        "rarity": "Manga Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "nine_to_10",
+      "thesis": "nine to 10 on Monkey.D.Luffy",
+      "price_at_alert": {
+        "amount": "363.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0600",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-26T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-26T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "-0.2400",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-26T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-26T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-26T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-05-26T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0019",
+      "fired_at": "2026-05-20T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "raw to 10 on Charizard ex",
+      "price_at_alert": {
+        "amount": "326.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.1225",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-20T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-20T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "-0.1000",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-20T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-20T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": null,
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-20T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": "horizon_not_elapsed",
+        "staleness": {
+          "as_of": "2026-05-20T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0018",
+      "fired_at": "2026-05-14T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:VDT:VDT-017:base:EN",
+        "game": "riftbound",
+        "set_code": "VDT",
+        "number": "VDT-017",
+        "variant": "base",
+        "language": "EN",
+        "name": "Vendetta",
+        "rarity": "Base",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "trending_early",
+      "thesis": "trending early on Vendetta",
+      "price_at_alert": {
+        "amount": "289.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "none",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0525",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "excess_return_30d": {
+        "value": "0.0400",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "excess_return_90d": {
+        "value": "0.2782",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "alert_id": "a-0017",
+      "fired_at": "2026-05-08T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+        "game": "pkmn",
+        "set_code": "SM-P",
+        "number": "070/SM-P",
+        "variant": "promo",
+        "language": "JP",
+        "name": "Yu Nagaba Eevee",
+        "rarity": "Promo",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "thin_float",
+      "thesis": "thin float on Yu Nagaba Eevee",
+      "price_at_alert": {
+        "amount": "252.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0175",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "0.1800",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "-0.2707",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0016",
+      "fired_at": "2026-05-02T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "Parallel Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "grade_gap",
+      "thesis": "grade gap on Boa Hancock",
+      "price_at_alert": {
+        "amount": "215.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "user_estimate",
+      "entry_method": "manual",
+      "excess_return_7d": {
+        "value": "0.0875",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-02T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-02T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_30d": {
+        "value": "-0.1850",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-02T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-02T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_90d": {
+        "value": "-0.0602",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-05-02T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-05-02T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      }
+    },
+    {
+      "alert_id": "a-0015",
+      "fired_at": "2026-04-26T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-301",
+        "variant": "overnumbered",
+        "language": "EN",
+        "name": "Jinx",
+        "rarity": "Overnumbered",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "crossover",
+      "thesis": "crossover on Jinx",
+      "price_at_alert": {
+        "amount": "178.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0950",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-26T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-26T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "-0.0450",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-26T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-26T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": "0.1504",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-26T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-26T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0014",
+      "fired_at": "2026-04-20T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+        "game": "optcg",
+        "set_code": "OP05",
+        "number": "OP05-119",
+        "variant": "manga_rare",
+        "language": "EN",
+        "name": "Monkey.D.Luffy",
+        "rarity": "Manga Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "nine_to_10",
+      "thesis": "nine to 10 on Monkey.D.Luffy",
+      "price_at_alert": {
+        "amount": "141.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0250",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-20T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-20T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "0.0950",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-20T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-20T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": "0.3609",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-20T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-20T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0013",
+      "fired_at": "2026-04-14T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "raw to 10 on Charizard ex",
+      "price_at_alert": {
+        "amount": "104.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0450",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "0.2350",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "-0.1880",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-14T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-14T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0012",
+      "fired_at": "2026-04-08T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:VDT:VDT-017:base:EN",
+        "game": "riftbound",
+        "set_code": "VDT",
+        "number": "VDT-017",
+        "variant": "base",
+        "language": "EN",
+        "name": "Vendetta",
+        "rarity": "Base",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "trending_early",
+      "thesis": "trending early on Vendetta",
+      "price_at_alert": {
+        "amount": "67.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "none",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.1150",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "excess_return_30d": {
+        "value": "-0.1300",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "excess_return_90d": {
+        "value": "0.0226",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-08T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-08T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "alert_id": "a-0011",
+      "fired_at": "2026-04-02T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+        "game": "pkmn",
+        "set_code": "SM-P",
+        "number": "070/SM-P",
+        "variant": "promo",
+        "language": "JP",
+        "name": "Yu Nagaba Eevee",
+        "rarity": "Promo",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "thin_float",
+      "thesis": "thin float on Yu Nagaba Eevee",
+      "price_at_alert": {
+        "amount": "430.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0675",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-02T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-02T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "0.0100",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-02T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-02T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "0.2331",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-04-02T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-04-02T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0010",
+      "fired_at": "2026-03-27T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "Parallel Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "grade_gap",
+      "thesis": "grade gap on Boa Hancock",
+      "price_at_alert": {
+        "amount": "393.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "user_estimate",
+      "entry_method": "manual",
+      "excess_return_7d": {
+        "value": "0.0025",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-27T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-27T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_30d": {
+        "value": "0.1500",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-27T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-27T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_90d": {
+        "value": "-0.3158",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-27T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-27T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      }
+    },
+    {
+      "alert_id": "a-0009",
+      "fired_at": "2026-03-21T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-301",
+        "variant": "overnumbered",
+        "language": "EN",
+        "name": "Jinx",
+        "rarity": "Overnumbered",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "crossover",
+      "thesis": "crossover on Jinx",
+      "price_at_alert": {
+        "amount": "356.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0725",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-21T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-21T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "-0.2150",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-21T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-21T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": "-0.1053",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-21T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-21T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0008",
+      "fired_at": "2026-03-15T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+        "game": "optcg",
+        "set_code": "OP05",
+        "number": "OP05-119",
+        "variant": "manga_rare",
+        "language": "EN",
+        "name": "Monkey.D.Luffy",
+        "rarity": "Manga Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "nine_to_10",
+      "thesis": "nine to 10 on Monkey.D.Luffy",
+      "price_at_alert": {
+        "amount": "319.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.1100",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-15T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-15T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "-0.0750",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-15T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-15T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": "0.1053",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-15T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-15T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0007",
+      "fired_at": "2026-03-09T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "raw to 10 on Charizard ex",
+      "price_at_alert": {
+        "amount": "282.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0400",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-09T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-09T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "0.0650",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-09T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-09T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "0.3158",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-09T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-09T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0006",
+      "fired_at": "2026-03-03T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:VDT:VDT-017:base:EN",
+        "game": "riftbound",
+        "set_code": "VDT",
+        "number": "VDT-017",
+        "variant": "base",
+        "language": "EN",
+        "name": "Vendetta",
+        "rarity": "Base",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "trending_early",
+      "thesis": "trending early on Vendetta",
+      "price_at_alert": {
+        "amount": "245.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "none",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0300",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-03T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-03T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "excess_return_30d": {
+        "value": "0.2050",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-03T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-03T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "excess_return_90d": {
+        "value": "-0.2331",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-03-03T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-03-03T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "alert_id": "a-0005",
+      "fired_at": "2026-02-25T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
+        "game": "pkmn",
+        "set_code": "SM-P",
+        "number": "070/SM-P",
+        "variant": "promo",
+        "language": "JP",
+        "name": "Yu Nagaba Eevee",
+        "rarity": "Promo",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "thin_float",
+      "thesis": "thin float on Yu Nagaba Eevee",
+      "price_at_alert": {
+        "amount": "208.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.1000",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "-0.1600",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "-0.0226",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-25T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-25T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    },
+    {
+      "alert_id": "a-0004",
+      "fired_at": "2026-02-19T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP01:OP01-078:parallel:JP",
+        "game": "optcg",
+        "set_code": "OP01",
+        "number": "OP01-078",
+        "variant": "parallel",
+        "language": "JP",
+        "name": "Boa Hancock",
+        "rarity": "Parallel Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "grade_gap",
+      "thesis": "grade gap on Boa Hancock",
+      "price_at_alert": {
+        "amount": "171.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "user_estimate",
+      "entry_method": "manual",
+      "excess_return_7d": {
+        "value": "-0.0825",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_30d": {
+        "value": "-0.0200",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      },
+      "excess_return_90d": {
+        "value": "0.1880",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-19T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-19T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "manual",
+        "estimate_basis": "user_estimate"
+      }
+    },
+    {
+      "alert_id": "a-0003",
+      "fired_at": "2026-02-13T08:00:00Z",
+      "card": {
+        "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
+        "game": "riftbound",
+        "set_code": "OGN",
+        "number": "OGN-301",
+        "variant": "overnumbered",
+        "language": "EN",
+        "name": "Jinx",
+        "rarity": "Overnumbered",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "crossover",
+      "thesis": "crossover on Jinx",
+      "price_at_alert": {
+        "amount": "134.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.0125",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "0.1200",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": "-0.3609",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-13T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-13T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0002",
+      "fired_at": "2026-02-07T08:00:00Z",
+      "card": {
+        "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+        "game": "optcg",
+        "set_code": "OP05",
+        "number": "OP05-119",
+        "variant": "manga_rare",
+        "language": "EN",
+        "name": "Monkey.D.Luffy",
+        "rarity": "Manga Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "nine_to_10",
+      "thesis": "nine to 10 on Monkey.D.Luffy",
+      "price_at_alert": {
+        "amount": "97.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [],
+      "estimate_basis": "config_rule",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "0.0575",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_30d": {
+        "value": "-0.2450",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      },
+      "excess_return_90d": {
+        "value": "-0.1504",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-07T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-07T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "config_rule"
+      }
+    },
+    {
+      "alert_id": "a-0001",
+      "fired_at": "2026-02-01T08:00:00Z",
+      "card": {
+        "card_uid": "pkmn:sv3:223/197:sir:EN",
+        "game": "pkmn",
+        "set_code": "sv3",
+        "number": "223/197",
+        "variant": "sir",
+        "language": "EN",
+        "name": "Charizard ex",
+        "rarity": "Special Illustration Rare",
+        "artist": null,
+        "image_url": null
+      },
+      "rule": "raw_to_10",
+      "thesis": "raw to 10 on Charizard ex",
+      "price_at_alert": {
+        "amount": "60.00",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "assumption_ids": [
+        "submission_selection_haircut"
+      ],
+      "estimate_basis": "population",
+      "entry_method": "api",
+      "excess_return_7d": {
+        "value": "-0.1250",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_30d": {
+        "value": "-0.1050",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      },
+      "excess_return_90d": {
+        "value": "0.0602",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-02-01T08:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "medium",
+        "sample_size": 1,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-02-01T08:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "population"
+      }
+    }
+  ],
+  "by_play_type": [
+    {
+      "play_type": "crossover",
+      "hit_rate_30d": {
+        "value": "0.400",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "median_excess_return_30d": {
+        "value": "-0.0450",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "play_type": "grade_gap",
+      "hit_rate_30d": {
+        "value": "0.400",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "median_excess_return_30d": {
+        "value": "-0.0150",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "play_type": "nine_to_10",
+      "hit_rate_30d": {
+        "value": "0.200",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "median_excess_return_30d": {
+        "value": "-0.0750",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "play_type": "raw_to_10",
+      "hit_rate_30d": {
+        "value": "0.600",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "median_excess_return_30d": {
+        "value": "0.0650",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 5,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "play_type": "thin_float",
+      "hit_rate_30d": {
+        "value": "0.500",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 4,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "median_excess_return_30d": {
+        "value": "-0.0725",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 4,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
+    },
+    {
+      "play_type": "trending_early",
+      "hit_rate_30d": {
+        "value": "0.750",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 4,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      },
+      "median_excess_return_30d": {
+        "value": "0.1225",
+        "unit": "ratio",
+        "source": "engine:ledger",
+        "as_of": "2026-08-13T09:00:00Z",
+        "observed_at": "2026-08-13T09:00:00Z",
+        "confidence": "low",
+        "sample_size": 4,
+        "assumption_ids": [],
+        "unavailable_reason": null,
+        "staleness": {
+          "as_of": "2026-08-13T09:00:00Z",
+          "observed_at": "2026-08-13T09:00:00Z",
+          "age_seconds": 0,
+          "is_stale": false,
+          "threshold_seconds": 86400,
+          "kind": "derived"
+        },
+        "needs_primary_verification": false,
+        "entry_method": "api",
+        "estimate_basis": "none"
+      }
     }
   ]
 }

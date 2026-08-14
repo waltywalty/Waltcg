@@ -49,11 +49,13 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": true,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "break_even_attainable": true,
   "break_even_note": "",
@@ -73,11 +75,13 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "population"
+    "estimate_basis": "population",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "pop_implied_p_target": {
     "value": "0.249",
@@ -94,11 +98,13 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "price"
+      "kind": "price",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "population"
+    "estimate_basis": "population",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "ev": {
     "amount": "-35.67",
@@ -119,11 +125,13 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "population"
+    "estimate_basis": "population",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "annualised_roi": {
     "value": "-0.425",
@@ -138,11 +146,13 @@
       "age_seconds": 0,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "derived"
+      "kind": "derived",
+      "observed_at": "2026-08-13T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "population"
+    "estimate_basis": "population",
+    "observed_at": "2026-08-13T09:00:00Z"
   },
   "horizon_days": 114,
   "downside_case": {

@@ -700,3 +700,171 @@ rather than by reading the schema.
 Orphans surface as a warning on the Settings payload rather than rendering as a
 quiet zero. An assumption with no dependants is either dead or a screen nobody
 built, and both are worth seeing.
+
+---
+
+## ADR-0010 — A play type is either wired to its model or it is not in the contract
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/`, `engine/ev/model_b.py`
+- **Found by:** the orphan count in ADR-0009's reverse index
+
+### Context
+
+Three registry entries fed nothing: `regrade_conditional_prior`,
+`regrade_downgrade_probability`, `regrade_condition_adjustments`. I read that as
+"model B has no screen yet". It was worse than that. The play was **not absent
+— it was half-present**:
+
+- `nine_to_10` sat in the `play_type` enum, so Signals offered a 9 → 10 filter.
+- `crack_resubmit` sat in the arbitrage `path` enum, so the board rendered a
+  CRACK & RESUBMIT panel.
+- No payload anywhere carried model B's output.
+
+So the panel showed **model A's figures under a regrade label** — the worked
+card's −$38.40 and its 0.301 / 0.199 probabilities. Those describe grading a
+*raw* card. A card already slabbed at 9 is not a random card: PSA examined it
+and declined a 10, and using the base gem rate re-uses information the grader
+has already acted on. That is CLAUDE.md non-negotiable 6, and the screen was
+breaking it while looking entirely normal.
+
+A play type that looks live on another model's numbers is worse than one that
+is absent, because nothing about it looks wrong.
+
+### Decision
+
+**(a): wire it.** Model B was already written, complete, with the conditional
+prior and the refusal discipline. Removing the play from the contract would
+have deleted a working capability that the brief ranks second of four.
+
+Its own figures, on the same card: **needed P(10) 0.306 against a modelled
+0.173**, EV −46.44. Model A on the raw card says 0.301 against 0.199 and −35.67.
+The modelled probability is the one that matters — **0.173 is below the base
+rate of 0.199**, which is the conditional prior doing exactly its job.
+
+Concretely:
+
+- `arbitrage_row` gains `regrade_detail` — break-even, modelled probability,
+  the condition read, all three outcome branches, and a refusal slot. The
+  schema **pins** it: a `crack_resubmit` row without it fails validation, so
+  the half-present state cannot come back.
+- `signal_row` gains `refusal`. Model B will not price a regrade without a
+  complete condition read, and most rows in a 9 → 10 feed will not have one, so
+  a feed row has to be able to refuse. The fixture ships both states.
+- `friction_stack` gains `supplies`. A regrade row would otherwise have had to
+  hide it inside shipping.
+
+### The bug underneath the bug
+
+Model B could not have run against shipped config **at all**, for a reason
+having nothing to do with the regrade prior. Its `required_paths` demanded
+`final_value_fee_pct` / `payment_pct` / `payment_fixed` — the flat fee trio.
+eBay's config supplies a banded `fee_schedule` instead, and those keys are
+null. Model A branched on which form a venue uses; model B never did.
+
+So model B would have raised `ConfigIncomplete` on eBay forever. Worse, had
+someone filled the flat trio to make it run, **two models would have priced the
+same venue's fees two different ways** and two screens would have disagreed
+about eBay. Model B now uses the same schedule as model A.
+
+### Consequences
+
+- The three orphan assumptions have dependants, and the reverse index says so.
+- `estimate_basis: config_rule` covers a registered prior as well as a dated
+  crossover rule — both mean "a rule, not this card's own data".
+- Mutation-tested: the panel showing model A's P(10) again, the row netting to
+  model A's EV, a `crack_resubmit` row with no detail, and a 9 → 10 row priced
+  with no condition read are each caught.
+
+---
+
+## ADR-0011 — Track Record is computed from a ledger it ships
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/fixtures/track_record.json`, `screens.schema.json`
+
+### Context
+
+Hit rate, median excess return, per-play breakdown and the worst-five ordering
+were all typed by hand, on the one screen whose entire purpose is honesty about
+the app's record. `NOT_RECOMPUTABLE` even said so out loud: 31 scored alerts, 6
+visible, so no rate could be checked against anything.
+
+### Decision
+
+The payload ships **`ledger`: every alert ever fired, newest first** — which is
+the brief's own description of the screen. Every figure above it is derived from
+it and asserted: the three hit rates, the median, `by_play_type`, and
+`worst_five` membership *and* order.
+
+Returns come from a deterministic integer sequence, **untuned**. Picking numbers
+that land on a flattering 52% would be the same failure as the invented EV, one
+layer up. They fall where they fall: 0.516 at 7 days, 0.464 at 30, 0.500 at 90.
+
+`recent` is deleted. It was a second copy of the newest ledger rows — two lists,
+one truth.
+
+### What shipping the ledger immediately exposed
+
+**The three hit rates cannot rest on the same number of alerts.** The fixture
+claimed all three covered 31. An alert fired ten days ago has no 90-day return
+and will not have one for eighty more days. Derived from the ledger the
+denominators are 31 / 28 / **18** — the 90-day rate, the one that reads as most
+authoritative, rests on the fewest alerts and had been rendering as if it rested
+on the most.
+
+That needed a new `unavailable_reason`: **`horizon_not_elapsed`**. It is
+categorically different from every other reason in that enum, all of which mean
+"we cannot get this". This one means "it does not exist yet". Counting an
+unmatured alert as a zero, or dropping it from the denominator permanently,
+both bias the number the screen exists to report.
+
+### Per-play rates carry n
+
+`by_play_type` gives each play its own `hit_rate_30d` and
+`median_excess_return_30d`, each a `derived_value` with its `sample_size`
+populated — no new sample-size concept, just the one every other figure already
+uses. Across 31 alerts and six plays every bucket is n=4–5, and the payload says
+so in a warning and drops confidence to `low` below n=10. Grade gap at 40% on
+five alerts is the honest rendering of grade gap at 40%.
+
+---
+
+## ADR-0012 — `observed_at` was in the conventions and missing from the contract
+
+- **Status:** Accepted
+- **Date:** 2026-08-13
+- **Scope:** `contracts/screens.schema.json`
+
+CLAUDE.md § Conventions → Time has always specified the pair: `as_of` is the
+date the value refers to, `observed_at` is when we saw it, and
+`observed_at >= as_of` always. The contract shipped only `as_of`.
+
+With one timestamp, "as of 11:04" and "fetched at 11:04" collapse into the same
+claim, and they are not the same claim — one is about the market, the other is
+about us. During an outage they diverge, and that divergence *is* the error
+state: a price can be perfectly valid as of yesterday's last trade while we have
+not reached the source since.
+
+`observed_at` is now required on every `derived_value` and mirrored onto
+`staleness` so a badge needs one object. Asserted: never earlier than `as_of`,
+always mirrored, and at least one ladder rung must show the two differing —
+otherwise the design has no reason to render two timestamps and will render one.
+
+---
+
+## Note — per-field staleness, verified
+
+Queried whether the ADR-0005 fix reached `signal_row` and `grade_rung`. It did,
+in `b1b002b`. Evidence:
+
+- The only `$def` in the schema with a `staleness` property is `derived_value`.
+  `signal_row` has none; `grade_rung` has none.
+- A `grade_rung` carries two independent `derived_value`s, and in the shipped
+  fixture they disagree: `price_meta` is fresh (43,200s against an 86,400s
+  threshold), `population` is stale (1,036,800s against 604,800s). One rung,
+  two answers — the case that was previously unrepresentable.
+
+The design brief is working from a pre-`b1b002b` schema. Nothing to fix here.

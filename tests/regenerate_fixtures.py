@@ -22,17 +22,20 @@ import json
 import os
 import sys
 from decimal import Decimal
+from statistics import median
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine.ev import Money, raw_to_graded_ev  # noqa: E402
 from engine.ev.fees import net_proceeds_from_schedule  # noqa: E402
 from engine.ev.results import GradeDistribution  # noqa: E402
+from engine.ev.model_b import regrade_9_to_10_ev  # noqa: E402
 from tests.fixture_scenario import (ACQUISITION, ESTIMATED_ACQUISITION,  # noqa: E402
                                     ESTIMATED_CARD, ESTIMATED_PRICES, GENERATED_AT,
                                     GRADER, LADDER_POP, LADDER_PRICES, SET_POP,
                                     TIER, USER_GRADE_PROBS, USER_PROBS_NOTE, VENUE,
                                     WORKED_CARD, scenario_config)
+from tests import fixture_scenario as fs  # noqa: E402
 
 # Which grade probability, if any, sits behind each figure. A break-even
 # threshold is solved from prices and costs alone and rests on no probability at
@@ -43,17 +46,6 @@ LAB_BASIS = {
     "pop_implied_p_target": "population",
     "roi": "population",
     "annualised_roi": "population",
-}
-# Three of the five worst calls rest on a probability I typed. Riftbound and One
-# Piece have no population source, so a grading or float play on either had
-# nothing else to use.
-LEDGER_BASIS = {
-    "a-0007": ("user_estimate", "api"),      # One Piece EN, no population
-    "a-0012": ("none", "api"),               # trend play, no probability at all
-    "a-0019": ("user_estimate", "manual"),   # One Piece JP: typed price AND prior
-    "a-0003": ("user_estimate", "api"),      # Riftbound, no population
-    "a-0022": ("config_rule", "api"),        # crossover, from dated rules
-    "a-0031": ("population", "api"),         # Pokemon EN, pop report
 }
 
 FIX = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -98,7 +90,7 @@ LABELS = {
     ("arbitrage_board", "rows.net_margin_pct"): "Net margin",
     ("arbitrage_board", "rows"): "Arbitrage row",
     ("track_record", "worst_five"): "Worst five calls",
-    ("track_record", "recent"): "Recent alerts",
+    ("track_record", "ledger"): "Alert ledger",
 }
 
 
@@ -131,6 +123,78 @@ def collect_usage():
     return usage
 
 
+def stamp_observed_at(node):
+    """observed_at defaults to as_of -- we saw the value when it was current.
+    Where the two genuinely differ (a price refers to the last trade, we
+    fetched it later) the payload sets it explicitly and this leaves it."""
+    if isinstance(node, dict):
+        if {"value", "source", "as_of", "confidence", "sample_size"} <= set(node):
+            node.setdefault("observed_at", node["as_of"])
+            staleness = node.get("staleness")
+            if isinstance(staleness, dict):
+                staleness.setdefault("observed_at", node["observed_at"])
+        for value in node.values():
+            stamp_observed_at(value)
+    elif isinstance(node, list):
+        for value in node:
+            stamp_observed_at(value)
+
+
+def build_ledger():
+    """Every alert ever fired, newest first. Returns are deterministic and
+    untuned -- see fixture_scenario.ledger_excess."""
+    entries = []
+    for i in range(fs.LEDGER_SIZE):
+        uid, game, set_code, number, variant, lang, name, rarity = \
+            fs.LEDGER_CARDS[i % len(fs.LEDGER_CARDS)]
+        play = fs.LEDGER_PLAYS[i % len(fs.LEDGER_PLAYS)]
+        fired = fs.ledger_fired_on(i)
+        # No population source for Riftbound or One Piece, so any play needing
+        # a grade probability on one of those used a prior I typed.
+        if play == "trending_early":
+            basis = "none"
+        elif play == "crossover":
+            basis = "config_rule"
+        elif play == "nine_to_10":
+            basis = "config_rule"
+        elif game in ("riftbound", "optcg"):
+            basis = "user_estimate"
+        else:
+            basis = "population"
+        method = "manual" if (game == "optcg" and lang != "EN") else "api"
+        entry = {
+            "alert_id": f"a-{i + 1:04d}",
+            "fired_at": f"{fired.isoformat()}T08:00:00Z",
+            "card": {"card_uid": uid, "game": game, "set_code": set_code,
+                     "number": number, "variant": variant, "language": lang,
+                     "name": name, "rarity": rarity, "artist": None,
+                     "image_url": None},
+            "rule": play,
+            "thesis": f"{play.replace('_', ' ')} on {name}",
+            "price_at_alert": usd(Decimal(60 + (i * 37) % 400)),
+            "assumption_ids": (["submission_selection_haircut"]
+                               if basis == "population" else []),
+            "estimate_basis": basis, "entry_method": method,
+        }
+        for horizon in fs.HORIZONS:
+            value = fs.ledger_excess(i, horizon)
+            at = f"{fired.isoformat()}T08:00:00Z"
+            entry[f"excess_return_{horizon}d"] = {
+                "value": None if value is None else q(Decimal(str(value)), "0.0001"),
+                "unit": "ratio", "source": "engine:ledger", "as_of": at,
+                "observed_at": GENERATED_AT, "confidence": "medium",
+                "sample_size": 1, "assumption_ids": [],
+                "unavailable_reason": None if value is not None else "horizon_not_elapsed",
+                "staleness": {"as_of": at, "observed_at": GENERATED_AT,
+                              "age_seconds": 0, "is_stale": False,
+                              "threshold_seconds": 86400, "kind": "derived"},
+                "needs_primary_verification": False, "entry_method": method,
+                "estimate_basis": basis,
+            }
+        entries.append(entry)
+    return sorted(entries, key=lambda e: e["fired_at"], reverse=True)
+
+
 def model_a_result():
     cfg = scenario_config()
     comps = {g: Money(p, "USD") for g, p in LADDER_PRICES.items() if g != "raw"}
@@ -159,6 +223,47 @@ def estimated_result():
     return result
 
 
+def regrade_result():
+    """Model B with a condition read. Its numbers are NOT model A's: a card
+    already slabbed at 9 is not a random card, so the base gem rate is
+    forbidden here and the conditional prior replaces it."""
+    comps = {g: Money(v, "USD") for g, v in fs.REGRADE_COMPS.items()}
+    result = regrade_9_to_10_ev(
+        fs.REGRADE_CARD, Money(fs.REGRADE_SLAB_VALUE_9, "USD"), comps,
+        cfg=scenario_config(), condition_read=fs.REGRADE_CONDITION_READ,
+        tier=TIER, venue=VENUE)
+    if not result:
+        raise SystemExit(f"model B refused: {result.reason} -- {result.detail}")
+    return result
+
+
+def regrade_refusal():
+    """The same model on a card I have not examined. Non-negotiable 6: no
+    condition read, no number. Most rows in a 9 -> 10 feed are this."""
+    comps = {g: Money(v, "USD") for g, v in fs.REGRADE_COMPS.items()}
+    result = regrade_9_to_10_ev(
+        fs.UNREAD_REGRADE_CARD, Money("300.00", "USD"), comps,
+        cfg=scenario_config(), condition_read=None, tier=TIER, venue=VENUE)
+    if result:
+        raise SystemExit("model B priced a regrade with no condition read")
+    return result
+
+
+def derived(value, unit, source, basis="none", sample=None, as_of=None,
+       confidence="medium", reason=None, assumptions=None, kind="derived"):
+    at = as_of or GENERATED_AT
+    return {"value": value, "unit": unit, "source": source, "as_of": at,
+            "observed_at": at, "confidence": confidence, "sample_size": sample,
+            "assumption_ids": assumptions or [], "unavailable_reason": reason,
+            "staleness": {"as_of": at, "observed_at": at, "age_seconds": 0,
+                          "is_stale": False, "threshold_seconds": 86400,
+                          "kind": kind},
+            "needs_primary_verification": bool(
+                set(assumptions or []) & {"grading_fee_schedule",
+                                          "marketplace_fee_schedule"}),
+            "entry_method": "api", "estimate_basis": basis}
+
+
 def set_basis(node, basis):
     """Stamp estimate_basis on a derived_value in place."""
     node["estimate_basis"] = basis
@@ -168,6 +273,8 @@ def set_basis(node, basis):
 def main():
     r = model_a_result()
     est = estimated_result()
+    reg = regrade_result()
+    unread = regrade_refusal()
 
     # ---------------------------------------------------------- card_detail
     cd = load("card_detail")
@@ -288,6 +395,59 @@ def main():
     for row in sig["rows"]:
         row.setdefault("estimate_basis",
                        "population" if row["play_type"] == "raw_to_10" else "none")
+        row.setdefault("refusal", None)
+
+    # The 9 -> 10 play. It was in play_type and in no payload, so the design
+    # rendered it with model A's figures under a regrade label. Two rows now:
+    # one I have examined, one I have not.
+    ladder = json.loads(json.dumps(cd["ladder"]))
+    priced = {
+        "card": json.loads(json.dumps(cd["card"])),
+        "play_type": "nine_to_10",
+        "headline": derived(q(reg.break_even_p_target), "probability",
+                       "engine:model_b", basis="config_rule",
+                       confidence="unvalidated",
+                       assumptions=["regrade_conditional_prior",
+                                    "regrade_downgrade_probability",
+                                    "regrade_condition_adjustments",
+                                    "grading_fee_schedule"]),
+        "headline_label": "break-even P(10) on regrade",
+        "ladder": ladder,
+        "assumption_ids": ["regrade_conditional_prior",
+                           "regrade_downgrade_probability"],
+        "entry_method": "api", "estimate_basis": "config_rule", "refusal": None,
+    }
+    unread_card = next(row["card"] for row in sig["rows"]
+                       if row["card"]["card_uid"] == fs.UNREAD_REGRADE_CARD)
+    refused = {
+        "card": json.loads(json.dumps(unread_card)),
+        "play_type": "nine_to_10",
+        "headline": derived(None, "probability", "engine:model_b",
+                       basis="config_rule", confidence="unvalidated",
+                       reason="engine_refused_insufficient_evidence"),
+        "headline_label": "break-even P(10) on regrade",
+        "ladder": ladder,
+        "assumption_ids": ["regrade_conditional_prior"],
+        "entry_method": "api", "estimate_basis": "config_rule",
+        "refusal": {
+            "reason": unread.reason,
+            "detail": unread.detail,
+            "missing": [
+                {"id": f"condition_read.{field}",
+                 "title": {"centering_pct": "Measure centering",
+                           "corner_flag": "Rate the corners",
+                           "surface_flag": "Rate the surface",
+                           "edge_flag": "Rate the edges"}[field],
+                 "reason_code": "condition_read_missing", "fixable": True,
+                 "deep_link": {"screen": "grading_lab", "anchor": "condition_read",
+                               "card_uid": fs.UNREAD_REGRADE_CARD,
+                               "assumption_id": None}}
+                for field in unread.missing],
+        },
+    }
+    sig["rows"] = [row for row in sig["rows"] if row["play_type"] != "nine_to_10"]
+    sig["rows"] += [priced, refused]
+    sig["filtered_by"] = sorted({row["play_type"] for row in sig["rows"]})
     save("signals", sig)
 
     # ------------------------------------------------------- arbitrage_board
@@ -311,18 +471,128 @@ def main():
         net = (gross - friction).quantize(Decimal("0.01"))
         row["net_spread"] = usd(net)
         row["net_margin_pct"]["value"] = q(net / buy * 100, "0.01")
+        row.setdefault("regrade_detail", None)
+        row["friction"].setdefault("supplies", None)
+
+    # CRACK & RESUBMIT. Previously this panel showed model A's Charizard
+    # figures under a regrade label. Model B's are different because the card
+    # is conditioned on PSA having already declined a 10: modelled P(10) falls
+    # from 0.199 to 0.173, and the intact slab becomes the cost side.
+    slab = Decimal(fs.REGRADE_SLAB_VALUE_9)
+    expected_gross = sum(
+        Decimal(reg.grade_distribution.probs[g]) * Decimal(fs.REGRADE_COMPS[g])
+        for g in fs.REGRADE_COMPS)
+    expected_net = sum(
+        (Decimal(b["p"]) * (Decimal(b["ev_if_realised"]["amount"])
+                            + reg.costs.total().amount))
+        for b in reg.branches)
+    selling_fees = expected_gross - expected_net
+    crack = {
+        "card": json.loads(json.dumps(cd["card"])),
+        "path": "crack_resubmit",
+        "buy_venue": "hold", "sell_venue": "ebay",
+        "buy_cost": usd(slab),
+        "gross_spread": usd(expected_gross - slab),
+        "net_spread": usd(reg.ev.amount),
+        "friction": {
+            "marketplace_fee": usd(selling_fees - Decimal("0.40")),
+            "payment_fee": usd("0.40"),
+            "shipping": usd(reg.costs.inbound_shipping.amount
+                            + reg.costs.return_shipping.amount),
+            "grading_fee": usd(reg.costs.grading_fee.amount),
+            "supplies": usd(reg.costs.supplies.amount),
+            "fx_spread": None, "tax": None,
+            "needs_primary_verification": True,
+        },
+        "net_margin_pct": derived(q(reg.ev.amount / slab * 100, "0.01"), "percent",
+                             "engine:model_b", basis="config_rule",
+                             confidence="unvalidated",
+                             assumptions=["regrade_conditional_prior",
+                                          "grading_fee_schedule"]),
+        "assumption_ids": ["regrade_conditional_prior",
+                           "regrade_downgrade_probability",
+                           "regrade_condition_adjustments"],
+        "estimate_basis": "config_rule",
+        "regrade_detail": {
+            "break_even_p_target": derived(
+                q(reg.break_even_p_target), "probability", "engine:model_b",
+                basis="none", confidence="medium"),
+            "modelled_p_target": derived(
+                q(reg.modelled_p_target), "probability", "engine:model_b",
+                basis="config_rule", confidence="unvalidated",
+                assumptions=["regrade_conditional_prior",
+                             "regrade_condition_adjustments"]),
+            "condition_read": dict(fs.REGRADE_CONDITION_READ),
+            "branches": [{"branch": b["branch"], "p": q(b["p"], "0.0001"),
+                          "ev_if_realised": usd(b["ev_if_realised"]["amount"]),
+                          "note": b.get("note")} for b in reg.branches],
+            "refusal": None,
+        },
+    }
+    arb["rows"] = [row for row in arb["rows"] if row["path"] != "crack_resubmit"]
+    arb["rows"].append(crack)
+    arb["warnings"] = [
+        "Crack & resubmit uses the regrade conditional prior, not the base gem "
+        "rate. The two are different numbers on purpose."]
     save("arbitrage_board", arb)
 
     # -------------------------------------------------------- track_record
+    # Every figure on this screen is now derived from the ledger below it.
+    # The screen exists to be honest about the app's record; it cannot be the
+    # one screen whose numbers were typed.
     tr = load("track_record")
-    for entry in tr["worst_five"] + tr["recent"]:
-        basis, method = LEDGER_BASIS[entry["alert_id"]]
-        entry["estimate_basis"] = basis
-        entry["entry_method"] = method
+    tr["ledger"] = build_ledger()
+    tr.pop("recent", None)
+    tr["scored_alert_count"] = len(tr["ledger"])
+
+    for horizon in fs.HORIZONS:
+        key = f"excess_return_{horizon}d"
+        scored = [e for e in tr["ledger"] if e[key]["value"] is not None]
+        values = [Decimal(e[key]["value"]) for e in scored]
+        hits = sum(1 for v in values if v > 0)
+        rate = tr[f"hit_rate_{horizon}d"]
+        rate["value"] = q(Decimal(hits) / Decimal(len(scored)))
+        rate["sample_size"] = len(scored)
+        rate["estimate_basis"] = "none"
+        if horizon == 30:
+            tr["median_excess_return"]["value"] = q(median(values), "0.0001")
+            tr["median_excess_return"]["sample_size"] = len(scored)
+
+    # Per play type, each carrying its own n. A 38% hit rate on five alerts and
+    # on two hundred are not the same claim.
+    tr["by_play_type"] = []
+    for play in sorted({e["rule"] for e in tr["ledger"]}):
+        scored = [e for e in tr["ledger"]
+                  if e["rule"] == play and e["excess_return_30d"]["value"] is not None]
+        if not scored:
+            continue
+        values = [Decimal(e["excess_return_30d"]["value"]) for e in scored]
+        hits = sum(1 for v in values if v > 0)
+        tr["by_play_type"].append({
+            "play_type": play,
+            "hit_rate_30d": derived(q(Decimal(hits) / Decimal(len(scored))), "ratio",
+                               "engine:ledger", sample=len(scored),
+                               confidence="low" if len(scored) < 10 else "medium"),
+            "median_excess_return_30d": derived(q(median(values), "0.0001"), "ratio",
+                                           "engine:ledger", sample=len(scored),
+                                           confidence="low" if len(scored) < 10
+                                           else "medium"),
+        })
+
+    # Worst five by realised 90-day excess return, worst first. Derived, so it
+    # cannot drift from the ledger it claims to summarise.
+    matured = [e for e in tr["ledger"] if e["excess_return_90d"]["value"] is not None]
+    tr["worst_five"] = sorted(
+        matured, key=lambda e: Decimal(e["excess_return_90d"]["value"]))[:5]
     typed = sum(1 for e in tr["worst_five"]
                 if e["estimate_basis"] == "user_estimate")
+    thin = [b["play_type"] for b in tr["by_play_type"]
+            if b["hit_rate_30d"]["sample_size"] < 10]
     tr["warnings"] = [
-        f"{typed} of the five worst calls rest on a grade probability I typed."]
+        f"{typed} of the five worst calls rest on a grade probability I typed.",
+        f"90-day hit rate covers {tr['hit_rate_90d']['sample_size']} of "
+        f"{tr['scored_alert_count']} alerts; the rest have not matured.",
+    ] + ([f"Thin per-play samples: {', '.join(thin)}."] if thin else [])
     save("track_record", tr)
 
     # ----------------------------------------------------------------- home
@@ -358,6 +628,16 @@ def main():
         [f"{len(orphans)} assumptions feed no figure on any screen: "
          + ", ".join(orphans)] if orphans else [])
     save("settings", settings)
+
+    # Last pass, over every fixture: CLAUDE.md Conventions/Time requires both
+    # halves of the pair, and the contract had shipped only one. Applied here
+    # rather than at each call site so a hand-built payload cannot skip it.
+    for name in ("home", "signals", "card_detail", "grading_lab",
+                 "grading_lab.refusal", "arbitrage_board", "trend_radar",
+                 "track_record", "settings", "manual_entry"):
+        payload = load(name)
+        stamp_observed_at(payload)
+        save(name, payload)
 
     print(f"regenerated against the engine: needed P(10)="
           f"{q(r.break_even_p_target)}, modelled={q(r.modelled_p_target)}, "

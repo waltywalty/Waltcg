@@ -4,6 +4,7 @@
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
   "warnings": [
+    "Prices are as of the last trade (2026-08-12 21:00Z), fetched 2026-08-13 09:00Z.",
     "Population is 12 days old and past its 7-day threshold; prices are current."
   ],
   "card": {
@@ -30,21 +31,23 @@
       "price_meta": {
         "value": "140.00",
         "source": "tcgapi.dev",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-12T21:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
         "assumption_ids": [],
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
+          "as_of": "2026-08-12T21:00:00Z",
+          "age_seconds": 43200,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "population": {
         "value": null,
@@ -59,11 +62,13 @@
           "age_seconds": 1036800,
           "is_stale": true,
           "threshold_seconds": 604800,
-          "kind": "population"
+          "kind": "population",
+          "observed_at": "2026-08-01T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-01T09:00:00Z"
       }
     },
     {
@@ -77,21 +82,23 @@
       "price_meta": {
         "value": "88.00",
         "source": "tcgapi.dev",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-12T21:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
         "assumption_ids": [],
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
+          "as_of": "2026-08-12T21:00:00Z",
+          "age_seconds": 43200,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "population": {
         "value": 410,
@@ -106,11 +113,13 @@
           "age_seconds": 1036800,
           "is_stale": true,
           "threshold_seconds": 604800,
-          "kind": "population"
+          "kind": "population",
+          "observed_at": "2026-08-01T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-01T09:00:00Z"
       }
     },
     {
@@ -124,21 +133,23 @@
       "price_meta": {
         "value": "142.00",
         "source": "tcgapi.dev",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-12T21:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
         "assumption_ids": [],
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
+          "as_of": "2026-08-12T21:00:00Z",
+          "age_seconds": 43200,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "population": {
         "value": 5120,
@@ -153,11 +164,13 @@
           "age_seconds": 1036800,
           "is_stale": true,
           "threshold_seconds": 604800,
-          "kind": "population"
+          "kind": "population",
+          "observed_at": "2026-08-01T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-01T09:00:00Z"
       }
     },
     {
@@ -171,21 +184,23 @@
       "price_meta": {
         "value": "540.00",
         "source": "tcgapi.dev",
-        "as_of": "2026-08-13T09:00:00Z",
+        "as_of": "2026-08-12T21:00:00Z",
         "confidence": "medium",
         "sample_size": null,
         "unit": "USD",
         "assumption_ids": [],
         "staleness": {
-          "as_of": "2026-08-13T09:00:00Z",
-          "age_seconds": 0,
+          "as_of": "2026-08-12T21:00:00Z",
+          "age_seconds": 43200,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "population": {
         "value": 1830,
@@ -200,11 +215,13 @@
           "age_seconds": 1036800,
           "is_stale": true,
           "threshold_seconds": 604800,
-          "kind": "population"
+          "kind": "population",
+          "observed_at": "2026-08-01T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-01T09:00:00Z"
       }
     }
   ],
@@ -263,11 +280,13 @@
       "age_seconds": 1036800,
       "is_stale": true,
       "threshold_seconds": 604800,
-      "kind": "population"
+      "kind": "population",
+      "observed_at": "2026-08-01T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-01T09:00:00Z"
   },
   "population_by_grade": [
     {
@@ -283,11 +302,13 @@
         "age_seconds": 1036800,
         "is_stale": true,
         "threshold_seconds": 604800,
-        "kind": "population"
+        "kind": "population",
+        "observed_at": "2026-08-01T09:00:00Z"
       },
       "needs_primary_verification": false,
       "entry_method": "api",
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "observed_at": "2026-08-01T09:00:00Z"
     },
     {
       "value": 5120,
@@ -302,11 +323,13 @@
         "age_seconds": 1036800,
         "is_stale": true,
         "threshold_seconds": 604800,
-        "kind": "population"
+        "kind": "population",
+        "observed_at": "2026-08-01T09:00:00Z"
       },
       "needs_primary_verification": false,
       "entry_method": "api",
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "observed_at": "2026-08-01T09:00:00Z"
     },
     {
       "value": 1830,
@@ -321,11 +344,13 @@
         "age_seconds": 1036800,
         "is_stale": true,
         "threshold_seconds": 604800,
-        "kind": "population"
+        "kind": "population",
+        "observed_at": "2026-08-01T09:00:00Z"
       },
       "needs_primary_verification": false,
       "entry_method": "api",
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "observed_at": "2026-08-01T09:00:00Z"
     }
   ],
   "obtainment": {
@@ -344,11 +369,13 @@
         "age_seconds": 0,
         "is_stale": false,
         "threshold_seconds": 86400,
-        "kind": "price"
+        "kind": "price",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "needs_primary_verification": false,
       "entry_method": "manual",
-      "estimate_basis": "none"
+      "estimate_basis": "none",
+      "observed_at": "2026-08-13T09:00:00Z"
     }
   },
   "buy_routes": [
@@ -376,11 +403,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": true,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "entry_method": "api"
     },
@@ -402,11 +431,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "price"
+          "kind": "price",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "entry_method": "manual"
     }
@@ -439,10 +470,12 @@
       "age_seconds": 86400,
       "is_stale": false,
       "threshold_seconds": 86400,
-      "kind": "price"
+      "kind": "price",
+      "observed_at": "2026-08-12T09:00:00Z"
     },
     "needs_primary_verification": false,
     "entry_method": "api",
-    "estimate_basis": "none"
+    "estimate_basis": "none",
+    "observed_at": "2026-08-12T09:00:00Z"
   }
 }

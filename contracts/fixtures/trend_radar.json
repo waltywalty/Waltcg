@@ -33,11 +33,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "own_baseline_z": {
         "value": "3.10",
@@ -52,11 +54,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 604800,
-          "kind": "sentiment"
+          "kind": "sentiment",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "game_baseline_z": {
         "value": "0.39",
@@ -71,11 +75,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 604800,
-          "kind": "sentiment"
+          "kind": "sentiment",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "sources": [
         "youtube"
@@ -115,11 +121,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 86400,
-          "kind": "derived"
+          "kind": "derived",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "own_baseline_z": {
         "value": "1.80",
@@ -134,11 +142,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 604800,
-          "kind": "sentiment"
+          "kind": "sentiment",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "game_baseline_z": {
         "value": "0.38",
@@ -153,11 +163,13 @@
           "age_seconds": 0,
           "is_stale": false,
           "threshold_seconds": 604800,
-          "kind": "sentiment"
+          "kind": "sentiment",
+          "observed_at": "2026-08-13T09:00:00Z"
         },
         "needs_primary_verification": false,
         "entry_method": "api",
-        "estimate_basis": "none"
+        "estimate_basis": "none",
+        "observed_at": "2026-08-13T09:00:00Z"
       },
       "sources": [
         "youtube",

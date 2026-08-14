@@ -87,6 +87,8 @@ def scenario_config(today=AS_OF) -> Config:
     cfg.fees.setdefault("region_defaults", {})["default_days_to_sell"] = DAYS_TO_SELL
     for key, value in ASSUMPTIONS.items():
         cfg.assumptions.setdefault(key, {})["current_value"] = value
+    for key, value in REGRADE_ASSUMPTIONS.items():
+        cfg.assumptions.setdefault(key, {})["current_value"] = value
 
     # Guard the guard: if config/ ever stops shipping the real PSA fee or the
     # real eBay schedule, the fixtures would quietly start describing a
@@ -143,3 +145,93 @@ ESTIMATED_ACQUISITION = "45.00"
 # My own read, by eye. No population behind any of it.
 USER_GRADE_PROBS = {"8": "0.30", "9": "0.55", "10": "0.15"}
 USER_PROBS_NOTE = "condition read by eye, centering 60/40"
+
+
+# ------------------------------------------------------ the regrade play
+#
+# Model B is FORBIDDEN from using the base gem rate: PSA already examined this
+# card and declined a 10, so the base rate double-counts information the grader
+# has acted on. It uses a conditional prior instead, and refuses outright
+# without a complete condition read (CLAUDE.md non-negotiable 6).
+#
+# All three values are null in the registry, and all three are guesses here.
+# The prior is deliberately conservative: whatever kept the card off a 10 is
+# usually still true of it.
+
+REGRADE_ASSUMPTIONS = {
+    "regrade_conditional_prior": 0.12,        # P(10 | already slabbed 9)
+    "regrade_downgrade_probability": 0.05,    # a different grader, a worse day
+    "regrade_condition_adjustments": {
+        "centering_pct_ge_60_40": 1.0,
+        "centering_pct_ge_55_45": 1.5,
+        "corner_flag_clean": 1.2,
+        "surface_flag_clean": 1.2,
+        "edge_flag_clean": 1.0,
+        "any_flag_dirty": 0.5,
+    },
+}
+
+# The worked card, already in a PSA 9 slab. The 9 is worth what the ladder says
+# a 9 is worth -- that intact slab is the opportunity cost of the attempt.
+REGRADE_CARD = WORKED_CARD
+REGRADE_SLAB_VALUE_9 = LADDER_PRICES["9"]
+REGRADE_COMPS = {"10": LADDER_PRICES["10"], "9": LADDER_PRICES["9"],
+                 "below_9": LADDER_PRICES["8"]}
+# I have actually looked at this card. Model B will not move off its prior
+# without this, and will not produce a number at all.
+REGRADE_CONDITION_READ = {"centering_pct": "60", "corner_flag": "clean",
+                          "surface_flag": "clean", "edge_flag": "clean"}
+# A second card in the 9 -> 10 feed that I have NOT looked at. It must refuse.
+UNREAD_REGRADE_CARD = "pkmn:sv3:108/108:sar:JP"
+
+
+# ------------------------------------------------------------- the ledger
+#
+# The Track Record screen's whole purpose is honesty, so its numbers cannot be
+# the invented ones. The brief says "every alert ever fired and what happened",
+# and shipping the whole ledger is what makes every rate on the screen
+# checkable instead of asserted.
+#
+# The returns below are DETERMINISTIC AND UNTUNED. They come from an integer
+# sequence, not from a target hit rate -- picking numbers to land on a
+# flattering 52% would be the same failure as the invented EV, one layer up.
+
+LEDGER_SIZE = 31
+LEDGER_START = _dt.date(2026, 2, 1)
+LEDGER_STEP_DAYS = 6
+HORIZONS = (7, 30, 90)
+
+
+def ledger_fired_on(i):
+    return LEDGER_START + _dt.timedelta(days=i * LEDGER_STEP_DAYS)
+
+
+def ledger_excess(i, horizon):
+    """Excess return over the game index, or None if the horizon has not
+    elapsed. A 90-day rate resting on fewer alerts than the 7-day one is a
+    fact about the ledger, and the screen has to be able to show it."""
+    if ledger_fired_on(i) + _dt.timedelta(days=horizon) > AS_OF:
+        return None
+    h = HORIZONS.index(horizon)
+    spread = 400 // (1 + h)
+    return (((i * 73 + h * 29) % 101) - 50) / spread
+
+
+# Alerts cycle through the cards already in the fixture set, so no card appears
+# on Track Record that appears nowhere else.
+LEDGER_CARDS = [
+    ("pkmn:sv3:223/197:sir:EN", "pkmn", "sv3", "223/197", "sir", "EN",
+     "Charizard ex", "Special Illustration Rare"),
+    ("optcg:OP05:OP05-119:manga_rare:EN", "optcg", "OP05", "OP05-119",
+     "manga_rare", "EN", "Monkey.D.Luffy", "Manga Rare"),
+    ("riftbound:OGN:OGN-301:overnumbered:EN", "riftbound", "OGN", "OGN-301",
+     "overnumbered", "EN", "Jinx", "Overnumbered"),
+    ("optcg:OP01:OP01-078:parallel:JP", "optcg", "OP01", "OP01-078",
+     "parallel", "JP", "Boa Hancock", "Parallel Rare"),
+    ("pkmn:SM-P:070/SM-P:promo:JP", "pkmn", "SM-P", "070/SM-P", "promo", "JP",
+     "Yu Nagaba Eevee", "Promo"),
+    ("riftbound:VDT:VDT-017:base:EN", "riftbound", "VDT", "VDT-017", "base",
+     "EN", "Vendetta", "Base"),
+]
+LEDGER_PLAYS = ["raw_to_10", "nine_to_10", "crossover", "grade_gap",
+                "thin_float", "trending_early"]
