@@ -71,9 +71,12 @@ class ModelAAgreesWithTheFixtures(unittest.TestCase):
         cls.cd = load("card_detail")
         cfg = scenario_config()
         comps = {g: Money(p, "USD") for g, p in LADDER_PRICES.items() if g != "raw"}
+        from tests import fixture_scenario as fs
         cls.r = raw_to_graded_ev(
             WORKED_CARD, Money(ACQUISITION, "USD"), TIER, comps, cfg=cfg,
-            grader=GRADER, venue=VENUE, card_pop=LADDER_POP, set_pop=SET_POP)
+            grader=GRADER, venue=VENUE, route=fs.ROUTE, route_fx=fs.fx_gbp_usd(),
+            buy_route="uk_domestic_secondhand",
+            card_pop=LADDER_POP, set_pop=SET_POP)
 
     def test_the_engine_computes_rather_than_refusing(self):
         self.assertTrue(self.r, getattr(self.r, "detail", ""))
@@ -269,6 +272,11 @@ class ArbitrageArithmetic(unittest.TestCase):
         for row in self.arb["rows"]:
             if row["sell_venue"] != "ebay":
                 continue
+            if row["path"] == "crack_resubmit":
+                # The fee here is an EXPECTATION over three outcome branches,
+                # not the fee on one sale, and the branches can straddle a band
+                # boundary. Checked instead by net_spread == the engine's EV.
+                continue
             sale = Money(str(dec(row["buy_cost"]["amount"])
                              + dec(row["gross_spread"]["amount"])), "USD")
             charged = sale.amount - net_proceeds_from_schedule(
@@ -339,9 +347,11 @@ class TheRefusalFixtureActuallyRefuses(unittest.TestCase):
 
     def test_the_engine_refuses_the_card_the_fixture_refuses(self):
         cfg = scenario_config()
+        from tests import fixture_scenario as fs
         result = raw_to_graded_ev(
             "optcg:OP05:OP05-119:manga_rare:EN", Money("62.00", "USD"), TIER,
-            {}, cfg=cfg, grader=GRADER, venue=VENUE,
+            {}, cfg=cfg, grader=GRADER, venue=VENUE, route=fs.ROUTE,
+            route_fx=fs.fx_gbp_usd(), buy_route="uk_domestic_secondhand",
             card_pop=None, set_pop=None)
         self.assertFalse(result, "One Piece has no population source; model A "
                                  "must refuse rather than invent a distribution")
@@ -477,9 +487,12 @@ class TheHandEstimatedCardComputes(unittest.TestCase):
             probs={g: dec(p) for g, p in USER_GRADE_PROBS.items()},
             prior_used="user estimate", effective_sample_size=None,
             haircut_applied=None)
+        from tests import fixture_scenario as fs
         cls.r = raw_to_graded_ev(
             ESTIMATED_CARD, Money(ESTIMATED_ACQUISITION, "USD"), TIER, comps,
-            cfg=scenario_config(), grader=GRADER, venue=VENUE, grade_probs=probs)
+            cfg=scenario_config(), grader=GRADER, venue=VENUE, route=fs.ROUTE,
+            route_fx=fs.fx_gbp_usd(), buy_route="uk_domestic_secondhand",
+            grade_probs=probs)
 
     def test_the_engine_computes_from_a_supplied_distribution(self):
         self.assertTrue(self.r, getattr(self.r, "detail", ""))
@@ -576,10 +589,11 @@ class ModelBComputesItsOwnFigures(unittest.TestCase):
         cls.r = regrade_9_to_10_ev(
             fs.REGRADE_CARD, Money(fs.REGRADE_SLAB_VALUE_9, "USD"), comps,
             cfg=scenario_config(), condition_read=fs.REGRADE_CONDITION_READ,
-            tier=TIER, venue=VENUE)
+            tier=TIER, venue=VENUE, route=fs.ROUTE)
         cls.unread = regrade_9_to_10_ev(
             fs.UNREAD_REGRADE_CARD, Money("300.00", "USD"), comps,
-            cfg=scenario_config(), condition_read=None, tier=TIER, venue=VENUE)
+            cfg=scenario_config(), condition_read=None, tier=TIER, venue=VENUE,
+            route=fs.ROUTE)
         cls.crack = next(row for row in load("arbitrage_board")["rows"]
                          if row["path"] == "crack_resubmit")
 
@@ -613,8 +627,11 @@ class ModelBComputesItsOwnFigures(unittest.TestCase):
                             "the regrade EV is model A's EV again")
 
     def test_the_row_nets_to_the_engines_ev(self):
-        self.assertEqual(dec(self.crack["net_spread"]["amount"]),
-                         self.r.ev.amount.quantize(dec("0.01")))
+        """Within a cent. The row's net is the sum of its own rounded friction
+        lines so the column adds up as displayed; the engine's EV is unrounded.
+        A gap wider than a cent is an arithmetic difference, not rounding."""
+        gap = abs(dec(self.crack["net_spread"]["amount"]) - self.r.ev.amount)
+        self.assertLessEqual(gap, dec("0.01"), f"off by {gap}")
 
     def test_all_three_branches_are_priced_and_sum_to_one(self):
         """The modal outcome of a resubmission is paying fees for the same slab

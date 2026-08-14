@@ -124,6 +124,12 @@ class EVResult:
     horizon_days: Optional[int] = None
 
     costs: Optional[CostBreakdown] = None
+    # Import charges on the return leg. Reported rather than folded into
+    # `costs`, because under relief_none the charge varies by realised grade
+    # and is already deducted from each branch's proceeds -- adding it to the
+    # cost total as well would double-count it. `applies: False` on a domestic
+    # route is a result, not an absence: it is the main reason to prefer one.
+    import_charges: Optional[dict] = None
     downside_case: Optional[dict] = None
     grade_distribution: Optional[GradeDistribution] = None
     branches: list = field(default_factory=list)

@@ -142,14 +142,35 @@
   },
   "acquisition_tax_pct": {
     "id": "acquisition_tax_pct",
-    "description": "Sales tax or VAT paid on acquisition, as a decimal fraction. Zero is a valid value and must be entered as 0, never left null.",
-    "current_value": null,
-    "unit": "decimal fraction",
-    "confidence": "unvalidated",
+    "description": "Tax on acquiring the card, by BUY ROUTE. Not a single rate: a UK second-hand purchase carries none I can reclaim or see, an import over 135 carries VAT and duty, an import at or under 135 has VAT collected by the marketplace at the point of sale and no duty, and buying in China or Japan while I am there carries neither.",
+    "current_value": {
+      "uk_domestic_secondhand": {
+        "vat_pct": 0.0,
+        "duty_pct": 0.0,
+        "note": "margin scheme; VAT embedded, not reclaimable"
+      },
+      "import_to_uk_over_135": {
+        "vat_pct": 0.2,
+        "duty_pct": 0.02,
+        "note": "compounds: duty on goods+freight, VAT on goods+freight+duty"
+      },
+      "import_to_uk_at_or_under_135": {
+        "vat_pct": 0.2,
+        "duty_pct": 0.0,
+        "note": "VAT collected at point of sale by the marketplace"
+      },
+      "cn_jp_domestic": {
+        "vat_pct": 0.0,
+        "duty_pct": 0.0,
+        "note": "bought in country, carried back"
+      }
+    },
+    "unit": "fraction by buy route",
+    "confidence": "low",
     "source": null,
-    "last_reviewed": null,
-    "calibration_plan": "Factual, not a judgement: read it off your own receipts for the region you buy in. Listed here because it is an input the models refuse without.",
-    "ui_chip_required": false,
+    "last_reviewed": "2026-08-14",
+    "calibration_plan": "confirm the 135 threshold treatment on a real import",
+    "ui_chip_required": true,
     "editable": true
   },
   "min_comp_sample_size": {
@@ -187,6 +208,23 @@
     "last_reviewed": null,
     "calibration_plan": "Read off a real conversion: (rate received / reference rate) - 1.",
     "ui_chip_required": false,
+    "editable": true
+  },
+  "relief_scenario": {
+    "id": "relief_scenario",
+    "description": "Which customs relief applies when a graded card is returned from a US grader to the UK. relief_none charges 20% VAT plus 2% duty on the full declared value of the GRADED card; relief_rgr zeroes it; relief_opr charges only on the value added. Returned Goods Relief requires the goods to come back unaltered and not upgraded to increase their value, and grading is arguably exactly that. HMRC publishes no card-specific guidance. Outward Processing Relief needs authorisation about thirty working days BEFORE export, so it is not available for a one-off.",
+    "current_value": "relief_none",
+    "unit": "enum",
+    "options": [
+      "relief_none",
+      "relief_rgr",
+      "relief_opr"
+    ],
+    "confidence": "unvalidated",
+    "source": null,
+    "last_reviewed": "2026-08-14",
+    "calibration_plan": "Ask a customs broker, or run one low-value submission and read the C88 on the return leg. Until then relief_none is the assumption because it is the realistic outcome for an unprepared private sender -- and because being wrong in that direction costs nothing, while assuming relief and not getting it costs 22.4% of the card.",
+    "ui_chip_required": true,
     "editable": true
   }
 }

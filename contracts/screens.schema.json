@@ -1019,6 +1019,9 @@
         },
         "assumption_ids": {
           "$ref": "#/$defs/assumption_ids"
+        },
+        "import_charges": {
+          "$ref": "#/$defs/import_charges_view"
         }
       },
       "required": [
@@ -1043,7 +1046,8 @@
         "downside_case",
         "cost_breakdown",
         "refusal",
-        "assumption_ids"
+        "assumption_ids",
+        "import_charges"
       ],
       "additionalProperties": false
     },
@@ -1103,6 +1107,17 @@
               "type": "null"
             }
           ]
+        },
+        "import_charges": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Import VAT and duty on the return leg, where the route crosses a border. Null on a domestic route -- and that null is the comparison, not a missing value."
         }
       },
       "required": [
@@ -1113,7 +1128,8 @@
         "fx_spread",
         "tax",
         "needs_primary_verification",
-        "supplies"
+        "supplies",
+        "import_charges"
       ],
       "additionalProperties": false
     },
@@ -2331,6 +2347,90 @@
         "play_type",
         "hit_rate_30d",
         "median_excess_return_30d"
+      ],
+      "additionalProperties": false
+    },
+    "import_charges_view": {
+      "type": "object",
+      "description": "Import charges on the return leg. `applies: false` on a domestic route is a RESULT, not an absence -- avoiding this charge is the main reason to prefer a domestic grader, and the screen has to show the asymmetry rather than just showing a smaller number. Not part of cost_breakdown: under relief_none the charge varies with the realised grade and is already deducted from each outcome, so adding it to the total would double-count.",
+      "properties": {
+        "applies": {
+          "type": "boolean"
+        },
+        "route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "description": "Why it applies or does not, in words."
+        },
+        "relief_scenario": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "relief_none",
+                "relief_rgr",
+                "relief_opr"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Probability-weighted charge, for the cost side."
+        },
+        "effective_rate_on_goods": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/decimal_string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The COMPOUNDED rate. 20% VAT and 2% duty is 22.4%, not 22%, because VAT is charged on the duty too. Carried so the UI never has to add the two headline percentages."
+        },
+        "by_grade": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/money"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A PSA 10 is charged more than a 9 on the same submission."
+        }
+      },
+      "required": [
+        "applies",
+        "route",
+        "note",
+        "relief_scenario",
+        "expected",
+        "effective_rate_on_goods",
+        "by_grade"
       ],
       "additionalProperties": false
     }

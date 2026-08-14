@@ -29,7 +29,7 @@ from decimal import Decimal
 from typing import Optional
 
 from .breakeven import annualised, net_proceeds, solve_break_even_p
-from .config import Config, business_days_to_calendar
+from .config import MISSING, Config, business_days_to_calendar
 from .money import Money
 from .results import CostBreakdown, EVResult, GradeDistribution, Provenance, Refusal
 
@@ -82,14 +82,21 @@ def red_flags(subgrades: dict) -> list:
     return [k for k in HARD_RED_FLAG if subs.get(k, Decimal(99)) <= Decimal("9.0")]
 
 
-def required_paths(path: str, rule_id: str, grader: str, tier: str, venue: str) -> list:
-    base = [
+def required_paths(path: str, rule_id: str, grader: str, tier: str, venue: str,
+                   route: Optional[str] = None) -> list:
+    # Freight lives on the route once routes are configured; the flat
+    # submission_costs pair is the legacy path and stays null.
+    freight = ([f"grading.routes.{route}.outbound_shipping",
+                f"grading.routes.{route}.return_shipping_insured",
+                f"grading.routes.{route}.currency"] if route else
+               ["grading.submission_costs.inbound_shipping",
+                "grading.submission_costs.return_shipping_insured"])
+    base = freight + [
         "grading.meta.currency",
         f"grading.graders.{grader}.tiers.{tier}.fee",
         f"grading.graders.{grader}.tiers.{tier}.turnaround_business_days",
         f"grading.graders.{grader}.tiers.{tier}.availability",
-        "grading.submission_costs.inbound_shipping",
-        "grading.submission_costs.return_shipping_insured",
+
         "grading.submission_costs.default_batch_size",
         f"fees.marketplaces.{venue}.final_value_fee_pct",
         f"fees.marketplaces.{venue}.payment_pct",
@@ -126,10 +133,19 @@ def crossover_ev(
     grader: str = "PSA",
     tier: str = "regular",
     venue: str = "ebay",
+    route: Optional[str] = None,
+    route_fx=None,
     outbound_shipping: Optional[Money] = None,
     batch_size: Optional[int] = None,
     days_to_sell: Optional[int] = None,
 ):
+    if cfg.get("grading.import_charges") is not MISSING and not route:
+        return Refusal(
+            MODEL, "no grading route supplied",
+            "import charges are configured; a crossover ships the slab abroad "
+            "and brings it back, so the route decides whether the return leg "
+            "is charged.", missing=["route"], subject=card_uid)
+
     if path not in PATHS:
         return Refusal(MODEL, "unknown path",
                        f"path must be one of {PATHS}; these are never merged",
@@ -145,7 +161,7 @@ def crossover_ev(
     rule_id = rule.get("id", "?")
     rule_index = (cfg.crossover_rules.get("rules") or []).index(rule)
 
-    cfg.require(required_paths(path, rule_id, grader, tier, venue),
+    cfg.require(required_paths(path, rule_id, grader, tier, venue, route=route),
                 context=f"{MODEL} [{path}] for {card_uid}")
     for key in ("p_psa_10", "p_psa_9", "p_psa_below_9", "source"):
         if rule.get(key) is None:
@@ -172,10 +188,18 @@ def crossover_ev(
 
     batch = int(batch_size or cfg.get("grading.submission_costs.default_batch_size"))
     fee = Money(str(cfg.decimal(f"grading.graders.{grader}.tiers.{tier}.fee")), currency)
-    inbound = Money(str(cfg.decimal("grading.submission_costs.inbound_shipping")),
-                    currency) / batch
-    ret = Money(str(cfg.decimal("grading.submission_costs.return_shipping_insured")),
-                currency) / batch
+    if route:
+        try:
+            _out, _ret = route_freight(cfg, route, currency, route_fx)
+        except ImportChargeError as e:
+            return Refusal(MODEL, "route freight unusable", str(e),
+                           missing=[f"grading.routes.{route}"], subject=card_uid)
+        inbound, ret = _out / batch, _ret / batch
+    else:
+        inbound = Money(str(cfg.decimal(
+            "grading.submission_costs.inbound_shipping")), currency) / batch
+        ret = Money(str(cfg.decimal(
+            "grading.submission_costs.return_shipping_insured")), currency) / batch
 
     fvf = cfg.decimal(f"fees.marketplaces.{venue}.final_value_fee_pct")
     pay_pct = cfg.decimal(f"fees.marketplaces.{venue}.payment_pct")
@@ -268,6 +292,36 @@ def crossover_ev(
                      "probabilities; damaged cards retain "
                      f"{residual_pct} of raw value")
 
+    # Import charges, per branch. What customs values is the object that comes
+    # back -- a crossed slab, the original slab, or a damaged card -- so the
+    # declared value differs by branch just as the proceeds do.
+    declared = {}
+    for label in proceeds:
+        if label == "returned_in_original_slab":
+            declared[label] = slab_market_value
+        elif label == "damaged":
+            # residual_pct exists only on the crack_resubmit path, which is the
+            # only path with a damaged branch.
+            declared[label] = slab_market_value * locals().get(
+                "residual_pct", Decimal(0))
+        else:
+            declared[label] = comps_by_grade.get(label, slab_market_value)
+
+    import_rule, import_applies, (import_note, _facility) = (
+        resolve_rule(cfg, route) if route else (None, False, ("no route", None)))
+    relief = cfg.get("assumptions.relief_scenario.current_value", "relief_none")
+    import_charges = {}
+    if import_applies:
+        return_freight = ret
+        try:
+            import_charges = import_charge_by_grade(
+                proceeds, declared, rule=import_rule, relief=relief,
+                return_freight=return_freight, value_added=fee + return_freight)
+        except ImportChargeError as e:
+            return Refusal(MODEL, "import charge rule unusable", str(e),
+                           missing=["grading.import_charges"], subject=card_uid)
+        proceeds = {g: n - import_charges[g] for g, n in proceeds.items()}
+
     ev = Money.zero(currency)
     for label, p in probs.items():
         ev = ev + (proceeds[label] * p)
@@ -284,6 +338,15 @@ def crossover_ev(
     be = solve_break_even_p(target, proceeds, probs, total_cost)
 
     return EVResult(
+        import_charges={
+            "applies": import_applies, "route": route, "note": import_note,
+            "relief_scenario": relief if import_applies else None,
+            "expected": (summarise(import_charges, probs, currency).as_dict()
+                         if import_applies else None),
+            "by_grade": {g: c.as_dict() for g, c in import_charges.items()},
+            "effective_rate_on_goods": (str(effective_rate(import_rule))
+                                        if import_applies else None),
+        },
         model=f"{MODEL}[{path}]", subject=card_uid,
         break_even_p_target=be["p"],
         break_even_attainable=bool(be.get("attainable")),

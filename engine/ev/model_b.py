@@ -27,6 +27,8 @@ from typing import Optional
 from .breakeven import annualised, net_proceeds, solve_break_even_p
 from .config import MISSING, Config, business_days_to_calendar
 from .fees import FeeScheduleError, net_proceeds_from_schedule
+from .imports import (ImportChargeError, effective_rate, import_charge_by_grade,
+                      resolve_rule, route_freight, summarise)
 from .money import Money
 from .results import CostBreakdown, EVResult, GradeDistribution, Provenance, Refusal
 
@@ -35,7 +37,7 @@ MODEL = "regrade_9_to_10_ev"
 CONDITION_FIELDS = ("centering_pct", "corner_flag", "surface_flag", "edge_flag")
 
 
-def required_paths(grader: str, tier: str, venue: str, schedule: bool = False) -> list:
+def required_paths(grader: str, tier: str, venue: str, schedule: bool = False, route: Optional[str] = None) -> list:
     # A venue carries either a modern banded fee_schedule or the older flat
     # trio. Model A already branched on this; model B did not, so it demanded
     # `final_value_fee_pct` from a venue whose config supplies a schedule
@@ -50,13 +52,17 @@ def required_paths(grader: str, tier: str, venue: str, schedule: bool = False) -
         [f"fees.marketplaces.{venue}.final_value_fee_pct",
          f"fees.marketplaces.{venue}.payment_pct",
          f"fees.marketplaces.{venue}.payment_fixed"])
-    return venue_fee_paths + [
+    freight_paths = ([f"grading.routes.{route}.outbound_shipping",
+                      f"grading.routes.{route}.return_shipping_insured",
+                      f"grading.routes.{route}.currency"] if route else
+                     ["grading.submission_costs.inbound_shipping",
+                      "grading.submission_costs.return_shipping_insured"])
+    return venue_fee_paths + freight_paths + [
         "grading.meta.currency",
         f"grading.graders.{grader}.tiers.{tier}.fee",
         f"grading.graders.{grader}.tiers.{tier}.turnaround_business_days",
         f"grading.graders.{grader}.tiers.{tier}.availability",
-        "grading.submission_costs.inbound_shipping",
-        "grading.submission_costs.return_shipping_insured",
+
         "grading.submission_costs.supplies_per_card",
         "grading.submission_costs.default_batch_size",
         f"fees.marketplaces.{venue}.currency",
@@ -137,6 +143,8 @@ def regrade_9_to_10_ev(
     grader: str = "PSA",
     tier: str = "regular",
     venue: str = "ebay",
+    route: Optional[str] = None,
+    route_fx=None,
     outbound_shipping: Optional[Money] = None,
     batch_size: Optional[int] = None,
     days_to_sell: Optional[int] = None,
@@ -154,8 +162,17 @@ def regrade_9_to_10_ev(
         refusal.subject = card_uid
         return refusal
 
+    if cfg.get("grading.import_charges") is not MISSING and not route:
+        return Refusal(
+            MODEL, "no grading route supplied",
+            "import charges are configured; the route decides whether the "
+            "return leg is charged. A regrade crosses the border twice for a "
+            "card that may come back in the same slab.",
+            missing=["route"], subject=card_uid)
+
     uses_schedule = cfg.get(f"fees.marketplaces.{venue}.fee_schedule") is not MISSING
-    cfg.require(required_paths(grader, tier, venue, schedule=uses_schedule)
+    cfg.require(required_paths(grader, tier, venue, schedule=uses_schedule,
+                               route=route)
                 + [f"{ADJ_ROOT}.{k}" for k in _adjustment_keys(condition_read)],
                 context=f"{MODEL} for {card_uid}")
 
@@ -182,8 +199,17 @@ def regrade_9_to_10_ev(
     # -- costs. The slab you already own is the largest line item. --------
     batch = int(batch_size or cfg.get("grading.submission_costs.default_batch_size"))
     fee = Money(str(cfg.decimal(f"grading.graders.{grader}.tiers.{tier}.fee")), currency)
-    inbound = Money(str(cfg.decimal("grading.submission_costs.inbound_shipping")), currency) / batch
-    ret = Money(str(cfg.decimal("grading.submission_costs.return_shipping_insured")),
+    if route:
+        try:
+            _out, _ret = route_freight(cfg, route, currency, route_fx)
+        except ImportChargeError as e:
+            return Refusal(MODEL, "route freight unusable", str(e),
+                           missing=[f"grading.routes.{route}"], subject=card_uid)
+        inbound, ret = _out / batch, _ret / batch
+    else:
+        inbound = Money(str(cfg.decimal(
+            "grading.submission_costs.inbound_shipping")), currency) / batch
+        ret = Money(str(cfg.decimal("grading.submission_costs.return_shipping_insured")),
                 currency) / batch
     supplies = Money(str(cfg.decimal("grading.submission_costs.supplies_per_card")), currency)
 
@@ -225,6 +251,21 @@ def regrade_9_to_10_ev(
                                subject=card_uid)
         else:
             proceeds[grade] = net_proceeds(comp, fvf, pay_pct, fixed, ship_out)
+
+    import_rule, import_applies, (import_note, _facility) = (
+        resolve_rule(cfg, route) if route else (None, False, ("no route", None)))
+    relief = cfg.get("assumptions.relief_scenario.current_value", "relief_none")
+    import_charges = {}
+    if import_applies:
+        return_freight = ret
+        try:
+            import_charges = import_charge_by_grade(
+                proceeds, comps_by_grade, rule=import_rule, relief=relief,
+                return_freight=return_freight, value_added=fee + return_freight)
+        except ImportChargeError as e:
+            return Refusal(MODEL, "import charge rule unusable", str(e),
+                           missing=["grading.import_charges"], subject=card_uid)
+        proceeds = {g: n - import_charges[g] for g, n in proceeds.items()}
 
     ev = Money.zero(currency)
     for grade, p in probs.items():
@@ -269,6 +310,15 @@ def regrade_9_to_10_ev(
         ev=ev, roi=roi, annualised_roi=ann, horizon_days=horizon,
         costs=costs, grade_distribution=dist, branches=branches,
         downside_case=branches[2],
+        import_charges={
+            "applies": import_applies, "route": route, "note": import_note,
+            "relief_scenario": relief if import_applies else None,
+            "expected": (summarise(import_charges, probs, currency).as_dict()
+                         if import_applies else None),
+            "by_grade": {g: c.as_dict() for g, c in import_charges.items()},
+            "effective_rate_on_goods": (str(effective_rate(import_rule))
+                                        if import_applies else None),
+        },
         provenance=Provenance(
             as_of=str(cfg.today),
             sources=["contracts/assumptions.json::regrade_conditional_prior",

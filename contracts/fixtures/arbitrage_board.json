@@ -69,7 +69,8 @@
         "fx_spread": null,
         "tax": null,
         "needs_primary_verification": true,
-        "supplies": null
+        "supplies": null,
+        "import_charges": null
       },
       "net_margin_pct": {
         "value": "10.08",
@@ -169,7 +170,8 @@
           "fx_as_of": null
         },
         "needs_primary_verification": true,
-        "supplies": null
+        "supplies": null,
+        "import_charges": null
       },
       "net_margin_pct": {
         "value": "4.06",
@@ -231,7 +233,7 @@
         "fx_as_of": null
       },
       "net_spread": {
-        "amount": "-46.44",
+        "amount": "-100.12",
         "currency": "USD",
         "fx_rate_used": null,
         "fx_as_of": null
@@ -250,7 +252,7 @@
           "fx_as_of": null
         },
         "shipping": {
-          "amount": "3.70",
+          "amount": "10.00",
           "currency": "USD",
           "fx_rate_used": null,
           "fx_as_of": null
@@ -262,17 +264,23 @@
           "fx_as_of": null
         },
         "supplies": {
-          "amount": "0.85",
+          "amount": "0.50",
           "currency": "USD",
           "fx_rate_used": null,
           "fx_as_of": null
         },
         "fx_spread": null,
         "tax": null,
+        "import_charges": {
+          "amount": "47.73",
+          "currency": "USD",
+          "fx_rate_used": null,
+          "fx_as_of": null
+        },
         "needs_primary_verification": true
       },
       "net_margin_pct": {
-        "value": "-32.70",
+        "value": "-70.51",
         "unit": "percent",
         "source": "engine:model_b",
         "as_of": "2026-08-13T09:00:00Z",
@@ -304,7 +312,7 @@
       "estimate_basis": "config_rule",
       "regrade_detail": {
         "break_even_p_target": {
-          "value": "0.306",
+          "value": "0.561",
           "unit": "probability",
           "source": "engine:model_b",
           "as_of": "2026-08-13T09:00:00Z",
@@ -361,7 +369,7 @@
             "branch": "upgrade_to_10",
             "p": "0.1728",
             "ev_if_realised": {
-              "amount": "241.51",
+              "amount": "113.48",
               "currency": "USD",
               "fx_rate_used": null,
               "fx_as_of": null
@@ -372,7 +380,7 @@
             "branch": "regrade_9",
             "p": "0.7772",
             "ev_if_realised": {
-              "amount": "-103.76",
+              "amount": "-142.63",
               "currency": "USD",
               "fx_rate_used": null,
               "fx_as_of": null
@@ -383,7 +391,7 @@
             "branch": "downgrade_below_9",
             "p": "0.0500",
             "ev_if_realised": {
-              "amount": "-150.60",
+              "amount": "-177.38",
               "currency": "USD",
               "fx_rate_used": null,
               "fx_as_of": null

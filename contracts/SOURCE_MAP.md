@@ -165,6 +165,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `alert_id` | `engine:alert_ledger` |
 | `anchor` | `engine` (refusal detail) -- section within the target screen |
 | `annualised_roi` | `engine:model_a` |
+| `applies` | `engine` -- false on a domestic route; the asymmetry is the reason to prefer one |
 | `assumption_ids` | `contracts/assumptions.json` |
 | `availability` | `config/grading.yaml` |
 | `availability_note` | `config/grading.yaml` |
@@ -188,12 +189,14 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `downside_case` | `engine:model_a` |
 | `edge_flag` | `manual` |
 | `editable` | `contracts/assumptions.json` |
+| `effective_rate_on_goods` | `engine` -- the COMPOUNDED rate; 20% VAT and 2% duty is 22.4%, not 22% |
 | `entry_id` | `manual` -- assigned on save; append-only, never reused |
 | `estimate_basis` | `engine` -- which grade probability sits behind the figure: a pop report, a dated crossover rule, one I typed, or none at all |
 | `ev_if_realised` | `engine:model_b` -- EV conditional on that branch happening |
 | `excess_return_30d` | `engine:alert_ledger` |
 | `excess_return_7d` | `engine:alert_ledger` |
 | `excess_return_90d` | `engine:alert_ledger` |
+| `expected` | `engine` -- probability-weighted import charge, for the cost side |
 | `filtered_by` | UI request echo |
 | `fired_at` | `engine:alert_ledger` |
 | `fixable` | `engine` (refusal detail) -- false for an absence no input can clear |
@@ -205,6 +208,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `hit_rate_7d` | `engine:alert_ledger` |
 | `hit_rate_90d` | `engine:alert_ledger` |
 | `horizon_days` | `engine` (turnaround + days_to_sell) |
+| `import_charges` | `engine` over `config/grading.yaml::import_charges` -- VAT and duty on the return leg where the route crosses a border |
 | `is_stale` | `engine` |
 | `kind` | `engine` |
 | `landed_cost_meta` | `tcgapi.dev` or `manual` |
@@ -236,6 +240,7 @@ unavailable-behaviour follow the group each field belongs to in sections 2-4.
 | `reason_code` | `engine` (refusal detail) -- closed enum, one per Refusal the models raise |
 | `recent_entries` | `manual` -- what I typed, from Xianyu, Taobao, Mercari JP and SNKRDUNK |
 | `regrade_detail` | `engine:model_b` -- conditional prior, never the base gem rate |
+| `relief_scenario` | `contracts/assumptions.json::relief_scenario` -- unvalidated, chipped |
 | `roi` | `engine:model_a` |
 | `sell_venue` | `engine:model_c` |
 | `set_code` | `tcgapi.dev`, `apitcg.com` catalog |

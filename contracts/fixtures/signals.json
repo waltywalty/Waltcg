@@ -22,7 +22,7 @@
       },
       "play_type": "raw_to_10",
       "headline": {
-        "value": "0.301",
+        "value": "0.555",
         "source": "engine:model_a",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "medium",
@@ -963,7 +963,7 @@
       },
       "play_type": "raw_to_10",
       "headline": {
-        "value": "0.527",
+        "value": "0.862",
         "source": "engine:model_a",
         "as_of": "2026-08-13T09:00:00Z",
         "confidence": "unvalidated",
@@ -1218,7 +1218,7 @@
       },
       "play_type": "nine_to_10",
       "headline": {
-        "value": "0.306",
+        "value": "0.561",
         "unit": "probability",
         "source": "engine:model_b",
         "as_of": "2026-08-13T09:00:00Z",

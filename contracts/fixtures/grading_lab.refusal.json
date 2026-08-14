@@ -270,5 +270,14 @@
     "marketplace_fee_schedule",
     "acquisition_tax_pct",
     "pull_rate_estimates"
-  ]
+  ],
+  "import_charges": {
+    "applies": true,
+    "route": "psa_us",
+    "note": "cross-border route: graded in US, returned to GB",
+    "relief_scenario": "relief_none",
+    "expected": null,
+    "effective_rate_on_goods": "0.2240",
+    "by_grade": null
+  }
 }

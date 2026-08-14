@@ -1,324 +1,671 @@
-# Grading service tiers, fees and turnarounds.
-#
-# STATUS: PROVISIONAL. Every populated value below carries
-#   source: "secondary, unverified"
-#   checked_on: 2026-08-13
-#   confidence: low
-# meaning it came from a secondary summary, NOT from the grader's own page.
-#
-# The engine warns on EVERY unverified entry regardless of age. A value that
-# was never checked against its primary source is not "fresh for 60 days" --
-# it was never fresh. Age-based staleness is a separate, weaker signal.
-#
-# PSA entries additionally carry needs_primary_verification: true. Sources
-# disagree on the Value tier prices, the backlog size and the membership cost,
-# so psacard.com is the only authority and nothing here should be trusted
-# until it is read directly.
-#
-# Values still null and REFUSING (deliberate):
-#   * submission_costs.* -- my own inbound shipping, supplies, batch size
-#   * every grader's membership cost and declared-value caps
-# The engine raises ConfigIncomplete naming each one rather than computing
-# around it.
-
 schema_version: 2
 config_kind: grading
 
+# Grading fees, turnaround, routes and cross-border import charges.
+#
+# Sourcing is per entry. PSA and CGC were read from the grader's own pricing
+# page on 2026-08-14 and are marked `primary`. BGS, SGC and TAG were not: they
+# come from a secondary aggregator and every one of them carries
+# needs_primary_verification: true.
+#
+# `provisional: true` stays set on the file until every figure has been
+# re-checked at submission time. Grading prices move without notice -- PSA
+# paused four tiers outright in June -- and a fee read three weeks ago is not
+# evidence about a fee today.
+
 meta:
-  verified_on: null            # NEEDS_VALUE -- set only when read from primary sources
-  verified_by: null            # NEEDS_VALUE
+  verified_on: "2026-08-14"
+  verified_by: user
   staleness_warn_days: 60
   currency: USD
-  currency_source: "secondary, unverified"
-  currency_checked_on: "2026-08-13"
+  currency_source: primary
+  currency_checked_on: "2026-08-14"
   provisional: true
   provisional_note: >-
-    Populated 2026-08-13 from a secondary summary. No value here has been read
-    from a grader's own pricing page. Treat every figure as indicative.
+    PSA and CGC read from their own pricing pages 2026-08-14. BGS, SGC and TAG
+    are secondary and flagged. Everything here is re-checked at submission time;
+    a paused tier can reopen and an active one can pause between now and then.
+
+# ---------------------------------------------------------------------------
+# Import charges on the return leg.
+#
+# A card sent from the UK to a US grader can be treated as a fresh import when
+# it comes back: import VAT plus customs duty on the FULL declared value of the
+# graded card, not on the value grading added.
+#
+# The two percentages do not simply add. Duty is charged on goods plus freight;
+# VAT is charged on goods plus freight PLUS the duty. See
+# engine/ev/imports.py::effective_rate -- 20% and 2% compound to 22.4% of the
+# goods value before freight is counted at all.
+import_charges:
+  home_jurisdiction: GB
+  GB:
+    vat_pct: 0.20
+    duty_pct: 0.02
+    commodity_code: "9504 40 00 00"
+    commodity_description: "Playing cards"
+    duty_base: goods_plus_freight
+    vat_base: goods_plus_freight_plus_duty
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: medium
+    needs_primary_verification: true
+    note: >-
+      Commodity code and headline rates are published. Whether a graded card
+      re-entering the UK is treated as a fresh import or relieved is NOT
+      published for this case -- see assumptions.relief_scenario.
+
+# ---------------------------------------------------------------------------
+# Routes. A route is a grader plus the facility the card is actually graded at,
+# because that is what decides whether the return leg crosses a border. CGC
+# operates a UK facility, so a CGC UK submission never re-imports.
+#
+# Freight is per SUBMISSION, not per card. Divide by batch size.
+# Every figure below is an ESTIMATE and none has been paid yet.
+routes:
+  cgc_uk:
+    display_name: "CGC (UK facility)"
+    grader: CGC
+    facility_jurisdiction: GB
+    currency: GBP
+    outbound_shipping: 9
+    return_shipping_insured: 10
+    round_trip: 19
+    carrier: "Royal Mail Special Delivery, insured"
+    estimated: true
+    source: user estimate
+    checked_on: "2026-08-14"
+    confidence: low
+    calibration_plan: "replace with actuals from first submission"
+    note: >-
+      No transatlantic return, so no import charge arises. CGC publishes no
+      UK GBP fee sheet that I could find; see graders.CGC.uk_fee_sheet.
+  psa_us:
+    display_name: "PSA (US, from UK)"
+    grader: PSA
+    facility_jurisdiction: US
+    currency: USD
+    outbound_shipping: 50
+    return_shipping_insured: 50
+    round_trip: 100
+    carrier: "tracked and insured courier"
+    estimated: true
+    source: user estimate
+    checked_on: "2026-08-14"
+    confidence: low
+    calibration_plan: "replace with actuals from first submission"
+  bgs_us:
+    display_name: "BGS (US, from UK)"
+    grader: BGS
+    facility_jurisdiction: US
+    currency: USD
+    outbound_shipping: 50
+    return_shipping_insured: 50
+    round_trip: 100
+    carrier: "tracked and insured courier"
+    estimated: true
+    source: user estimate
+    checked_on: "2026-08-14"
+    confidence: low
+    calibration_plan: "replace with actuals from first submission"
+  sgc_us:
+    display_name: "SGC (US, from UK)"
+    grader: SGC
+    facility_jurisdiction: US
+    currency: USD
+    outbound_shipping: 50
+    return_shipping_insured: 50
+    round_trip: 100
+    carrier: "tracked and insured courier"
+    estimated: true
+    source: user estimate
+    checked_on: "2026-08-14"
+    confidence: low
+    calibration_plan: "replace with actuals from first submission"
 
 graders:
-
   PSA:
     display_name: PSA
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
-    confidence: low
-    needs_primary_verification: true
-    primary_source_url: "https://www.psacard.com/services/tradingcardgrading"
-    verification_note: >-
-      Sources disagree on Value tier pricing, backlog size and Collectors Club
-      cost. PSA's own services page is the only authority. Until it is read
-      directly, every PSA figure here is indicative and the membership and
-      declared-value fields stay null and refusing.
+    jurisdiction: US
+    source: primary
+    source_url: "https://www.psacard.com"
+    checked_on: "2026-08-14"
+    confidence: high
     membership:
-      required: null           # NEEDS_VALUE -- sources disagree
-      annual_cost: null        # NEEDS_VALUE -- sources disagree
-      included_vouchers: null  # NEEDS_VALUE
-      needs_primary_verification: true
-    declared_value_cap_applies: null   # NEEDS_VALUE
-    # Charged once per submission, not per card. The engine amortises these
-    # across default_batch_size.
-    per_submission_fees:
-      handling_fee: 10.00
-      handling_fee_is_approximate: true
-      return_shipping: 15.00
-      return_shipping_is_floor: true    # quoted as "15.00+"; scales with value
-      source: "secondary, unverified"
-      checked_on: "2026-08-13"
+      required: true
+      tiers:
+        standard: {price: 149, period: year}
+        premium: {price: 199, period: year}
+      source: primary
+      checked_on: "2026-08-14"
       confidence: low
       needs_primary_verification: true
+      conflict_note: >-
+        SOURCES CONFLICT. The fee page implies 149/199 per year while PSA's own
+        join page still advertises 99. Both are PSA's own pages. Do not price a
+        submission on either until one is confirmed at signup.
+    crossover:
+      fee_charged_on_failure: true
+      fee_basis: selected_tier
+      minimum_grade_affects_assigned_grade: false
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: high
+      note: >-
+        The tier fee is charged even if the card comes back in its original
+        holder. Choosing a minimum grade changes only whether PSA encapsulates,
+        never the grade it assigns.
+    backlog:
+      units: 11850000
+      as_of: "2026-08-11"
+      reopening_target_units: 5000000
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: medium
+      note: >-
+        A dated observation, not a forecast. No reopening date is published and
+        none is inferred here.
     tiers:
       regular:
-        name: "Regular"
+        name: Regular
         fee: 79.99
         unit: per_card
         min_cards: 1
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE -- sources disagree
-        # Quoted as a 40-60 business day range. The engine uses the
-        # conservative end: overstating turnaround understates annualised ROI,
-        # which is the safe direction for a capital-lockup decision.
-        turnaround_business_days: 60
+        max_declared_value: 1500
+        membership_required: true
+        turnaround_business_days: 50
         turnaround_business_days_min: 40
-        turnaround_business_days_max: 60
+        turnaround_business_days_max: 50
         turnaround_observed_days: null
         availability: open
-        availability_note: "ACTIVE per secondary source, 2026-08-13"
-        effective_from: null            # NEEDS_VALUE -- price-list date unknown
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
-        confidence: low
-        needs_primary_verification: true
-      value:
-        name: "Value (paused)"
-        fee: null                       # NEEDS_VALUE -- sources disagree on price
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      express:
+        name: Express
+        fee: 149.00
         unit: per_card
-        min_cards: null                 # NEEDS_VALUE
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
+        min_cards: 1
+        max_declared_value: 2500
+        membership_required: true
+        turnaround_business_days: 30
+        turnaround_business_days_min: 20
+        turnaround_business_days_max: 30
+        turnaround_observed_days: null
+        availability: open
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      super_express:
+        name: Super Express
+        fee: 349.00
+        unit: per_card
+        min_cards: 1
+        max_declared_value: 5000
+        membership_required: true
+        turnaround_business_days: 15
+        turnaround_business_days_min: 10
+        turnaround_business_days_max: 15
+        turnaround_observed_days: null
+        availability: open
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      walk_through:
+        name: Walk-Through
+        fee: 599.00
+        unit: per_card
+        min_cards: 1
+        max_declared_value: 10000
+        membership_required: true
+        turnaround_business_days: 10
+        turnaround_business_days_min: 7
+        turnaround_business_days_max: 10
+        turnaround_observed_days: null
+        availability: open
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      premium_1:
+        name: Premium 1
+        fee: 999.00
+        unit: per_card
+        min_cards: 1
+        max_declared_value: 25000
+        membership_required: true
+        turnaround_business_days: 7
+        turnaround_business_days_min: 5
+        turnaround_business_days_max: 7
+        turnaround_observed_days: null
+        availability: open
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      # The four Value tiers are PAUSED, and the fee is NULL rather than the
+      # last circulated price. PSA's own page shows "Currently Unavailable"; the
+      # 24.99 / 32.99 / 49.99 / 64.99 figures are pre-pause hearsay. Recording
+      # them as prices would make an unorderable tier look like the cheapest
+      # route on every screen that sorts by cost.
+      value_bulk:
+        name: Value Bulk
+        fee: null
+        unit: per_card
+        min_cards: null
+        max_declared_value: null
+        membership_required: true
+        turnaround_business_days: null
         turnaround_observed_days: null
         availability: paused
         availability_since: "2026-06-02"
         availability_note: >-
-          Paused since 2026-06-02 with no announced reinstatement date. The
-          engine refuses to price a submission against a tier that is not
-          accepting cards, so the null fee is not load-bearing -- but it stays
-          null because sources disagree on what the price was.
-        reinstatement_date: null        # none announced
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
-        confidence: low
-        needs_primary_verification: true
+          "Currently Unavailable" on PSA's own page, 2026-08-14. Pre-pause price
+          circulated as 24.99; not recorded as a fee because the tier cannot be
+          ordered.
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      value:
+        name: Value
+        fee: null
+        unit: per_card
+        min_cards: null
+        max_declared_value: null
+        membership_required: true
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: paused
+        availability_since: "2026-06-02"
+        availability_note: >-
+          "Currently Unavailable" on PSA's own page, 2026-08-14. Pre-pause price
+          circulated as 32.99; not recorded as a fee.
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
       value_plus:
-        name: "Value Plus (paused)"
-        fee: null                       # NEEDS_VALUE
+        name: Value Plus
+        fee: null
         unit: per_card
-        min_cards: null                 # NEEDS_VALUE
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
+        min_cards: null
+        max_declared_value: null
+        membership_required: true
+        turnaround_business_days: null
         turnaround_observed_days: null
         availability: paused
         availability_since: "2026-06-02"
-        availability_note: "Paused since 2026-06-02, no reinstatement date."
-        reinstatement_date: null
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
-        confidence: low
-        needs_primary_verification: true
-      value_bulk:
-        name: "Value Bulk (paused)"
-        fee: null                       # NEEDS_VALUE
-        unit: per_card_bulk
-        min_cards: null                 # NEEDS_VALUE -- commonly cited as 20, unconfirmed
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
-        turnaround_observed_days: null
-        availability: paused
-        availability_since: "2026-06-02"
-        availability_note: "Paused since 2026-06-02, no reinstatement date."
-        reinstatement_date: null
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
-        confidence: low
-        needs_primary_verification: true
+        availability_note: >-
+          "Currently Unavailable" on PSA's own page, 2026-08-14. Pre-pause price
+          circulated as 49.99; not recorded as a fee.
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
       value_max:
-        name: "Value Max (paused)"
-        fee: null                       # NEEDS_VALUE
+        name: Value Max
+        fee: null
         unit: per_card
-        min_cards: null                 # NEEDS_VALUE
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
+        min_cards: null
+        max_declared_value: null
+        membership_required: true
+        turnaround_business_days: null
         turnaround_observed_days: null
         availability: paused
         availability_since: "2026-06-02"
-        availability_note: "Paused since 2026-06-02, no reinstatement date."
-        reinstatement_date: null
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
-        confidence: low
-        needs_primary_verification: true
+        availability_note: >-
+          "Currently Unavailable" on PSA's own page, 2026-08-14. Pre-pause price
+          circulated as 64.99; not recorded as a fee.
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
 
   CGC:
-    display_name: CGC Cards
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
-    confidence: low
-    primary_source_url: "https://www.cgccards.com/card-grading/services-pricing/"
+    display_name: CGC
+    jurisdiction: US
+    has_uk_facility: true
+    source: primary
+    source_url: "https://www.cgccards.com"
+    fee_chart_dated: "2026-03-24"
+    checked_on: "2026-08-14"
+    confidence: high
+    uk_fee_sheet:
+      found: false
+      currency: GBP
+      note: >-
+        CGC operates a UK facility, so the cgc_uk route carries no import
+        charge. No GBP fee sheet was found; the USD chart below is used and the
+        difference is unquantified. NOT a claim that the UK prices match.
     membership:
       required: false
-      annual_cost: 0
-      included_vouchers: null           # NEEDS_VALUE
-      source: "secondary, unverified"
-      checked_on: "2026-08-13"
-      confidence: low
-    declared_value_cap_applies: null     # NEEDS_VALUE
-    per_submission_fees:
-      handling_fee: null                # NEEDS_VALUE
-      return_shipping: null             # NEEDS_VALUE
+      tiers:
+        associate: {price: 39, period: year, fee_discount_pct: 0.10}
+        premium: {price: 159, period: year, fee_discount_pct: 0.10}
+        elite: {price: 329, period: year, fee_discount_pct: 0.20}
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: high
+      note: "Optional. Submission is possible without any membership."
+    own_shipping_account_fee: 4
     tiers:
+      bulk:
+        name: Bulk
+        fee: 17
+        unit: per_card
+        min_cards: 25
+        max_declared_value: 500
+        membership_required: false
+        turnaround_business_days: 150
+        turnaround_observed_days: null
+        availability: open
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
       economy:
-        name: "Economy"
-        fee: 15.00
+        name: Economy
+        fee: 20
         unit: per_card
         min_cards: 1
-        max_declared_value: null        # NEEDS_VALUE
+        max_declared_value: 1000
         membership_required: false
-        turnaround_business_days: null  # NEEDS_VALUE
+        turnaround_business_days: 90
         turnaround_observed_days: null
         availability: open
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
-        confidence: low
-      bulk:
-        name: "Bulk"
-        fee: 12.00
-        unit: per_card_bulk
-        min_cards: 25
-        max_declared_value: null        # NEEDS_VALUE
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      standard:
+        name: Standard
+        fee: 55
+        unit: per_card
+        min_cards: 1
+        max_declared_value: 3000
         membership_required: false
-        turnaround_business_days: null  # NEEDS_VALUE
+        turnaround_business_days: 10
         turnaround_observed_days: null
         availability: open
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
-        confidence: low
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      express:
+        name: Express
+        fee: 100
+        unit: per_card
+        min_cards: 1
+        max_declared_value: 10000
+        membership_required: false
+        turnaround_business_days: 5
+        turnaround_observed_days: null
+        availability: open
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
+      walkthrough:
+        name: WalkThrough
+        fee: 300
+        unit: per_card
+        min_cards: 1
+        max_declared_value: 100000
+        membership_required: false
+        turnaround_business_days: 2
+        turnaround_observed_days: null
+        availability: open
+        source: primary
+        checked_on: "2026-08-14"
+        confidence: high
 
   BGS:
-    display_name: Beckett (BGS)
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
+    display_name: BGS
+    jurisdiction: US
+    source: "secondary, cardgrade.io"
+    checked_on: "2026-08-05"
     confidence: low
-    primary_source_url: "https://www.beckett.com/grading/pricing"
-    subgrades_included: true
+    needs_primary_verification: true
     membership:
-      required: null                    # NEEDS_VALUE
-      annual_cost: null                 # NEEDS_VALUE
-      included_vouchers: null           # NEEDS_VALUE
-    declared_value_cap_applies: null     # NEEDS_VALUE
-    per_submission_fees:
-      handling_fee: null                # NEEDS_VALUE
-      return_shipping: null             # NEEDS_VALUE
+      required: false
+      tiers: {}
+      source: "secondary, cardgrade.io"
+      checked_on: "2026-08-05"
+      confidence: low
+      needs_primary_verification: true
+    max_declared_value_published: false
     tiers:
-      economy:
-        name: "Economy"
-        fee: 20.00
+      base:
+        name: "Base (no subgrades)"
+        fee: 14.95
         unit: per_card
         min_cards: 1
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: paused
+        availability_note: "Paused per secondary source, 2026-08-05."
+        source: "secondary, cardgrade.io"
+        checked_on: "2026-08-05"
+        confidence: low
+        needs_primary_verification: true
+      base_subgrades:
+        name: "Base (with subgrades)"
+        fee: 17.95
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: paused
+        availability_note: "Paused per secondary source, 2026-08-05."
+        source: "secondary, cardgrade.io"
+        checked_on: "2026-08-05"
+        confidence: low
+        needs_primary_verification: true
+      standard:
+        name: Standard
+        fee: 34.95
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: 45
+        turnaround_observed_days: null
+        availability: paused
+        availability_note: "Paused per secondary source, 2026-08-05."
+        source: "secondary, cardgrade.io"
+        checked_on: "2026-08-05"
+        confidence: low
+        needs_primary_verification: true
+      express:
+        name: Express
+        fee: 79.95
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: 15
         turnaround_observed_days: null
         availability: open
-        availability_note: "subgrades included at this tier"
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
+        source: "secondary, cardgrade.io"
+        checked_on: "2026-08-05"
         confidence: low
+        needs_primary_verification: true
+      priority:
+        name: Priority
+        fee: 124.95
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: 5
+        turnaround_observed_days: null
+        availability: open
+        source: "secondary, cardgrade.io"
+        checked_on: "2026-08-05"
+        confidence: low
+        needs_primary_verification: true
 
   SGC:
     display_name: SGC
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
+    jurisdiction: US
+    source: secondary
+    checked_on: "2026-08-14"
     confidence: low
-    primary_source_url: "https://gosgc.com/pricing/"
+    needs_primary_verification: true
     membership:
-      required: null                    # NEEDS_VALUE
-      annual_cost: null                 # NEEDS_VALUE
-      included_vouchers: null           # NEEDS_VALUE
-    declared_value_cap_applies: null     # NEEDS_VALUE
-    per_submission_fees:
-      handling_fee: null                # NEEDS_VALUE
-      return_shipping: null             # NEEDS_VALUE
+      required: false
+      tiers: {}
+      source: secondary
+      checked_on: "2026-08-14"
+      confidence: low
+      needs_primary_verification: true
     tiers:
-      economy:
-        name: "Economy"
-        fee: 25.00
+      standard:
+        name: Standard
+        fee: 15
         unit: per_card
         min_cards: 1
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE
-        # Quoted as 20-30 days. Units not stated as business or calendar days
-        # in the source, so both interpretations are recorded and the engine
-        # uses the conservative end under the business-day reading.
-        turnaround_business_days: 30
-        turnaround_business_days_min: 20
-        turnaround_business_days_max: 30
-        turnaround_units_unconfirmed: true
+        max_declared_value: 1500
+        membership_required: false
+        turnaround_business_days: null
         turnaround_observed_days: null
         availability: open
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
+        source: secondary
+        checked_on: "2026-08-14"
         confidence: low
+        needs_primary_verification: true
+      standard_high_value:
+        name: "Standard (high value)"
+        fee: 85
+        unit: per_card
+        min_cards: 1
+        max_declared_value: 3500
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: open
+        source: secondary
+        checked_on: "2026-08-14"
+        confidence: low
+        needs_primary_verification: true
+      expedited:
+        name: Expedited
+        fee: 150
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: open
+        source: secondary
+        checked_on: "2026-08-14"
+        confidence: low
+        needs_primary_verification: true
+      expedited_high_value:
+        name: "Expedited (high value)"
+        fee: 250
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: open
+        source: secondary
+        checked_on: "2026-08-14"
+        confidence: low
+        needs_primary_verification: true
 
   TAG:
-    display_name: TAG Grading
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
+    display_name: TAG
+    jurisdiction: US
+    source: secondary
+    checked_on: "2026-08-14"
     confidence: low
-    primary_source_url: "https://taggrading.com/pricing"
+    needs_primary_verification: true
     membership:
-      required: null                    # NEEDS_VALUE
-      annual_cost: null                 # NEEDS_VALUE
-      included_vouchers: null           # NEEDS_VALUE
-    declared_value_cap_applies: null     # NEEDS_VALUE
-    per_submission_fees:
-      handling_fee: null                # NEEDS_VALUE
-      return_shipping: null             # NEEDS_VALUE
+      required: false
+      tiers: {}
+      source: secondary
+      checked_on: "2026-08-14"
+      confidence: low
+      needs_primary_verification: true
     tiers:
-      bulk:
-        name: "Bulk"
-        fee: 12.00
-        unit: per_card_bulk
-        min_cards: null                 # NEEDS_VALUE
-        max_declared_value: null        # NEEDS_VALUE
-        membership_required: null       # NEEDS_VALUE
-        turnaround_business_days: null  # NEEDS_VALUE
+      basic:
+        name: Basic
+        fee: 22
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: paused
+        availability_note: "Not orderable per secondary source, 2026-08-14."
+        source: secondary
+        checked_on: "2026-08-14"
+        confidence: low
+        needs_primary_verification: true
+      standard:
+        name: Standard
+        fee: 59
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: paused
+        availability_note: "Not orderable per secondary source, 2026-08-14."
+        source: secondary
+        checked_on: "2026-08-14"
+        confidence: low
+        needs_primary_verification: true
+      priority:
+        name: Priority
+        fee: 149
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
         turnaround_observed_days: null
         availability: open
-        effective_from: null            # NEEDS_VALUE
-        source: "secondary, unverified"
-        checked_on: "2026-08-13"
+        source: secondary
+        checked_on: "2026-08-14"
         confidence: low
+        needs_primary_verification: true
+      walkthrough:
+        name: Walkthrough
+        fee: 299
+        unit: per_card
+        min_cards: 1
+        max_declared_value: null
+        membership_required: false
+        turnaround_business_days: null
+        turnaround_observed_days: null
+        availability: open
+        source: secondary
+        checked_on: "2026-08-14"
+        confidence: low
+        needs_primary_verification: true
 
-# My own costs. Deliberately null: these are mine to measure, not to inherit
-# from anyone's summary. The engine refuses until they are filled.
+# Per-submission and per-card costs I bear regardless of grader.
+# All ESTIMATES. Nothing here has been paid yet.
 submission_costs:
-  inbound_shipping: null       # NEEDS_VALUE -- what I pay to ship the batch out
-  inbound_insurance: null      # NEEDS_VALUE
-  return_shipping_insured: null # NEEDS_VALUE -- mine; the grader's own charge is
-                               # under graders.*.per_submission_fees.return_shipping
-  supplies_per_card: null      # NEEDS_VALUE -- sleeve + semi-rigid + team bag
-  default_batch_size: null     # NEEDS_VALUE
-  source: null                 # NEEDS_VALUE
-  checked_on: null             # NEEDS_VALUE
+  # Route freight lives in `routes` above, because it is the thing that differs
+  # between a domestic and a transatlantic submission. These are the costs that
+  # do not.
+  supplies_per_card: 0.50
+  supplies_per_submission: 5
+  default_batch_size: 10
+  inbound_insurance: 0
+  # Kept for the engine's flat-path callers; the route figures supersede these
+  # and a route-aware call reads grading.routes.<route>.* instead.
+  inbound_shipping: null
+  return_shipping_insured: null
+  estimated: true
+  source: user estimate
+  checked_on: "2026-08-14"
+  confidence: low
+  calibration_plan: "replace with actuals from first submission"
+  note: >-
+    supplies_per_card is a Card Saver, a sleeve and a team bag. Per-submission
+    supplies are the mailer, box and tape, divided by batch size. Freight is
+    per submission and lives on the route.

@@ -45,16 +45,13 @@ GENERATED_AT = "2026-08-13T09:00:00Z"
 
 # --------------------------------------------------------------- the unknowns
 
-SUBMISSION_COSTS = {
-    # A 12.00 tracked parcel carrying a batch of 10 -> 1.20 a card.
-    "inbound_shipping": 12.00,
-    "inbound_insurance": 0,
-    # 25.00 insured return on the same batch -> 2.50 a card.
-    "return_shipping_insured": 25.00,
-    # Sleeve, semi-rigid, team bag.
-    "supplies_per_card": 0.85,
-    "default_batch_size": 10,
-}
+# Supplies, batch size and route freight are now REAL config (2026-08-14), so
+# the scenario no longer supplies them. What is left here is only what config
+# still ships null.
+SUBMISSION_COSTS = {}
+
+ROUTE = "psa_us"          # the fixtures price a US submission from the UK
+GBPUSD = "1.27"           # illustrative, for the GBP-priced domestic route
 
 ASSUMPTIONS = {
     # Pop-report gem rates are biased upward because people submit their best
@@ -63,7 +60,7 @@ ASSUMPTIONS = {
     # lists it as known-fragile.
     "submission_selection_haircut": 0.80,
     # No sales tax on the illustrative acquisition.
-    "acquisition_tax_pct": 0.0,
+
     # Beta-Binomial prior strength, in pseudo-cards, for shrinking a card's
     # population toward its set distribution.
     "empirical_bayes_prior_strength": 20,
@@ -83,8 +80,8 @@ def scenario_config(today=AS_OF) -> Config:
                  assumptions=copy.deepcopy(cfg.assumptions),
                  crossover_rules=copy.deepcopy(cfg.crossover_rules), today=today)
 
-    cfg.grading.setdefault("submission_costs", {}).update(SUBMISSION_COSTS)
-    cfg.fees.setdefault("region_defaults", {})["default_days_to_sell"] = DAYS_TO_SELL
+    if SUBMISSION_COSTS:
+        cfg.grading.setdefault("submission_costs", {}).update(SUBMISSION_COSTS)
     for key, value in ASSUMPTIONS.items():
         cfg.assumptions.setdefault(key, {})["current_value"] = value
     for key, value in REGRADE_ASSUMPTIONS.items():
@@ -97,7 +94,17 @@ def scenario_config(today=AS_OF) -> Config:
         "fixtures assume the shipped PSA Regular fee"
     assert cfg.get("fees.marketplaces.ebay.fee_schedule.base") == \
         "item_plus_shipping_plus_tax", "fixtures assume the shipped eBay schedule"
+    assert cfg.get("grading.import_charges.home_jurisdiction") == "GB"
     return cfg
+
+
+def fx_gbp_usd():
+    """Illustrative rate for the GBP-priced domestic route. Declared, dated and
+    not a market observation -- the engine refuses to convert without one
+    rather than assuming parity."""
+    from engine.ev.money import FxRate
+    return FxRate(base="GBP", quote="USD", rate=GBPUSD, as_of=str(AS_OF),
+                  source="illustrative, fixture scenario")
 
 
 # ------------------------------------------------------------ the worked card

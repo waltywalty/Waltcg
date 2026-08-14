@@ -25,13 +25,16 @@ from .config import (MISSING, Config, ConfigIncomplete,
                      business_days_to_calendar)
 from .fees import FeeScheduleError, net_proceeds_from_schedule
 from .grades import shrunk_grade_distribution
+from .imports import (ImportChargeError, effective_rate, import_charge_by_grade,
+                      resolve_rule, route_freight, summarise)
 from .money import Money
 from .results import CostBreakdown, EVResult, GradeDistribution, Provenance, Refusal
 
 MODEL = "raw_to_graded_ev"
 
 
-def required_paths(grader: str, tier: str, venue: str, schedule: bool = False) -> list:
+def required_paths(grader: str, tier: str, venue: str, schedule: bool = False,
+                   route: Optional[str] = None) -> list:
     venue_fee_paths = (
         [f"fees.marketplaces.{venue}.fee_schedule.base",
          f"fees.marketplaces.{venue}.fee_schedule.bands"]
@@ -40,14 +43,20 @@ def required_paths(grader: str, tier: str, venue: str, schedule: bool = False) -
          f"fees.marketplaces.{venue}.payment_pct",
          f"fees.marketplaces.{venue}.payment_fixed"]
     )
-    return venue_fee_paths + [
+    # Freight lives on the route, because the difference between a domestic and
+    # a transatlantic submission is the whole question. The flat
+    # submission_costs figures are superseded and stay null.
+    freight_paths = ([f"grading.routes.{route}.outbound_shipping",
+                      f"grading.routes.{route}.return_shipping_insured",
+                      f"grading.routes.{route}.currency"] if route else
+                     ["grading.submission_costs.inbound_shipping",
+                      "grading.submission_costs.return_shipping_insured"])
+    return venue_fee_paths + freight_paths + [
         "grading.meta.currency",
         f"grading.graders.{grader}.tiers.{tier}.fee",
         f"grading.graders.{grader}.tiers.{tier}.turnaround_business_days",
         f"grading.graders.{grader}.tiers.{tier}.availability",
         f"grading.graders.{grader}.tiers.{tier}.min_cards",
-        "grading.submission_costs.inbound_shipping",
-        "grading.submission_costs.return_shipping_insured",
         "grading.submission_costs.supplies_per_card",
         "grading.submission_costs.default_batch_size",
         f"fees.marketplaces.{venue}.currency",
@@ -72,6 +81,9 @@ def raw_to_graded_ev(
     grade_probs: Optional[GradeDistribution] = None,
     card_pop: Optional[dict] = None,
     set_pop: Optional[dict] = None,
+    route: Optional[str] = None,
+    route_fx=None,
+    buy_route: Optional[str] = None,
     outbound_shipping: Optional[Money] = None,
     shipping_charged: Optional[Money] = None,
     tax_collected: Optional[Money] = None,
@@ -90,8 +102,23 @@ def raw_to_graded_ev(
     # A venue either carries a modern fee_schedule (base + marginal bands +
     # tiered fixed fees) or the older flat trio. Which one decides what must
     # be present before anything is computed.
+    # Once import charges are configured, the route stops being optional: the
+    # difference between a domestic and a transatlantic return is larger than
+    # the grading fee, and defaulting to "domestic" would default to the
+    # cheaper answer without saying so.
+    imports_configured = cfg.get("grading.import_charges") is not MISSING
+    if imports_configured and not route:
+        return Refusal(
+            MODEL, "no grading route supplied",
+            "import charges are configured, so which route the card takes "
+            "decides whether the return leg is charged at all. Supply a route "
+            f"from grading.routes; a domestic one carries no import charge and "
+            "that asymmetry is the point.",
+            missing=["route"], subject=card_uid)
+
     uses_schedule = cfg.get(f"fees.marketplaces.{venue}.fee_schedule") is not MISSING
-    cfg.require(required_paths(grader, tier, venue, schedule=uses_schedule),
+    cfg.require(required_paths(grader, tier, venue, schedule=uses_schedule,
+                               route=route),
                 context=f"{MODEL} for {card_uid} ({grader}/{tier} -> {venue})")
 
     currency = cfg.get("grading.meta.currency")
@@ -132,13 +159,48 @@ def raw_to_graded_ev(
     if batch < 1:
         return Refusal(MODEL, "invalid batch size", f"batch_size={batch}", subject=card_uid)
 
-    tax_pct = cfg.decimal("assumptions.acquisition_tax_pct.current_value")
+    # Acquisition tax is per BUY ROUTE, not a flat rate: a UK second-hand
+    # purchase carries none, an import over 135 carries VAT and duty, and both
+    # compound the same way the return leg does.
+    tax_table = cfg.get("assumptions.acquisition_tax_pct.current_value")
+    if isinstance(tax_table, dict):
+        if not buy_route:
+            return Refusal(
+                MODEL, "no buy route supplied",
+                "acquisition tax is configured per buy route -- UK second-hand "
+                "carries none, an import over 135 carries 20% VAT and 2% duty. "
+                f"Supply one of {sorted(tax_table)}.",
+                missing=["buy_route"], subject=card_uid)
+        entry = tax_table.get(buy_route)
+        if entry is None:
+            return Refusal(MODEL, "unknown buy route",
+                           f"{buy_route!r} is not in the acquisition tax table; "
+                           f"known routes are {sorted(tax_table)}",
+                           missing=[f"assumptions.acquisition_tax_pct.current_value.{buy_route}"],
+                           subject=card_uid)
+        vat_pct = Decimal(str(entry.get("vat_pct", 0)))
+        duty_pct = Decimal(str(entry.get("duty_pct", 0)))
+        # Same compounding as the return leg: duty on goods, VAT on goods+duty.
+        tax_pct = duty_pct + vat_pct * (Decimal(1) + duty_pct)
+    else:
+        tax_pct = cfg.decimal("assumptions.acquisition_tax_pct.current_value")
     fee_per_card = Money(str(cfg.decimal(
         f"grading.graders.{grader}.tiers.{tier}.fee")), currency)
-    inbound_total = Money(str(cfg.decimal("grading.submission_costs.inbound_shipping")), currency)
-    return_total = Money(str(cfg.decimal(
-        "grading.submission_costs.return_shipping_insured")), currency)
+    if route:
+        try:
+            inbound_total, return_total = route_freight(cfg, route, currency, route_fx)
+        except ImportChargeError as e:
+            return Refusal(MODEL, "route freight unusable", str(e),
+                           missing=[f"grading.routes.{route}"], subject=card_uid)
+    else:
+        inbound_total = Money(str(cfg.decimal(
+            "grading.submission_costs.inbound_shipping")), currency)
+        return_total = Money(str(cfg.decimal(
+            "grading.submission_costs.return_shipping_insured")), currency)
     supplies = Money(str(cfg.decimal("grading.submission_costs.supplies_per_card")), currency)
+    per_submission = cfg.get("grading.submission_costs.supplies_per_submission", None)
+    if per_submission is not None:
+        supplies = supplies + (Money(str(per_submission), currency) / batch)
 
     costs = CostBreakdown(
         acquisition=acquisition_cost,
@@ -212,6 +274,28 @@ def raw_to_graded_ev(
               "unknown, not worthless; pricing it at zero would understate EV and still "
               "return a number that reads like a finding.",
             missing=[f"comps_by_grade[{g!r}]" for g in uncomped], subject=card_uid)
+    # -- import charges on the return leg ---------------------------------
+    import_rule, import_applies, (import_note, facility) = (
+        resolve_rule(cfg, route) if route else (None, False, ("no route", None)))
+    relief = cfg.get("assumptions.relief_scenario.current_value", "relief_none")
+    import_charges = {}
+    if import_applies:
+        return_freight = return_total / batch
+        value_added = fee_per_card + return_freight
+        try:
+            import_charges = import_charge_by_grade(
+                proceeds_by_grade, comps_by_grade, rule=import_rule,
+                relief=relief, return_freight=return_freight,
+                value_added=value_added)
+        except ImportChargeError as e:
+            return Refusal(MODEL, "import charge rule unusable", str(e),
+                           missing=[f"grading.import_charges"], subject=card_uid)
+        # Deducted per branch, not from the cost total: the declared value is
+        # the value of the card that comes back, so a 10 is charged more than
+        # a 9 on the same submission.
+        proceeds_by_grade = {g: n - import_charges[g]
+                             for g, n in proceeds_by_grade.items()}
+
     ev_proceeds = expected_proceeds(probs, proceeds_by_grade, currency)
     ev = ev_proceeds - total_cost
 
@@ -267,6 +351,17 @@ def raw_to_graded_ev(
         ev=ev, roi=roi, annualised_roi=ann, horizon_days=horizon,
         costs=costs, downside_case=downside, grade_distribution=grade_probs,
         provenance=prov,
+        import_charges={
+            "applies": import_applies,
+            "route": route,
+            "note": import_note,
+            "relief_scenario": relief if import_applies else None,
+            "expected": (summarise(import_charges, probs, currency).as_dict()
+                         if import_applies else None),
+            "by_grade": {g: c.as_dict() for g, c in import_charges.items()},
+            "effective_rate_on_goods": (str(effective_rate(import_rule))
+                                        if import_applies else None),
+        },
     )
 
 

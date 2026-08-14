@@ -200,7 +200,9 @@ def model_a_result():
     comps = {g: Money(p, "USD") for g, p in LADDER_PRICES.items() if g != "raw"}
     result = raw_to_graded_ev(
         WORKED_CARD, Money(ACQUISITION, "USD"), TIER, comps, cfg=cfg,
-        grader=GRADER, venue=VENUE, card_pop=LADDER_POP, set_pop=SET_POP)
+        grader=GRADER, venue=VENUE, route=fs.ROUTE, route_fx=fs.fx_gbp_usd(),
+        buy_route="uk_domestic_secondhand",
+        card_pop=LADDER_POP, set_pop=SET_POP)
     if not result:
         raise SystemExit(f"engine refused: {result.reason} -- {result.detail}")
     return result
@@ -217,7 +219,8 @@ def estimated_result():
         effective_sample_size=None, haircut_applied=None, notes=[USER_PROBS_NOTE])
     result = raw_to_graded_ev(
         ESTIMATED_CARD, Money(ESTIMATED_ACQUISITION, "USD"), TIER, comps, cfg=cfg,
-        grader=GRADER, venue=VENUE, grade_probs=probs)
+        grader=GRADER, venue=VENUE, route=fs.ROUTE, route_fx=fs.fx_gbp_usd(),
+        buy_route="uk_domestic_secondhand", grade_probs=probs)
     if not result:
         raise SystemExit(f"engine refused: {result.reason} -- {result.detail}")
     return result
@@ -231,7 +234,7 @@ def regrade_result():
     result = regrade_9_to_10_ev(
         fs.REGRADE_CARD, Money(fs.REGRADE_SLAB_VALUE_9, "USD"), comps,
         cfg=scenario_config(), condition_read=fs.REGRADE_CONDITION_READ,
-        tier=TIER, venue=VENUE)
+        tier=TIER, venue=VENUE, route=fs.ROUTE)
     if not result:
         raise SystemExit(f"model B refused: {result.reason} -- {result.detail}")
     return result
@@ -243,7 +246,8 @@ def regrade_refusal():
     comps = {g: Money(v, "USD") for g, v in fs.REGRADE_COMPS.items()}
     result = regrade_9_to_10_ev(
         fs.UNREAD_REGRADE_CARD, Money("300.00", "USD"), comps,
-        cfg=scenario_config(), condition_read=None, tier=TIER, venue=VENUE)
+        cfg=scenario_config(), condition_read=None, tier=TIER, venue=VENUE,
+        route=fs.ROUTE)
     if result:
         raise SystemExit("model B priced a regrade with no condition read")
     return result
@@ -336,9 +340,33 @@ def main():
         f"Needs P(10) = {q(r.break_even_p_target)}; modelled "
         f"{q(r.modelled_p_target)}. Do not submit.",
     ]
+    ic = r.import_charges
+    lab["import_charges"] = {
+        "applies": ic["applies"],
+        "route": ic["route"],
+        "note": ic["note"],
+        "relief_scenario": ic["relief_scenario"],
+        "expected": (usd(Decimal(ic["expected"]["amount"]))
+                     if ic["expected"] else None),
+        "effective_rate_on_goods": (q(Decimal(ic["effective_rate_on_goods"]), "0.0001")
+                                    if ic["effective_rate_on_goods"] else None),
+        "by_grade": ({g: usd(Decimal(v["amount"]))
+                      for g, v in ic["by_grade"].items()} or None),
+    }
     for key, basis in LAB_BASIS.items():
         lab[key]["estimate_basis"] = basis
     save("grading_lab", lab)
+
+    # ------------------------------------------------- grading_lab.refusal
+    # The refusal payload is hand-authored, but it shares the Lab's envelope
+    # and must not drift from it. A refusal still has to say whether the route
+    # would have been charged: "we could not price this" and "and it crosses a
+    # border" are separate facts, and the second one survives the first.
+    ref = load("grading_lab.refusal")
+    ref["import_charges"] = json.loads(json.dumps(lab["import_charges"]))
+    ref["import_charges"]["expected"] = None
+    ref["import_charges"]["by_grade"] = None
+    save("grading_lab.refusal", ref)
 
     # -------------------------------------------------------------- signals
     # The raw_to_10 row for the worked card leads with the same break-even
@@ -473,6 +501,7 @@ def main():
         row["net_margin_pct"]["value"] = q(net / buy * 100, "0.01")
         row.setdefault("regrade_detail", None)
         row["friction"].setdefault("supplies", None)
+        row["friction"].setdefault("import_charges", None)
 
     # CRACK & RESUBMIT. Previously this panel showed model A's Charizard
     # figures under a regrade label. Model B's are different because the card
@@ -486,14 +515,20 @@ def main():
         (Decimal(b["p"]) * (Decimal(b["ev_if_realised"]["amount"])
                             + reg.costs.total().amount))
         for b in reg.branches)
-    selling_fees = expected_gross - expected_net
+    # The branch proceeds are already net of the import charge, so subtracting
+    # them from gross would fold customs into "marketplace fee". Two different
+    # deductions to two different parties; the stack itemises both.
+    reg_import = reg.import_charges
+    expected_import = (Decimal(reg_import["expected"]["amount"])
+                       if reg_import["expected"] else Decimal(0))
+    selling_fees = expected_gross - expected_net - expected_import
     crack = {
         "card": json.loads(json.dumps(cd["card"])),
         "path": "crack_resubmit",
         "buy_venue": "hold", "sell_venue": "ebay",
         "buy_cost": usd(slab),
         "gross_spread": usd(expected_gross - slab),
-        "net_spread": usd(reg.ev.amount),
+        "net_spread": None,   # filled below from the ROUNDED friction lines
         "friction": {
             "marketplace_fee": usd(selling_fees - Decimal("0.40")),
             "payment_fee": usd("0.40"),
@@ -502,6 +537,8 @@ def main():
             "grading_fee": usd(reg.costs.grading_fee.amount),
             "supplies": usd(reg.costs.supplies.amount),
             "fx_spread": None, "tax": None,
+            "import_charges": (usd(expected_import) if reg_import["applies"]
+                               else None),
             "needs_primary_verification": True,
         },
         "net_margin_pct": derived(q(reg.ev.amount / slab * 100, "0.01"), "percent",
@@ -529,6 +566,16 @@ def main():
             "refusal": None,
         },
     }
+    # An itemised stack has to add up as displayed. Each line is rounded to
+    # cents, so net is derived from the rounded lines rather than from the
+    # engine's unrounded EV -- otherwise the column sums to a cent off on
+    # screen, which reads as a bug in the arithmetic rather than in the
+    # rounding. The test asserts the two agree to within a cent.
+    crack_friction = sum(Decimal(v["amount"]) for v in crack["friction"].values()
+                         if isinstance(v, dict))
+    crack["net_spread"] = usd(Decimal(crack["gross_spread"]["amount"]) - crack_friction)
+    crack["net_margin_pct"]["value"] = q(
+        Decimal(crack["net_spread"]["amount"]) / slab * 100, "0.01")
     arb["rows"] = [row for row in arb["rows"] if row["path"] != "crack_resubmit"]
     arb["rows"].append(crack)
     arb["warnings"] = [
@@ -617,6 +664,30 @@ def main():
     # is silent -- you change a haircut believing four figures move when six do.
     usage = collect_usage()
     settings = load("settings")
+    # Mirror the registry rather than maintaining a second copy of it. The
+    # contract test asserts the two match; deriving it is how they stay matched
+    # when an assumption is added.
+    registry = json.load(open(os.path.join(FIX, "..", "assumptions.json"),
+                              encoding="utf-8"))
+    by_id = {a["id"]: a for a in settings["assumptions"]}
+    settings["assumptions"] = []
+    for key, entry in registry.items():
+        if not isinstance(entry, dict) or "id" not in entry:
+            continue
+        current = entry["current_value"]
+        view = by_id.get(key, {})
+        view.update({
+            "id": entry["id"], "description": entry["description"],
+            "current_value": (current if isinstance(current, (str, type(None)))
+                              else json.dumps(current, ensure_ascii=False)),
+            "unit": entry["unit"], "confidence": entry["confidence"],
+            "source": entry.get("source"),
+            "last_reviewed": entry.get("last_reviewed"),
+            "calibration_plan": entry["calibration_plan"],
+            "ui_chip_required": entry.get("ui_chip_required", False),
+            "editable": entry.get("editable", True),
+        })
+        settings["assumptions"].append(view)
     for entry in settings["assumptions"]:
         used = sorted(usage.get(entry["id"], set()))
         entry["used_by"] = [{"screen": screen, "field": field,

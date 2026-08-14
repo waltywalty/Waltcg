@@ -105,64 +105,56 @@ class EbayFeeSchedule(unittest.TestCase):
 
 class TcgplayerFeeSchedule(unittest.TestCase):
 
-    def test_commission_and_payment_both_on_full_order_total(self):
-        """item 100, shipping 5, tax 8 -> base 113.
+    def test_commission_and_payment_sit_on_DIFFERENT_bases(self):
+        """TCGplayer charges commission on the ITEM and the transaction fee on
+        the FULL ORDER TOTAL. Two bases inside one venue.
 
-        commission 10.75% of 113 = 12.1475
-        payment     2.50% of 113 =  2.825
-        fixed                     =  0.30
-        total                     = 15.2725
+        item 100, shipping 5, tax 8:
+          commission 10.75% of 100 = 10.75   <- item only
+          payment     2.50% of 113 =  2.825  <- order total
+          fixed                     =  0.30
         """
         sched = real_config().get("fees.marketplaces.tcgplayer.fee_schedule")
+        self.assertEqual(sched["base"], "item",
+                         "commission is charged on the item")
+        self.assertEqual(sched["payment"]["pct_base"], "order_total",
+                         "the transaction fee is charged on the order total")
         fee = marketplace_fee(usd(100), sched, shipping_charged=usd(5),
                               tax_collected=usd(8))
-        self.assertEqual(fee["commission"].quantized().amount, D("12.15"))
-        self.assertEqual(fee["payment_pct_amount"].quantized().amount, D("2.83"))
+        self.assertEqual(fee["commission"].quantized().amount, D("10.75"))
         self.assertEqual(fee["fixed"].amount, D("0.30"))
-        self.assertEqual(fee["total"].amount, D("15.2725"))
+
+    def test_the_commission_cap_is_per_product(self):
+        sched = real_config().get("fees.marketplaces.tcgplayer.fee_schedule")
+        self.assertEqual(D(str(sched["commission_cap_per_product"])), D("75"))
 
 
-class MercariUsRefuses(unittest.TestCase):
+class ANullFeeBaseRefuses(unittest.TestCase):
+    """A schedule whose `base` is null must refuse, not fall back to
+    item-only. Every shipped venue now states a base, so this is tested on a
+    synthetic null: the property is about the engine, not about which venue
+    happens to be unpopulated this week."""
 
-    def test_missing_fee_base_refuses_rather_than_assuming_item_only(self):
-        """The source gave 10% + 2.9% + $0.50 but never said what they multiply.
-
-        Assuming item-only would understate the stack on every shipped sale.
-        A percentage without its base is not a fee.
-        """
-        sched = real_config().get("fees.marketplaces.mercari_us.fee_schedule")
-        self.assertIsNone(sched.get("base"))
+    def test_a_null_base_refuses_rather_than_assuming_item_only(self):
+        from engine.ev.fees import FeeScheduleError, marketplace_fee
+        schedule = {"base": None, "bands": [{"up_to": None, "pct": 0.10}]}
         with self.assertRaises(FeeScheduleError) as ctx:
-            marketplace_fee(usd(100), sched)
-        self.assertIn("no base", str(ctx.exception))
+            marketplace_fee(usd(100), schedule)
+        self.assertIn("base", str(ctx.exception).lower())
 
     def test_model_a_refuses_up_front_naming_the_exact_gap(self):
-        """Refused at the config gate, before any arithmetic.
-
-        Earlier and more precise than the runtime FeeScheduleError path, which
-        remains as defence in depth for a schedule that is present but
-        malformed.
-        """
         cfg = real_config()
-        # Fill everything else so the fee base is the only blocker.
-        cfg.grading["submission_costs"].update(
-            {"inbound_shipping": 10, "return_shipping_insured": 20,
-             "supplies_per_card": 1, "default_batch_size": 10})
-        cfg.fees["region_defaults"]["default_days_to_sell"] = 30
-        cfg.assumptions["acquisition_tax_pct"]["current_value"] = 0
-        cfg.assumptions["submission_selection_haircut"]["current_value"] = 1.0
-        cfg.assumptions["empirical_bayes_prior_strength"]["current_value"] = 20
-        cfg.assumptions["empirical_bayes_min_card_pop"]["current_value"] = 10
-        cfg.fees["marketplaces"]["mercari_us"]["currency"] = "USD"
-        from engine.ev.results import GradeDistribution
-        from engine.ev import ConfigIncomplete
-        with self.assertRaises(ConfigIncomplete) as ctx:
-            raw_to_graded_ev("x", usd(100), "regular", {"10": usd(500)},
-                             cfg=cfg, venue="mercari_us",
-                             grade_probs=GradeDistribution(probs={"10": D(1)},
-                                                           prior_used="test"))
-        self.assertEqual(ctx.exception.missing,
-                         ["fees.marketplaces.mercari_us.fee_schedule.base"])
+        cfg.fees["marketplaces"]["ebay"]["fee_schedule"]["base"] = None
+        from engine.ev.config import ConfigIncomplete
+        try:
+            r = raw_to_graded_ev("x", usd(100), "regular", {"10": usd(500)},
+                                 cfg=cfg, route="psa_us",
+                                 buy_route="uk_domestic_secondhand")
+        except ConfigIncomplete as e:
+            self.assertTrue(any("base" in m for m in e.missing), e.missing)
+            return
+        self.assertIsInstance(r, Refusal)
+        self.assertIn("base", (r.detail + " " + " ".join(r.missing)).lower())
 
 
 class UnverifiedFiresRegardlessOfAge(unittest.TestCase):
@@ -174,7 +166,10 @@ class UnverifiedFiresRegardlessOfAge(unittest.TestCase):
         self.assertTrue(warnings, "unverified entries produced no warning")
         self.assertTrue(all(isinstance(w, UnverifiedWarning) for w in warnings))
         paths = {w.path for w in warnings}
-        self.assertIn("graders.PSA.tiers.regular", paths)
+        # PSA regular is now primary-sourced and no longer warns. A BGS tier
+        # checked nine days ago still does, because age was never the trigger.
+        self.assertIn("graders.BGS.tiers.express", paths)
+        self.assertNotIn("graders.PSA.tiers.regular", paths)
 
     def test_same_warnings_a_year_later(self):
         """Age changes nothing: it was never verified either way."""
@@ -182,13 +177,25 @@ class UnverifiedFiresRegardlessOfAge(unittest.TestCase):
         later = Config.load(today=dt.date(2027, 8, 13)).unverified_warnings()
         self.assertEqual(len(now), len(later))
 
-    def test_every_psa_entry_needs_primary_verification(self):
+    def test_every_secondary_grader_needs_primary_verification(self):
+        """PSA and CGC were read from their own pages on 2026-08-14, so they are
+        no longer flagged wholesale. BGS, SGC and TAG were not, and every one of
+        their entries still is."""
         cfg = real_config()
-        psa = [w for w in cfg.needs_primary_verification()
-               if w.path.startswith("graders.PSA")]
-        self.assertGreaterEqual(len(psa), 5)
-        for w in psa:
-            self.assertTrue(w.needs_primary_verification)
+        flagged = {w.path for w in cfg.needs_primary_verification()}
+        for grader in ("BGS", "SGC", "TAG"):
+            hits = [p for p in flagged if p.startswith(f"graders.{grader}")]
+            self.assertTrue(hits, f"{grader} is secondary and must be flagged")
+
+    def test_psas_conflicting_membership_price_is_flagged(self):
+        """PSA's fee page and its own join page disagree on the membership
+        price. Both are primary. A conflict between two primary sources is not
+        resolved by picking one, so the entry stays flagged."""
+        cfg = real_config()
+        flagged = {w.path for w in cfg.needs_primary_verification()}
+        self.assertIn("graders.PSA.membership", flagged)
+        self.assertIn("CONFLICT",
+                      cfg.get("grading.graders.PSA.membership.conflict_note"))
 
     def test_unverified_warnings_reach_the_result(self):
         cfg = real_config()
@@ -207,15 +214,19 @@ class GradingConfigValues(unittest.TestCase):
                          "open")
 
     def test_turnaround_uses_the_conservative_end_of_the_range(self):
-        """40-60 business days: the model must take 60.
+        """PSA Regular is 40-50 business days on their own page as of
+        2026-08-14, so the model must take 50. Asserted as "the max of the
+        stated range" rather than a literal, because the range moves.
 
         Understating turnaround overstates annualised ROI, which is the
         dangerous direction for a capital-lockup decision.
         """
-        t = self.cfg
-        self.assertEqual(t.get("grading.graders.PSA.tiers.regular.turnaround_business_days"), 60)
-        self.assertEqual(
-            t.get("grading.graders.PSA.tiers.regular.turnaround_business_days_min"), 40)
+        root = "grading.graders.PSA.tiers.regular"
+        used = self.cfg.get(f"{root}.turnaround_business_days")
+        lo = self.cfg.get(f"{root}.turnaround_business_days_min")
+        hi = self.cfg.get(f"{root}.turnaround_business_days_max")
+        self.assertEqual(used, hi, "must take the slow end")
+        self.assertLess(lo, hi)
 
     def test_psa_value_tiers_are_paused_with_a_date_and_no_reinstatement(self):
         for tier in ("value", "value_plus", "value_bulk", "value_max"):
@@ -232,6 +243,7 @@ class GradingConfigValues(unittest.TestCase):
         cfg.fees["region_defaults"]["default_days_to_sell"] = 30
         cfg.assumptions["acquisition_tax_pct"]["current_value"] = 0
         cfg.assumptions["submission_selection_haircut"]["current_value"] = 1.0
+        cfg.grading.pop("import_charges", None)   # domestic-only scenario
         cfg.assumptions["empirical_bayes_prior_strength"]["current_value"] = 20
         cfg.assumptions["empirical_bayes_min_card_pop"]["current_value"] = 10
         cfg.grading["graders"]["PSA"]["tiers"]["value"]["fee"] = 25
@@ -245,27 +257,86 @@ class GradingConfigValues(unittest.TestCase):
         self.assertEqual(r.reason, "tier unavailable")
 
     def test_other_graders_are_populated(self):
-        for grader, tier, fee in (("CGC", "economy", "15.00"), ("CGC", "bulk", "12.00"),
-                                  ("BGS", "economy", "20.00"), ("SGC", "economy", "25.00"),
-                                  ("TAG", "bulk", "12.00")):
+        """CGC read from its own fee chart (dated 2026-03-24); BGS, SGC and TAG
+        from a secondary aggregator and flagged accordingly."""
+        for grader, tier, fee in (("CGC", "economy", "20"), ("CGC", "bulk", "17"),
+                                  ("CGC", "standard", "55"),
+                                  ("BGS", "express", "79.95"),
+                                  ("SGC", "standard", "15"),
+                                  ("TAG", "priority", "149")):
             self.assertEqual(
                 self.cfg.decimal(f"grading.graders.{grader}.tiers.{tier}.fee"), D(fee),
                 f"{grader}/{tier}")
         self.assertEqual(self.cfg.get("grading.graders.CGC.tiers.bulk.min_cards"), 25)
 
-    def test_my_own_costs_are_still_null_and_refusing(self):
+    def test_a_paused_tier_never_carries_a_price(self):
+        """PSA's four Value tiers show "Currently Unavailable". Recording the
+        pre-pause hearsay prices would make an unorderable tier the cheapest
+        row on every screen that sorts by cost."""
+        from engine.ev.config import MISSING
+        for grader in ("PSA", "BGS", "TAG"):
+            tiers = self.cfg.get(f"grading.graders.{grader}.tiers") or {}
+            for name, tier in tiers.items():
+                if tier.get("availability") == "paused" and grader == "PSA":
+                    self.assertIsNone(tier["fee"],
+                                      f"{grader}/{name} is paused but priced")
+
+    def test_routes_carry_their_own_freight_and_jurisdiction(self):
+        """Freight is per route, not global: the difference between a domestic
+        and a transatlantic submission is the whole comparison."""
+        for route, jurisdiction in (("cgc_uk", "GB"), ("psa_us", "US")):
+            root = f"grading.routes.{route}"
+            self.assertEqual(self.cfg.get(f"{root}.facility_jurisdiction"), jurisdiction)
+            self.assertIsNotNone(self.cfg.get(f"{root}.outbound_shipping"), route)
+            self.assertIsNotNone(self.cfg.get(f"{root}.return_shipping_insured"), route)
+            self.assertTrue(self.cfg.get(f"{root}.estimated"), route)
+
+    def test_the_flat_freight_pair_stays_null_now_that_routes_supersede_it(self):
+        """Supplies and batch size are now measured-ish estimates and populated.
+        The flat inbound/return pair is NOT: freight moved onto the route, and
+        leaving these null means a caller that reaches for the old path gets a
+        refusal instead of a figure that ignores which ocean the card crosses."""
         from engine.ev.config import MISSING
         for path in ("grading.submission_costs.inbound_shipping",
-                     "grading.submission_costs.supplies_per_card",
-                     "grading.submission_costs.default_batch_size",
-                     "assumptions.acquisition_tax_pct.current_value"):
+                     "grading.submission_costs.return_shipping_insured"):
             self.assertIs(self.cfg.get(path), MISSING, path)
+        self.assertEqual(self.cfg.decimal("grading.submission_costs.supplies_per_card"),
+                         D("0.50"))
+        self.assertEqual(self.cfg.get("grading.submission_costs.default_batch_size"), 10)
 
-    def test_deliberately_unpopulated_marketplaces_stay_null(self):
+    def test_my_own_costs_are_all_marked_estimated(self):
+        """None of these has been paid yet."""
+        self.assertTrue(self.cfg.get("grading.submission_costs.estimated"))
+        self.assertEqual(self.cfg.get("grading.submission_costs.confidence"), "low")
+        for route in ("cgc_uk", "psa_us"):
+            self.assertTrue(self.cfg.get(f"grading.routes.{route}.estimated"), route)
+
+    def test_the_legacy_flat_trio_stays_null_on_every_venue(self):
+        """Every venue now carries a banded schedule with an explicit base. The
+        old flat percentages stay null so a caller reaching for them refuses
+        rather than silently pricing eBay's tiered fee as one number."""
         from engine.ev.config import MISSING
-        for venue in ("mercari_jp", "snkrdunk", "xianyu", "cardmarket"):
-            self.assertIs(self.cfg.get(f"fees.marketplaces.{venue}.fee_schedule"),
-                          MISSING, venue)
+        for venue in self.cfg.get("fees.marketplaces"):
+            for key in ("final_value_fee_pct", "payment_pct", "payment_fixed"):
+                self.assertIs(self.cfg.get(f"fees.marketplaces.{venue}.{key}"),
+                              MISSING, f"{venue}.{key}")
+
+    def test_every_venue_states_its_own_fee_base(self):
+        """The bases genuinely differ -- eBay US on item+shipping+tax,
+        Cardmarket and Mercari JP on the item alone -- and flattening them is
+        what produced the 15.37 against 13.25 discrepancy."""
+        bases = {}
+        for venue in self.cfg.get("fees.marketplaces"):
+            base = self.cfg.get(f"fees.marketplaces.{venue}.fee_schedule.base")
+            self.assertIsNotNone(base, venue)
+            bases[venue] = base
+        self.assertEqual(bases["ebay"], "item_plus_shipping_plus_tax")
+        self.assertEqual(bases["cardmarket"], "item")
+        self.assertEqual(bases["mercari_jp"], "item")
+        self.assertEqual(bases["mercari_us"], "item_plus_shipping")
+        self.assertGreater(len(set(bases.values())), 1,
+                           "if every venue shared a base there would be nothing "
+                           "to get wrong, and there was")
 
 
 if __name__ == "__main__":

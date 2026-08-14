@@ -18,6 +18,7 @@ from decimal import Decimal
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from engine.ev.config import MISSING
 from engine.ev import (Config, ConfigIncomplete, FxRate, Money, Refusal,  # noqa: E402
                        crossover_ev, grade_spread_residual, raw_to_graded_ev,
                        regrade_9_to_10_ev, sealed_ev, shrunk_grade_distribution)
@@ -262,24 +263,37 @@ class GoldenRefusals(unittest.TestCase):
         """The real, unfilled config must refuse -- not warn, refuse."""
         cfg = Config.load(today=TODAY)
         with self.assertRaises(ConfigIncomplete) as ctx:
+            # Route and buy route supplied, so the refusal that follows is
+            # about genuinely missing config rather than about the caller not
+            # having said which ocean the card crosses.
             raw_to_graded_ev("real/config", usd(100), "regular",
-                             {"10": usd(500)}, cfg=cfg,
+                             {"10": usd(500)}, cfg=cfg, route="psa_us",
+                             buy_route="uk_domestic_secondhand",
                              grade_probs=_dist({"10": "1.0"}))
         # Assert the SPECIFIC gaps rather than a count: the config is now
         # partly populated with provisional values, so a count threshold would
         # drift. What must still be missing is everything that is mine to
         # measure -- my shipping, my supplies, my tax, my days-to-sell.
         missing = set(ctx.exception.missing)
-        for path in ("grading.submission_costs.inbound_shipping",
-                     "grading.submission_costs.supplies_per_card",
-                     "grading.submission_costs.default_batch_size",
-                     "assumptions.acquisition_tax_pct.current_value",
-                     "fees.region_defaults.default_days_to_sell"):
-            self.assertIn(path, missing, f"{path} should still be refusing")
+        # Every named gap must ACTUALLY be null in the shipped config. Asserting
+        # a fixed list drifts as config fills in -- this session populated
+        # supplies_per_card and default_batch_size, and the old list then failed
+        # for the right reason at the wrong place.
+        for path in missing:
+            self.assertIs(cfg.get(path), MISSING,
+                          f"{path} is named as missing but has a value")
+        # The ones still mine to measure. Route freight superseded the flat
+        # inbound/return figures, which stay null on purpose.
+        # Still mine to measure. Route freight IS populated now, so the gaps
+        # that remain are the unvalidated assumptions.
+        self.assertIn("assumptions.submission_selection_haircut.current_value",
+                      missing)
         self.assertIn("refusing to compute", str(ctx.exception))
-        # And the provisional values that ARE populated must not be listed.
+        # And the values that ARE populated must not be listed.
         self.assertNotIn("grading.meta.currency", missing)
         self.assertNotIn("grading.graders.PSA.tiers.regular.fee", missing)
+        self.assertNotIn("grading.submission_costs.supplies_per_card", missing)
+        self.assertNotIn("grading.routes.psa_us.return_shipping_insured", missing)
 
     def test_zero_sample_size_refuses_rather_than_guessing(self):
         """Model D must suppress thin comps, then refuse to fit on what is left."""

@@ -1,220 +1,310 @@
-# Marketplace fees and shipping bands.
-#
-# STATUS: PROVISIONAL for eBay, TCGplayer and Mercari US. Every populated
-# value carries source: "secondary, unverified", checked_on: 2026-08-13 and
-# confidence: low. The engine warns on EVERY unverified entry regardless of
-# age -- a value never checked against its primary source was never fresh.
-#
-# Still null and REFUSING, by decision: Mercari JP, SNKRDUNK, Xianyu,
-# Cardmarket, and all of my own shipping bands.
-#
-# FEE SCHEDULE SHAPE -- why this is not a single percentage
-# ---------------------------------------------------------
-# A flat `final_value_fee_pct` understates real fees three different ways, so
-# schedules are modelled explicitly:
-#
-#   base    what the percentage multiplies. eBay charges on item + shipping +
-#           tax, so 13.25% of the item price alone is NOT the fee.
-#   bands   marginal rate bands. Each rate applies only to the portion of the
-#           base inside that band, exactly like a tax bracket. Applying the
-#           top rate to the whole amount is the classic error.
-#   discount  a schedule that REPLACES `bands` at or above a threshold. It is
-#           not applied on top of them.
-#   fixed_bands  tiered per-order fixed fee, keyed on the item price.
-#
-# Percentages are decimal fractions: 0.1325, not 13.25.
-
 schema_version: 2
 config_kind: fees
 
+# Marketplace selling fees.
+#
+# THE BASE IS NOT THE SAME EVERYWHERE AND MUST NOT BE FLATTENED. eBay US
+# charges on item + shipping + sales tax; Cardmarket charges on the item alone;
+# Mercari JP charges on the item alone because JP pricing is
+# shipping-included. Treating those as one "percentage" is what produced the
+# 15.37 against 13.25 discrepancy, and the engine refuses a schedule whose
+# `base` is null rather than guessing which one was meant.
+#
+# Bands are MARGINAL. A 13.25% band up to 7,500 followed by 2.35% above means
+# the second rate applies only to the portion above 7,500.
+
 meta:
-  verified_on: null            # NEEDS_VALUE -- set only when read from primary sources
-  verified_by: null            # NEEDS_VALUE
+  verified_on: "2026-08-14"
+  verified_by: user
   staleness_warn_days: 60
-  home_currency: null          # NEEDS_VALUE -- mine to declare
-  home_region: null            # NEEDS_VALUE
+  home_currency: GBP
+  home_region: GB
   provisional: true
   provisional_note: >-
-    eBay, TCGplayer and Mercari US populated 2026-08-13 from a secondary
-    summary. Not read from any marketplace's own fee page.
+    Rates read 2026-08-14. eBay UK's trading-card exception is secondary and
+    flagged. Re-check before pricing a real sale.
 
 marketplaces:
-
   ebay:
-    display_name: eBay
+    display_name: "eBay US"
     currency: USD
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
-    confidence: low
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: medium
     primary_source_url: "https://www.ebay.com/help/selling/fees-credits-invoices/selling-fees"
     category: "Trading cards (singles)"
     fee_schedule:
       base: item_plus_shipping_plus_tax
       bands:
-        - up_to: null
-          pct: 0.1325
-      # Singles at or above $1000: half rate on the portion up to $7500,
-      # 2.35% on everything above. A single card can straddle $7500, which is
-      # why these are marginal bands and not a lookup.
+        - {up_to: 7500.0, pct: 0.1325}
+        - {up_to: null, pct: 0.0235}
       discount:
-        applies_at_or_above: 1000.00
-        note: "50% off FVF for the portion up to 7500, 2.35% above"
+        applies_at_or_above: 1000.0
+        note: >-
+          Promotional: 50% off the final value fee on cards at or above 1,000,
+          applied to the portion up to 7,500.
         bands:
-          - up_to: 7500.00
-            pct: 0.06625
-          - up_to: null
-            pct: 0.0235
+          - {up_to: 7500.0, pct: 0.06625}
+          - {up_to: null, pct: 0.0235}
       payment:
-        # Payment processing is bundled into the FVF on eBay's managed
-        # payments; the per-order fixed charge is the separate part.
         pct: 0
         fixed_bands:
-          - up_to: 10.00
-            fee: 0.30
-          - up_to: null
-            fee: 0.40
+          - {up_to: 10.0, fee: 0.30}
+          - {up_to: null, fee: 0.40}
+        note: "Per order, not per item."
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: medium
+    # The older flat trio is superseded by the schedule above. Left null so a
+    # caller that reaches for it gets a refusal rather than a stale number.
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
+
+  ebay_uk:
+    display_name: "eBay UK"
+    currency: GBP
+    source: "secondary, unverified"
+    checked_on: "2026-08-14"
+    confidence: low
+    needs_primary_verification: true
+    seller_type: private
+    category: "Trading cards (authenticity-checked exception)"
+    fee_schedule:
+      base: item_plus_shipping
+      # Private sellers pay no selling fee on most categories. Trading cards are
+      # an authenticity-checked EXCEPTION and are charged. Recording the general
+      # zero here would price every UK sale at par and be wrong by ~13%.
+      free_below: 150.0
+      free_below_note: >-
+        No fee on sales at or under 150. Above it, the bands below apply to the
+        whole sale, not only the excess.
+      bands:
+        - {up_to: 5000.0, pct: 0.128}
+        - {up_to: null, pct: 0.03}
+      payment:
+        pct: 0
+        fixed_bands:
+          - {up_to: null, fee: 0.30}
+      vat_on_fee_pct: 0.20
+      vat_on_fee_note: >-
+        20% VAT is charged ON the fee itself, so the cash cost of a 12.8% fee is
+        15.36% of the fee base. This is a fee-on-fee, not a fee-on-goods, and is
+        NOT modelled by the engine's band arithmetic yet -- see the audit note.
       source: "secondary, unverified"
-      checked_on: "2026-08-13"
+      checked_on: "2026-08-14"
       confidence: low
-    fx_conversion_pct: null    # NEEDS_VALUE
-    international_fee_pct: null # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands: null       # NEEDS_VALUE -- my own postage costs
-    notes: >-
-      Fee base includes shipping and tax, so the effective rate on the item
-      price alone always exceeds 13.25%.
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
 
   tcgplayer:
     display_name: TCGplayer
     currency: USD
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
-    confidence: low
-    primary_source_url: "https://help.tcgplayer.com/hc/en-us/articles/201853117-Seller-Fees"
-    category: "Trading cards (singles)"
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: medium
+    commission_effective_from: "2026-02-10"
     fee_schedule:
-      base: item_plus_shipping_plus_tax
+      base: item
+      base_note: >-
+        Commission is charged on the ITEM. The transaction fee below is charged
+        on the FULL ORDER TOTAL, which is a different base -- two bases in one
+        venue, which is why this cannot collapse to a single percentage.
       bands:
-        - up_to: null
-          pct: 0.1075
+        - {up_to: null, pct: 0.1075}
+      commission_cap_per_product: 75.0
       payment:
         pct: 0.025
-        base: item_plus_shipping_plus_tax
-        fixed: 0.30
-      source: "secondary, unverified"
-      checked_on: "2026-08-13"
+        pct_base: order_total
+        fixed_bands:
+          - {up_to: null, fee: 0.30}
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: medium
+    non_us_seller:
+      payment_pct: 0.035
+      payment_fixed: 0.30
+      paypal_pct: 0.02
+      paypal_cap: 20.0
+      note: >-
+        Applies to me from September. The PayPal cut is capped at 20 per
+        payout, so it is not a flat percentage either.
+      source: primary
+      checked_on: "2026-08-14"
       confidence: low
-    fx_conversion_pct: null    # NEEDS_VALUE
-    international_fee_pct: null # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands: null       # NEEDS_VALUE
-    notes: >-
-      10.75% commission plus 2.5% and $0.30 processing, all on the full order
-      total including tax.
-
-  mercari_us:
-    display_name: Mercari US
-    currency: USD
-    source: "secondary, unverified"
-    checked_on: "2026-08-13"
-    confidence: low
-    primary_source_url: "https://www.mercari.com/help_center/"
-    category: "Trading cards"
-    fee_schedule:
-      # The source gave the rates but NOT what they multiply. A percentage
-      # without its base is not a fee, so this stays null and the engine
-      # refuses rather than assuming item-only and understating the stack.
-      base: null               # NEEDS_VALUE -- fee base not stated by the source
-      bands:
-        - up_to: null
-          pct: 0.10
-      payment:
-        pct: 0.029
-        fixed: 0.50
-      source: "secondary, unverified"
-      checked_on: "2026-08-13"
-      confidence: low
-      blocking_gap: "base"
-    fx_conversion_pct: null    # NEEDS_VALUE
-    international_fee_pct: null # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands: null       # NEEDS_VALUE
-    notes: >-
-      10% + 2.9% + $0.50 per the secondary source. The fee base was not
-      stated, so this marketplace refuses until it is confirmed.
-
-  # ---- deliberately null and refusing -------------------------------------
-
-  mercari_jp:
-    display_name: Mercari Japan
-    currency: null             # NEEDS_VALUE
-    source: null               # NEEDS_VALUE
-    checked_on: null           # NEEDS_VALUE
-    confidence: null           # NEEDS_VALUE
-    category: null             # NEEDS_VALUE
-    fee_schedule: null         # NEEDS_VALUE
-    fx_conversion_pct: null    # NEEDS_VALUE -- matters: JPY sale settling to home currency
-    international_fee_pct: null # NEEDS_VALUE
-    proxy_service_pct: null    # NEEDS_VALUE
-    proxy_service_fixed: null  # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands: null       # NEEDS_VALUE
-    notes: "Deliberately unpopulated. Manual-entry tier for v1."
-
-  snkrdunk:
-    display_name: SNKRDUNK
-    currency: null             # NEEDS_VALUE
-    source: null               # NEEDS_VALUE
-    checked_on: null           # NEEDS_VALUE
-    confidence: null           # NEEDS_VALUE
-    category: null             # NEEDS_VALUE
-    fee_schedule: null         # NEEDS_VALUE
-    authentication_fee: null   # NEEDS_VALUE
-    fx_conversion_pct: null    # NEEDS_VALUE
-    international_fee_pct: null # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands: null       # NEEDS_VALUE
-    notes: "Deliberately unpopulated."
-
-  xianyu:
-    display_name: Xianyu
-    currency: null             # NEEDS_VALUE
-    source: null               # NEEDS_VALUE
-    checked_on: null           # NEEDS_VALUE
-    confidence: null           # NEEDS_VALUE
-    category: null             # NEEDS_VALUE
-    fee_schedule: null         # NEEDS_VALUE
-    fx_conversion_pct: null    # NEEDS_VALUE
-    international_fee_pct: null # NEEDS_VALUE
-    proxy_service_pct: null    # NEEDS_VALUE -- domestic-only in practice
-    proxy_service_fixed: null  # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands: null       # NEEDS_VALUE
-    notes: "Deliberately unpopulated. Manual-entry tier for Chinese printings."
+      needs_primary_verification: true
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
 
   cardmarket:
     display_name: Cardmarket
-    currency: null             # NEEDS_VALUE
-    source: null               # NEEDS_VALUE
-    checked_on: null           # NEEDS_VALUE
-    confidence: null           # NEEDS_VALUE
-    category: null             # NEEDS_VALUE
-    fee_schedule: null         # NEEDS_VALUE
-    fx_conversion_pct: null    # NEEDS_VALUE
-    international_fee_pct: null # NEEDS_VALUE
-    store_subscription_monthly: null # NEEDS_VALUE
-    shipping_bands: null       # NEEDS_VALUE
-    notes: "Deliberately unpopulated."
+    currency: EUR
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: medium
+    seller_type: private
+    fee_schedule:
+      base: item
+      base_note: "ITEM ONLY. Postage is not in the fee base."
+      bands:
+        - {up_to: null, pct: 0.05}
+      cap_per_article: 100.0
+      seller_type_rates:
+        private: 0.05
+        professional: 0.03
+        powerseller: 0.015
+      payment:
+        pct: 0
+        fixed_bands:
+          - {up_to: null, fee: 0}
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: medium
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
+
+  mercari_jp:
+    display_name: "Mercari JP"
+    currency: JPY
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: medium
+    fee_schedule:
+      base: item
+      base_note: >-
+        ITEM ONLY, because JP listings are shipping-included: the seller pays
+        postage out of the sale price rather than charging it on top. Mercari US
+        is NOT the same -- it charges on item + shipping. Different venues,
+        different bases, kept separate on purpose.
+      bands:
+        - {up_to: null, pct: 0.10}
+      banded: false
+      payment:
+        pct: 0
+        fixed_bands:
+          - {up_to: null, fee: 200}
+        note: "Payout fee, 200 JPY per withdrawal."
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: medium
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
+
+  mercari_us:
+    display_name: "Mercari US"
+    currency: USD
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: low
+    needs_primary_verification: true
+    fee_schedule:
+      base: item_plus_shipping
+      base_note: "Differs from Mercari JP. Do not share a schedule between them."
+      bands:
+        - {up_to: null, pct: 0.10}
+      payment:
+        pct: 0
+        fixed_bands:
+          - {up_to: null, fee: 0}
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: low
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
+
+  snkrdunk:
+    display_name: SNKRDUNK
+    currency: JPY
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: medium
+    fee_schedule:
+      base: item
+      bands:
+        - {up_to: null, pct: 0.0}
+      payment:
+        pct: 0
+        fixed_bands:
+          - {up_to: null, fee: 0}
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: medium
+      note: >-
+        Seller fee is zero; the buyer pays 3.5%. That is a real asymmetry and
+        belongs on the buy side, not here -- a zero here is correct for a sale
+        and would be wrong for a purchase.
+    buyer_fee_pct: 0.035
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
+
+  xianyu:
+    display_name: "Xianyu (闲鱼)"
+    currency: CNY
+    source: primary
+    checked_on: "2026-08-14"
+    confidence: low
+    needs_primary_verification: true
+    fee_schedule:
+      base: item
+      bands:
+        - {up_to: null, pct: 0.006}
+      payment:
+        pct: 0
+        fixed_bands:
+          - {up_to: null, fee: 0}
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: low
+    shop_seller:
+      applies_to: "鱼小铺 shop sellers"
+      effective_from: "2026-04-18"
+      pct: 0.016
+      base: item_plus_shipping
+      cap: null
+      cap_removed_note: >-
+        The 60 CNY cap was removed for shop sellers from 2026-04-18, and the
+        base changed to include shipping. Ordinary sellers stay at 0.6% on the
+        item. Two different schedules under one venue name.
+      source: primary
+      checked_on: "2026-08-14"
+      confidence: low
+      needs_primary_verification: true
+    final_value_fee_pct: null
+    payment_pct: null
+    payment_fixed: null
+    fx_conversion_pct: null
 
 region_defaults:
   sell_venue_by_combo:
-    optcg:EN: null             # NEEDS_VALUE
-    optcg:JP: null             # NEEDS_VALUE
-    optcg:CN-S: null           # NEEDS_VALUE
-    pkmn:EN: null              # NEEDS_VALUE
-    pkmn:JP: null              # NEEDS_VALUE
-    pkmn:CN-S: null            # NEEDS_VALUE
-    pkmn:CN-T: null            # NEEDS_VALUE
-    riftbound:EN: null         # NEEDS_VALUE
-  default_days_to_sell: null   # NEEDS_VALUE -- mine to measure
-  days_to_sell_by_venue: null  # NEEDS_VALUE
+    "optcg:EN": ebay
+    "optcg:JP": mercari_jp
+    "optcg:CN-S": xianyu
+    "pkmn:EN": ebay
+    "pkmn:JP": mercari_jp
+    "pkmn:CN-S": xianyu
+    "pkmn:CN-T": xianyu
+    "riftbound:EN": ebay
+  default_days_to_sell: 30
+  days_to_sell_by_venue: null
+  days_to_sell_note: >-
+    30 days is for liquid modern EN cards. JP and CN are slower and I have no
+    number for them -- see assumptions.days_to_sell, which carries the same
+    caveat and a UI chip.
+  source: user estimate
+  checked_on: "2026-08-14"
+  confidence: low
+  estimated: true
+  calibration_plan: "replace with actuals from first submission"

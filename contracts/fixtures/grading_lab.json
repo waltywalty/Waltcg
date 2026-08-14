@@ -5,7 +5,7 @@
   "schema_version": 1,
   "warnings": [
     "PSA regular fee is provisional and needs primary verification",
-    "Needs P(10) = 0.301; modelled 0.199. Do not submit."
+    "Needs P(10) = 0.555; modelled 0.199. Do not submit."
   ],
   "card": {
     "card_uid": "pkmn:sv3:223/197:sir:EN",
@@ -34,7 +34,7 @@
     "edge_flag": "clean"
   },
   "break_even_p_target": {
-    "value": "0.301",
+    "value": "0.555",
     "source": "engine:model_a",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "medium",
@@ -107,13 +107,13 @@
     "observed_at": "2026-08-13T09:00:00Z"
   },
   "ev": {
-    "amount": "-35.67",
+    "amount": "-92.11",
     "currency": "USD",
     "fx_rate_used": null,
     "fx_as_of": null
   },
   "roi": {
-    "value": "-0.159",
+    "value": "-0.399",
     "source": "engine:model_a",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "medium",
@@ -134,7 +134,7 @@
     "observed_at": "2026-08-13T09:00:00Z"
   },
   "annualised_roi": {
-    "value": "-0.425",
+    "value": "-0.844",
     "source": "engine:model_a",
     "as_of": "2026-08-13T09:00:00Z",
     "confidence": "medium",
@@ -154,9 +154,9 @@
     "estimate_basis": "population",
     "observed_at": "2026-08-13T09:00:00Z"
   },
-  "horizon_days": 114,
+  "horizon_days": 100,
   "downside_case": {
-    "amount": "-148.60",
+    "amount": "-175.88",
     "currency": "USD",
     "fx_rate_used": null,
     "fx_as_of": null
@@ -175,13 +175,13 @@
       "fx_as_of": null
     },
     "inbound_shipping": {
-      "amount": "1.20",
+      "amount": "5.00",
       "currency": "USD",
       "fx_rate_used": null,
       "fx_as_of": null
     },
     "supplies": {
-      "amount": "0.85",
+      "amount": "1.00",
       "currency": "USD",
       "fx_rate_used": null,
       "fx_as_of": null
@@ -193,7 +193,7 @@
       "fx_as_of": null
     },
     "return_shipping": {
-      "amount": "2.50",
+      "amount": "5.00",
       "currency": "USD",
       "fx_rate_used": null,
       "fx_as_of": null
@@ -206,5 +206,38 @@
     "grading_fee_schedule",
     "marketplace_fee_schedule",
     "days_to_sell"
-  ]
+  ],
+  "import_charges": {
+    "applies": true,
+    "route": "psa_us",
+    "note": "cross-border route: graded in US, returned to GB",
+    "relief_scenario": "relief_none",
+    "expected": {
+      "amount": "49.99",
+      "currency": "USD",
+      "fx_rate_used": null,
+      "fx_as_of": null
+    },
+    "effective_rate_on_goods": "0.2240",
+    "by_grade": {
+      "8": {
+        "amount": "20.83",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "9": {
+        "amount": "32.93",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      },
+      "10": {
+        "amount": "122.08",
+        "currency": "USD",
+        "fx_rate_used": null,
+        "fx_as_of": null
+      }
+    }
+  }
 }
