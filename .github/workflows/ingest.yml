@@ -2,16 +2,29 @@ name: ingest
 
 # Daily snapshot run. GOAL D1 wants >=90 consecutive days with zero SILENT
 # gaps, so the job's contract is: every source either writes rows or writes a
-# gap row saying why it did not, and the job goes RED when any source failed.
+# gap row saying why it did not.
 #
-# It does not commit the database. store/*.duckdb and raw/ are gitignored, and
-# no-provider-data hard-fails on a committed payload -- the run uploads an
-# artifact instead. Code may be public; data never is.
+# WHAT RUN #3 GOT WRONG. A preflight step raised on the first absent key and
+# killed the job before the runner started -- so one deliberately-deferred paid
+# provider stopped four working ones, no store was created, no artifact was
+# uploaded, and the summary came back empty because it read a database that the
+# failure had prevented from existing. The step that explains a failure must
+# never depend on the thing that failed.
+#
+# Now: preflight CLASSIFIES and never aborts, the runner decides the exit code,
+# and the summary is written by the runner from its own results.
+#
+#   absent by choice (ingest/sources.yml expected:false) -> gap row, exit 0
+#   configured but failed                                -> exit 1
+#   zero sources ingested any rows                       -> exit 1
+#
+# The store is not committed. store/*.duckdb and raw/ are gitignored and
+# no-provider-data hard-fails on a committed payload -- code may be public,
+# data never is.
 
 on:
   schedule:
-    # 06:15 UTC daily. Off the hour on purpose: every scheduled job in the
-    # world fires at :00 and GitHub queues them.
+    # 06:15 UTC. Off the hour on purpose: everything in the world fires at :00.
     - cron: "15 6 * * *"
   workflow_dispatch:
     inputs:
@@ -23,28 +36,33 @@ permissions:
   contents: read
 
 concurrency:
-  # Never two runs writing snapshots for the same day.
   group: ingest
   cancel-in-progress: false
+
+env:
+  DB: store/waltcg.duckdb
+  RESULTS: ingest-results.json
 
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      # v5 / v6 run on Node 24. v4 / v5 respectively are the Node 20 majors
+      # that GitHub deprecated, which is what the run #3 warning was about.
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Install
         run: pip install -r requirements.txt
 
-      # Fails the job before a single request if a key is missing, rather than
-      # sending an unauthenticated call whose generic failure would be recorded
-      # as "the source had nothing".
-      - name: Preflight -- keys present, never printed
+      # Reports. Does NOT abort. Which absences matter is decided by
+      # ingest/sources.yml, and the runner enforces it -- this step exists so
+      # the log says up front what the run is about to do.
+      - name: Preflight -- report key presence, never abort, never print a key
         env:
           TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
           PPT_KEY: ${{ secrets.PPT_KEY }}
@@ -53,22 +71,26 @@ jobs:
           ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY }}
         run: |
           python - <<'PY'
-          import json
           from ingest.adapters import ADAPTERS
-          absent = []
+          from ingest.runner import load_expectations
+          expectations = load_expectations()
           for name, cls in ADAPTERS.items():
               info = cls().preflight()
-              print(json.dumps(info))
-              if info["key_required"] and not info["ready"]:
-                  absent.append(f"{name} ({info['env']})")
-          if absent:
-              raise SystemExit(
-                  "keys absent: " + ", ".join(absent) +
-                  "\nThese sources would be UNTESTED, which is a gap and not a "
-                  "zero. Set the secrets or run with --sources to exclude them.")
+              expected = expectations.get(name, {}).get("expected", True)
+              if info["ready"]:
+                  state = f"ready (key {info['key_length']} chars, " \
+                          f"starts {info['key_prefix']!r})"
+              elif expected:
+                  state = f"NO KEY and expected -- {info['env']} unset, run will fail"
+              else:
+                  state = f"no key, deferred by choice -- {info['env']} unset"
+              print(f"{name:22} {state}")
           PY
 
+      # Always runs to completion. The exit code is the runner's decision.
       - name: Run adapters and write snapshots
+        id: ingest
+        continue-on-error: true
         env:
           TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
           PPT_KEY: ${{ secrets.PPT_KEY }}
@@ -77,58 +99,58 @@ jobs:
           ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY }}
         run: |
           python -m ingest.runner \
-            --db store/waltcg.duckdb \
+            --db "$DB" \
             --sources "${{ github.event.inputs.sources || 'all' }}" \
-            --targets ingest/targets.json
+            --targets ingest/targets.json \
+            --results "$RESULTS" \
+            --summary "$GITHUB_STEP_SUMMARY"
 
-      - name: Coverage -- report gaps loudly
+      # Built from the results file, not from the database, so it renders even
+      # when the run produced nothing. If even that is missing, say so rather
+      # than leaving the summary blank -- an empty summary is the one outcome
+      # that explains nothing.
+      - name: Summary fallback
         if: always()
         run: |
-          python - <<'PY'
-          import datetime as dt, json, sys
-          from store.db import Store
-          store = Store("store/waltcg.duckdb", read_only=True)
-          gaps = store.con.execute(
-              "SELECT source, kind, reason, count(*) FROM ingest_gap "
-              "WHERE CAST(observed_at AS DATE) = CURRENT_DATE "
-              "GROUP BY 1,2,3 ORDER BY 4 DESC").fetchall()
-          seal = store.verify_seal()
-          print(json.dumps({"gaps_today": gaps, "seal": seal}, default=str, indent=2))
-          if not seal["intact"]:
-              sys.exit("SEAL BROKEN: history was modified outside the writer")
-          PY
+          if [ ! -s "$GITHUB_STEP_SUMMARY" ]; then
+            {
+              echo "### Ingest run"
+              echo
+              echo "**The runner produced no summary.** That means it did not"
+              echo "reach its reporting step -- an import error, a crash, or a"
+              echo "timeout. The step log above is the only record."
+              echo
+              if [ -s "$RESULTS" ]; then
+                echo "Raw results were written:"
+                echo '```json'
+                cat "$RESULTS"
+                echo '```'
+              else
+                echo "No results file was written either."
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      # The database is provider data. It is uploaded as a private artifact and
-      # never committed -- CLAUDE.md non-negotiable 10, enforced by
-      # audit/checks/no_provider_data.py on every push including this one.
+      # Uploaded whatever happened. A run that failed is exactly when the
+      # database and the gap rows are worth having.
       - name: Upload snapshot (never committed)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: waltcg-snapshot-${{ github.run_id }}
-          path: store/waltcg.duckdb
+          path: |
+            store/waltcg.duckdb
+            ingest-results.json
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Data guard
         if: always()
         run: python -m audit.checks.no_provider_data --verbose
 
-      - name: Summary
-        if: always()
+      # The runner's exit code, applied after the artifact is safely uploaded.
+      - name: Fail the job if the run failed
+        if: always() && steps.ingest.outcome == 'failure'
         run: |
-          {
-            echo "### Ingest run"
-            echo
-            echo '```'
-            python - <<'PY'
-          from store.db import Store
-          store = Store("store/waltcg.duckdb", read_only=True)
-          for row in store.con.execute(
-                  "SELECT source, status, rows_written, gaps_written, detail "
-                  "FROM ingest_run WHERE finished_at IS NOT NULL "
-                  "ORDER BY started_at").fetchall():
-              print(row)
-          PY
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::ingest failed -- see the job summary for which sources"
+          exit 1

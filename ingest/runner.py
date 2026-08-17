@@ -18,11 +18,39 @@ import json
 import os
 import sys
 
+import yaml
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ingest.adapters import ADAPTERS                       # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited          # noqa: E402
 from store.db import Store, new_run_id                      # noqa: E402
+
+
+SOURCES_YML = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "sources.yml")
+
+# Every status a source can end a run in, and whether it fails the run.
+#
+# The two that used to be one: a source absent BY CHOICE is a gap, and a source
+# I meant to configure but did not is a failure. Collapsing them meant one
+# deferred paid provider took down a run that four working providers should
+# have completed.
+STATUS = {
+    "ok":              {"failure": False, "ingested": True},
+    "empty":           {"failure": False, "ingested": False},
+    "deferred":        {"failure": False, "ingested": False},
+    "not_configured":  {"failure": True,  "ingested": False},
+    "failed":          {"failure": True,  "ingested": False},
+    "rate_limited":    {"failure": True,  "ingested": False},
+}
+
+
+def load_expectations(path=SOURCES_YML) -> dict:
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as handle:
+        return (yaml.safe_load(handle) or {}).get("sources", {}) or {}
 
 
 def _now():
@@ -42,24 +70,36 @@ WRITERS = {
 }
 
 
-def run_source(store: Store, name: str, adapter, targets) -> dict:
+def run_source(store: Store, name: str, adapter, targets,
+               expectation=None) -> dict:
     run_id = new_run_id()
     started = _now()
     store.con.execute(
         "INSERT INTO ingest_run (run_id, source, started_at, status) "
         "VALUES (?, ?, ?, ?)", [run_id, name, started, "running"])
 
+    expectation = expectation or {}
+    expected = bool(expectation.get("expected", True))
+
     preflight = adapter.preflight()
     if preflight["key_required"] and not preflight["ready"]:
-        # Never send an unauthenticated request. It comes back as a generic
+        # Never send an unauthenticated request: it comes back as a generic
         # failure and gets recorded as "the source had nothing", which is the
         # one thing this store must not confuse.
-        store.add_gap(source=name, kind="auth", reason="key absent",
-                      detail=f"{preflight['env']} is not set",
+        #
+        # But the run does NOT stop here. Whether this is a gap or a failure
+        # depends entirely on whether I meant to configure it.
+        status = "not_configured" if expected else "deferred"
+        reason = ("key absent but the source is expected"
+                  if expected else "deferred by choice")
+        detail = f"{preflight['env']} is not set"
+        if not expected and expectation.get("deferred_note"):
+            detail += f" -- {expectation['deferred_note'].strip()}"
+        store.add_gap(source=name, kind="auth", reason=reason, detail=detail,
                       as_of=started, observed_at=_now())
-        _finish(store, run_id, "untested", 0, 1, adapter, "key absent")
-        return {"source": name, "status": "untested", "reason": "key absent",
-                "rows": 0, "gaps": 1}
+        _finish(store, run_id, status, 0, 1, adapter, detail)
+        return {"source": name, "status": status, "reason": reason,
+                "expected": expected, "rows": 0, "gaps": 1, "detail": detail}
 
     rows = gaps = 0
     try:
@@ -68,13 +108,14 @@ def run_source(store: Store, name: str, adapter, targets) -> dict:
         store.add_gap(source=name, kind="quota", reason="rate limited",
                       detail=str(exc)[:400], as_of=started, observed_at=_now())
         _finish(store, run_id, "rate_limited", 0, 1, adapter, str(exc)[:400])
-        return {"source": name, "status": "rate_limited", "rows": 0, "gaps": 1}
+        return {"source": name, "status": "rate_limited", "expected": expected,
+                "rows": 0, "gaps": 1, "detail": str(exc)[:200]}
     except AdapterGaveUp as exc:
         store.add_gap(source=name, kind="unreachable", reason="adapter gave up",
                       detail=str(exc)[:400], as_of=started, observed_at=_now())
         _finish(store, run_id, "failed", 0, 1, adapter, str(exc)[:400])
-        return {"source": name, "status": "failed", "rows": 0, "gaps": 1,
-                "detail": str(exc)[:200]}
+        return {"source": name, "status": "failed", "expected": expected,
+                "rows": 0, "gaps": 1, "detail": str(exc)[:200]}
 
     for record in records:
         writer = WRITERS.get(record.kind)
@@ -91,9 +132,10 @@ def run_source(store: Store, name: str, adapter, targets) -> dict:
                       as_of=started, observed_at=_now())
         gaps += 1
 
-    _finish(store, run_id, "ok", rows, gaps, adapter, adapter.quota.note())
-    return {"source": name, "status": "ok", "rows": rows, "gaps": gaps,
-            "quota": adapter.quota.note()}
+    status = "ok" if rows else "empty"
+    _finish(store, run_id, status, rows, gaps, adapter, adapter.quota.note())
+    return {"source": name, "status": status, "expected": expected,
+            "rows": rows, "gaps": gaps, "quota": adapter.quota.note()}
 
 
 def _finish(store, run_id, status, rows, gaps, adapter, detail):
@@ -105,12 +147,95 @@ def _finish(store, run_id, status, rows, gaps, adapter, detail):
         [_now(), status, rows, gaps, adapter.quota.remaining, detail, run_id])
 
 
+SYMBOL = {"ok": "ingested", "empty": "reached, no rows",
+          "deferred": "skipped by choice", "not_configured": "KEY MISSING",
+          "failed": "FAILED", "rate_limited": "RATE LIMITED"}
+
+
+def render_summary(results, seal=None, db_path=None) -> str:
+    """The run, as Markdown, built ONLY from the results list.
+
+    Deliberately does not read the database. The summary came back empty once
+    because it was reading a store that a earlier step had prevented from being
+    created -- so the one artefact whose job is explaining a failure failed
+    alongside it. Anything that can fail is not allowed in here.
+    """
+    ingested = [r for r in results if STATUS[r["status"]]["ingested"]]
+    failures = [r for r in results if STATUS[r["status"]]["failure"]]
+    deferred = [r for r in results if r["status"] == "deferred"]
+    rows = sum(r["rows"] for r in results)
+
+    if failures:
+        verdict = f"FAILED -- {len(failures)} configured source(s) did not deliver"
+    elif not ingested:
+        verdict = "FAILED -- zero sources ingested any rows"
+    else:
+        verdict = f"OK -- {len(ingested)} source(s) ingested {rows} row(s)"
+
+    lines = [
+        "### Ingest run", "", f"**{verdict}**", "",
+        "| Source | Status | Rows | Gaps | Detail |",
+        "|---|---|---|---|---|",
+    ]
+    for r in sorted(results, key=lambda r: (not STATUS[r["status"]]["failure"],
+                                            r["source"])):
+        detail = (r.get("detail") or r.get("quota") or r.get("reason") or "")
+        detail = str(detail).replace("|", "\\|").replace("\n", " ")[:160]
+        lines.append(f"| `{r['source']}` | {SYMBOL[r['status']]} | {r['rows']} "
+                     f"| {r['gaps']} | {detail} |")
+
+    if deferred:
+        lines += ["", "**Skipped by choice.** These have no key and "
+                  "`ingest/sources.yml` says that is intentional. Each wrote a "
+                  "gap row, so the store never implies the source was "
+                  "consulted:", ""]
+        lines += [f"- `{r['source']}` -- {r.get('detail', '')}" for r in deferred]
+
+    if failures:
+        lines += ["", "**Failures.** A source that was configured and did not "
+                  "deliver:", ""]
+        lines += [f"- `{r['source']}` ({r['status']}) -- {r.get('detail', '')}"
+                  for r in failures]
+
+    if seal is not None:
+        state = "intact" if seal.get("intact") else f"BROKEN at {seal.get('broken_at')}"
+        lines += ["", f"Ledger seal: {state} over {seal.get('sealed_rows', 0)} "
+                  "sealed rows."]
+    if db_path:
+        lines += ["", f"Store: `{db_path}` (uploaded as an artifact, never "
+                  "committed)."]
+    return "\n".join(lines) + "\n"
+
+
+def decide_exit(results) -> tuple:
+    """(exit_code, reason). Three outcomes, three different meanings.
+
+    * a configured source failed        -> 1
+    * zero sources ingested any rows    -> 1
+    * anything else                     -> 0, including a run where a deferred
+                                           source was skipped
+    """
+    failures = [r for r in results if STATUS[r["status"]]["failure"]]
+    if failures:
+        return 1, ("configured sources did not deliver: "
+                   + ", ".join(f"{r['source']}({r['status']})" for r in failures))
+    if not any(STATUS[r["status"]]["ingested"] for r in results):
+        return 1, ("zero sources ingested any rows. Every source was skipped, "
+                   "empty, or absent -- a day with no data is a failure even "
+                   "when nothing errored")
+    return 0, "ok"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="daily ingest run")
     parser.add_argument("--db", default=None)
     parser.add_argument("--sources", default="all")
     parser.add_argument("--targets", default=None,
                         help="JSON file of per-source fetch arguments")
+    parser.add_argument("--summary", default=None,
+                        help="write a Markdown summary here (GITHUB_STEP_SUMMARY)")
+    parser.add_argument("--results", default=None,
+                        help="write the raw results JSON here")
     args = parser.parse_args(argv)
 
     targets = {}
@@ -118,7 +243,12 @@ def main(argv=None):
         with open(args.targets, encoding="utf-8") as handle:
             targets = json.load(handle)
 
+    expectations = load_expectations()
     names = list(ADAPTERS) if args.sources == "all" else args.sources.split(",")
+
+    # The store is opened BEFORE anything can go wrong with a source, so the
+    # database file exists even on a run where every source is skipped. An
+    # artifact upload that finds nothing is a second failure hiding the first.
     store = Store(args.db) if args.db else Store()
 
     results = []
@@ -128,27 +258,29 @@ def main(argv=None):
             print(f"unknown source {name}", file=sys.stderr)
             return 2
         results.append(run_source(store, name, adapter_cls(),
-                                  targets.get(name, {})))
+                                  targets.get(name, {}),
+                                  expectations.get(name)))
 
-    print(json.dumps(results, indent=2))
     seal = store.verify_seal()
-    print(json.dumps({"seal": seal}, indent=2))
+    print(json.dumps({"results": results, "seal": seal}, indent=2))
 
-    failed = [r for r in results if r["status"] in ("failed", "rate_limited")]
-    untested = [r for r in results if r["status"] == "untested"]
-    if failed:
-        print(f"\nFAILED: {[r['source'] for r in failed]} -- recorded as gaps, "
-              "not skipped", file=sys.stderr)
-        return 1
-    if untested:
-        print(f"\nUNTESTED: {[r['source'] for r in untested]} (no key). These "
-              "are gaps, not zeroes.", file=sys.stderr)
-        return 1
+    if args.results:
+        with open(args.results, "w", encoding="utf-8") as handle:
+            json.dump({"results": results, "seal": seal}, handle, indent=2)
+
+    code, reason = decide_exit(results)
     if not seal["intact"]:
-        print(f"\nSEAL BROKEN at {seal['broken_at']}: history was modified "
-              "outside the store's writer.", file=sys.stderr)
-        return 1
-    return 0
+        code, reason = 1, f"ledger seal broken at {seal['broken_at']}"
+
+    summary = render_summary(results, seal, args.db)
+    if args.summary:
+        with open(args.summary, "a", encoding="utf-8") as handle:
+            handle.write(summary)
+    print(summary)
+
+    if code:
+        print(f"\nEXIT 1: {reason}", file=sys.stderr)
+    return code
 
 
 if __name__ == "__main__":

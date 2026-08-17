@@ -1,0 +1,47 @@
+# Which sources this project expects to be configured, and which are absent on
+# purpose.
+#
+# The distinction matters because "no key" has two completely different
+# meanings and a run that treats them alike is useless in both directions:
+#
+#   expected: true   -- I meant to configure this. A missing key is a FAILURE,
+#                       because the alternative is a run that goes green while
+#                       quietly collecting nothing from a source I rely on.
+#   expected: false  -- deliberately deferred. A missing key is a GAP ROW and
+#                       the run carries on. The gap is still recorded, so the
+#                       store never implies the source was consulted.
+#
+# A deferred source whose key IS present runs anyway. Adding the secret is how
+# you turn one on; you do not have to edit this file first.
+
+sources:
+  tcgapi:
+    expected: true
+    note: "Catalog and raw prices. Free tier, 100/day."
+
+  pokemonpricetracker:
+    expected: true
+    note: >-
+      The only source of per-grade population, and the only one that returns
+      sales by grade AND grader together -- which is what makes the CGC-10 /
+      PSA-10 ratio computable at all.
+
+  apitcg:
+    expected: true
+    note: "Catalog and the only reliable artist field. Free."
+
+  fx_alphavantage:
+    expected: true
+    note: >-
+      FX only. Every cross-currency figure rests on this one source, so a gap
+      here is not cosmetic -- the engine refuses to convert without a rate.
+
+  pricecharting:
+    expected: false
+    deferred_on: "2026-08-14"
+    deferred_note: >-
+      Paid, and deferred by choice until the Pokemon data shows whether it is
+      worth it. PriceCharting is the graded-comp source for the games
+      PokemonPriceTracker does not cover (One Piece, Riftbound), so deferring
+      it means those games have NO graded comps -- that is a known consequence,
+      recorded here rather than discovered later from an empty screen.
