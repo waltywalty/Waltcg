@@ -45,9 +45,19 @@ CREATE TABLE cards (
     release_date     DATE,
     obtainment_class obtainment_t NOT NULL DEFAULT 'unknown',
     image_url        TEXT,
+    -- See store/schema.sql for why each of these three exists. Short version:
+    -- the collector number is not a key, and these are the three documented
+    -- ways it stops being one.
+    box_code         TEXT,
+    serialized       BOOLEAN NOT NULL DEFAULT FALSE,
+    foil             BOOLEAN,
     observed_at      TIMESTAMPTZ NOT NULL,
     source           TEXT NOT NULL,
     CONSTRAINT cards_not_future CHECK (observed_at <= now()),
+    CONSTRAINT cards_serialized_matches_variant CHECK (
+        NOT serialized OR variant = 'serialized'),
+    CONSTRAINT cards_box_code_is_not_the_set CHECK (
+        box_code IS NULL OR box_code <> set_code),
     CONSTRAINT cards_uid_matches_parts CHECK (
         card_uid = game || ':' || set_code || ':' || number || ':'
                    || variant || ':' || language)

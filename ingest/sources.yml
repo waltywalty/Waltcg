@@ -36,6 +36,45 @@ sources:
       FX only. Every cross-currency figure rests on this one source, so a gap
       here is not cosmetic -- the engine refuses to convert without a rate.
 
+  # --- catalog-only, keyless, and never yet exercised ---------------------
+  #
+  # `unverified: true` means the adapter was written against documentation and
+  # has not reached its live service once. A failure is recorded as a gap with
+  # the full error rather than failing the run, because the first real run is
+  # the experiment that establishes the endpoint shape and it should not take
+  # four working providers down with it.
+  #
+  # Remove `unverified` the moment one of these returns rows. That promotes it
+  # to a hard dependency, which is the correct state for a source we rely on.
+
+  tcgdex:
+    expected: true
+    unverified: true
+    note: >-
+      Open Pokemon database, no key. First choice for the Chinese printings
+      because language is a path segment rather than a separate product.
+      Traditional Chinese is documented as partial and Simplified as in
+      progress, so the adapter reads /status before believing a combo is
+      covered. Pokemon only -- it does not close One Piece CN-S.
+
+  cryst:
+    expected: true
+    unverified: true
+    note: >-
+      Cryst's Card Database, Simplified Chinese Pokemon, sourced from Pokemon
+      Shanghai. Closest thing to a primary source for the combined-set
+      renumbering that makes SC identity hard. No published API contract was
+      available; the adapter probes candidate paths and reports which answered.
+
+  wiki52poke:
+    expected: true
+    unverified: true
+    note: >-
+      MediaWiki, enrichment only. Supplies Chinese names for identities another
+      source established. It deliberately cannot enumerate a set: that needs a
+      category title in Chinese and a guessed one returns an empty page that is
+      indistinguishable from an empty set.
+
   pricecharting:
     expected: false
     deferred_on: "2026-08-14"

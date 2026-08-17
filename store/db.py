@@ -136,6 +136,13 @@ class Store:
             release_date=optional.get("release_date"),
             obtainment_class=optional.get("obtainment_class", "unknown"),
             image_url=optional.get("image_url"),
+            box_code=optional.get("box_code"),
+            # Derived from the variant, not accepted from the caller. Two ways
+            # to say the same thing is two ways for it to be said differently,
+            # and the schema CHECK would then reject a row the caller thought
+            # was fine. One source of truth, enforced twice.
+            serialized=(variant == "serialized"),
+            foil=optional.get("foil"),
             observed_at=observed_at, source=source)
         existing = self.con.execute(
             "SELECT 1 FROM cards WHERE card_uid = ?", [card_uid]).fetchone()

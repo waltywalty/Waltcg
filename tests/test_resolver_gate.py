@@ -213,8 +213,22 @@ class TheSeededCardsAreTraceable(unittest.TestCase):
 
     def test_every_card_names_its_provenance(self):
         for card in load()["cards"]:
-            self.assertTrue(card.get("verified_from"),
+            self.assertTrue(card.get("verified_from") or card.get("source"),
                             f"{card['card_uid']} has no provenance")
+
+    def test_externally_researched_rows_are_marked_as_such(self):
+        """The non-circularity marker. A card sourced from the same catalogs
+        the resolver reads cannot score the resolver -- it scores the catalog.
+        `source: external_research` is the claim that a row came from outside,
+        and it has to be visible to be checkable."""
+        external = [c for c in load()["cards"]
+                    if c.get("source") == "external_research"]
+        self.assertTrue(external, "no externally-researched rows in the set")
+        for card in external:
+            self.assertNotIn("verified_from", card,
+                             f"{card['card_uid']} claims both an in-repo "
+                             "provenance and external research; one of them "
+                             "is wrong")
 
     def test_the_file_says_it_is_incomplete(self):
         data = load()

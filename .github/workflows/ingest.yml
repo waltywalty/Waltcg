@@ -87,6 +87,28 @@ jobs:
               print(f"{name:22} {state}")
           PY
 
+      # The measurement the sandbox cannot take. The three open Chinese catalog
+      # sources were written against documentation, in an environment whose
+      # egress proxy answers 403 to CONNECT for all three hosts, so their
+      # coverage is UNKNOWN rather than assumed. This step is the experiment.
+      #
+      # It never fails the job: zero coverage is a finding, and a finding that
+      # takes the run down cannot be read.
+      - name: Measure Chinese catalog coverage -- report, never assume
+        continue-on-error: true
+        run: |
+          {
+            echo "### Chinese catalog coverage"
+            echo
+            echo "Measured now, on this runner. Written against documentation"
+            echo "and never before exercised -- an unreachable row here is the"
+            echo "true endpoint shape being discovered, not a regression."
+            echo
+            echo '```'
+            python -m ingest.catalog --coverage 2>&1 | tail -n 40
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # Always runs to completion. The exit code is the runner's decision.
       - name: Run adapters and write snapshots
         id: ingest

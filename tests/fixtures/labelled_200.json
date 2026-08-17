@@ -20,20 +20,24 @@
   },
   "_status": "INCOMPLETE -- seeded only, see _needed",
   "_needed": {
-    "have": 12,
-    "short_by": 238,
-    "why": "Every row above is a card whose identity is established somewhere in this repository. I could not source the remaining 188 without inventing set codes, collector numbers and names -- which would make the resolver's precision score a measurement of my own fabrications rather than of the resolver. CLAUDE.md: when a source cannot supply a field, delete it rather than stub it. The same applies to a test set.",
+    "have": 21,
+    "short_by": 229,
+    "why": "Every row is an identity established outside the resolver's own catalogs -- either elsewhere in this repository (`verified_from`) or from external research (`source: external_research`). The remainder is not invented: generating candidates from the catalogs the resolver reads would make the precision score a measurement of the catalog rather than of the resolver. Use `python -m resolve.label_cli propose` and adjudicate. CLAUDE.md: when a source cannot supply a field, delete it rather than stub it -- the same applies to a test set.",
+    "externally_researched": 9,
     "combos_with_zero_cards": [
-      "pkmn:CN-S",
       "pkmn:CN-T"
     ],
     "combos_thin": {
-      "optcg:CN-S": 1,
+      "pkmn:EN": 1,
       "pkmn:JP": 2,
-      "optcg:JP": 2
+      "optcg:EN": 3,
+      "optcg:JP": 2,
+      "optcg:CN-S": 5,
+      "pkmn:CN-S": 5,
+      "riftbound:EN": 3
     },
-    "hard_cases_present": 7,
-    "hard_cases_short_by": 13
+    "hard_cases_present": 16,
+    "hard_cases_short_by": 44
   },
   "cards": [
     {
@@ -170,6 +174,123 @@
       "verified_from": "contracts/card_uid.md",
       "hard_case": "same_number_three_languages",
       "note": "Simplified Chinese printing. No Western source carries it; manual tier."
+    },
+    {
+      "card_uid": "optcg:OP01:OP01-013:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "OP01",
+      "number": "OP01-013",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Sanji",
+      "foil": true,
+      "source": "external_research",
+      "hard_case": "same_number_different_rarity",
+      "note": "OP01-013 exists as an R and as a TR at the SAME number. Rarity and foil separate them; the number never can. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "optcg:OP04:OP04-092:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "OP04",
+      "number": "OP04-092",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Rebecca",
+      "foil": true,
+      "box_code": "OPC-07",
+      "source": "external_research",
+      "hard_case": "box_code_vs_card_number",
+      "note": "The box code OPC-07 and the printed number OP04-092 do not correspond. PSA slabs this card under the BOX code, so a comp that names OPC-07 is this card. Both are stored; only OP04 reaches the uid. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "optcg:OP07:OP07-046:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "OP07",
+      "number": "OP07-046",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Sengoku",
+      "foil": true,
+      "source": "external_research",
+      "hard_case": "same_number_different_rarity",
+      "note": "Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "optcg:ST03:ST03-013:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "ST03",
+      "number": "ST03-013",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Boa Hancock",
+      "foil": true,
+      "source": "external_research",
+      "hard_case": "same_number_different_rarity",
+      "note": "A starter-deck number carrying a Treasure Rare. Shares a name with optcg:OP01:OP01-078:parallel:JP and is a different card. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "pkmn:151C:170/151:ar:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "170/151",
+      "variant": "ar",
+      "language": "CN-S",
+      "name": "Pikachu",
+      "artist": "Oswaldo KATO",
+      "source": "external_research",
+      "hard_case": "name_is_not_unique",
+      "note": "One of FOUR distinct Pikachu ARs at 170-173/151, same name, same artist. Only the number separates them. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "pkmn:151C:171/151:ar:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "171/151",
+      "variant": "ar",
+      "language": "CN-S",
+      "name": "Pikachu",
+      "artist": "Oswaldo KATO",
+      "source": "external_research",
+      "hard_case": "name_is_not_unique",
+      "note": "Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "pkmn:151C:172/151:ar:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "172/151",
+      "variant": "ar",
+      "language": "CN-S",
+      "name": "Pikachu",
+      "artist": "Oswaldo KATO",
+      "source": "external_research",
+      "hard_case": "name_is_not_unique",
+      "note": "Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "pkmn:151C:173/151:ar:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "173/151",
+      "variant": "ar",
+      "language": "CN-S",
+      "name": "Pikachu",
+      "artist": "Oswaldo KATO",
+      "source": "external_research",
+      "hard_case": "name_is_not_unique",
+      "note": "Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
+    },
+    {
+      "card_uid": "pkmn:csv6C:152/128:sar:CN-S",
+      "game": "pkmn",
+      "set_code": "csv6C",
+      "number": "152/128",
+      "variant": "sar",
+      "language": "CN-S",
+      "name": "Iron Hands ex",
+      "source": "external_research",
+      "hard_case": "renumbered_into_combined_set",
+      "note": "csv6C is a COMBINED set: Simplified Chinese renumbers, so this art carries a different number from its Japanese parent. The Japanese number came back unverified and is deliberately absent. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed."
     }
   ]
 }

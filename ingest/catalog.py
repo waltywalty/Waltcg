@@ -34,7 +34,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ingest.adapters import ApiTcgAdapter, TcgApiAdapter          # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited, find          # noqa: E402
-from resolve.identity import TCGAPI_GAME_ID, card_uid             # noqa: E402
+from ingest.adapters import CN_SOURCE_PRIORITY, ADAPTERS          # noqa: E402
+from resolve.identity import (TCGAPI_GAME_ID, card_uid,           # noqa: E402
+                              variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -58,27 +60,18 @@ def _now():
     return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 
 
-def _variant_of(rarity, name) -> str:
-    """Best guess at the variant token, from the rarity the provider states.
-
-    A guess, and labelled as one -- the resolver treats a variant mismatch as
-    evidence against, so a wrong guess here costs confidence rather than
-    producing a wrong match.
-    """
-    text = f"{rarity or ''} {name or ''}".lower()
-    for token, marker in (("manga_rare", "manga"), ("signature", "signature"),
-                          ("overnumbered", "overnumber"), ("sar", "sar"),
-                          ("sir", "special illustration"), ("promo", "promo"),
-                          ("parallel", "parallel"), ("alt_art", "alt")):
-        if marker in text:
-            return token
-    return "base"
+# The variant guess lives in resolve/identity.py so the catalog builder and the
+# resolver cannot disagree about what a card is. They used to hold two copies
+# and only one of them knew about Treasure Rares -- which meant the builder
+# filed a TR at `base`, colliding with the ordinary card at the same number.
+_variant_of = variant_from_rarity
 
 
 class CatalogBuilder:
-    def __init__(self, tcgapi=None, apitcg=None):
+    def __init__(self, tcgapi=None, apitcg=None, cn_sources=None):
         self.tcgapi = tcgapi if tcgapi is not None else TcgApiAdapter()
         self.apitcg = apitcg if apitcg is not None else ApiTcgAdapter()
+        self._cn = dict(cn_sources or {})
         self.gaps = []
         self.log = []
 
@@ -157,6 +150,79 @@ class CatalogBuilder:
             page += 1
         return out
 
+    def cn_source(self, name):
+        """One open catalog source, built lazily and cached.
+
+        Injectable for tests, and cached so a coverage report and a build in
+        the same process do not pay for two probe rounds.
+        """
+        if name not in self._cn:
+            self._cn[name] = ADAPTERS[name]()
+        return self._cn[name]
+
+    def chinese_fallback(self, game, language):
+        """First open source that lists cards for this combo, in priority order.
+
+        Returns (rows, {"used": [...], "failed": [(source, why), ...]}).
+        Stops at the first source that delivers -- the others are alternatives,
+        not supplements, and merging two catalogs that disagree about a number
+        would manufacture cards neither of them lists.
+        """
+        rows, used, failed = [], [], []
+        for name in CN_SOURCE_PRIORITY:
+            adapter = self.cn_source(name)
+            if not adapter.can_enumerate:
+                failed.append((name, adapter.cannot_enumerate_because))
+                continue
+            if (game, language) not in adapter.serves:
+                failed.append((name, f"{name} does not serve {game}:{language}"))
+                continue
+            try:
+                found = adapter.enumerate_combo(game, language)
+            except (AdapterGaveUp, RateLimited) as exc:
+                failed.append((name, str(exc)[:200]))
+                continue
+            kept = [r for r in (self._cn_row(game, language, hit)
+                                for hit in found) if r]
+            if kept:
+                rows, used = kept, [name]
+                break
+            failed.append((name, "reachable, but no card in a tracked rarity "
+                                 "band for this combination"))
+        return rows, {"used": used, "failed": failed}
+
+    def _cn_row(self, game, language, hit):
+        """A catalog source row -> a targets row, filtered to tracked bands."""
+        if rarity_band(hit.get("rarity")) not in TRACKED_BANDS:
+            return None
+        return {"card_uid": hit["card_uid"], "game": game, "language": language,
+                "set_code": hit["set_code"], "number": hit["number"],
+                "variant": hit["variant"],
+                "name": hit.get("name_jp") or hit.get("name_en") or "",
+                "rarity": hit.get("rarity"),
+                "external_id": str(hit.get("external_id") or ""),
+                "source": hit.get("source", "")}
+
+    def coverage(self, combos=None):
+        """What the open sources ACTUALLY serve, measured, per combo.
+
+        This is the answer to "report actual coverage rather than assuming".
+        It is a measurement and it can only be taken where the hosts are
+        reachable, which is the Actions runner and not the sandbox.
+        """
+        wanted = combos or [c for c in COMBOS if c[1] in ("CN-S", "CN-T")]
+        out = []
+        for name in CN_SOURCE_PRIORITY:
+            adapter = self.cn_source(name)
+            serves = [c for c in wanted if tuple(c) in adapter.serves]
+            out.extend(adapter.coverage(serves or None))
+            for combo in wanted:
+                if tuple(combo) not in adapter.serves:
+                    out.append({"source": name, "combo": f"{combo[0]}:{combo[1]}",
+                                "claimed": False, "reachable": None, "cards": 0,
+                                "detail": "source does not claim this combination"})
+        return out
+
     def build(self, combos=COMBOS):
         catalog = {}
         for game, language in combos:
@@ -187,6 +253,17 @@ class CatalogBuilder:
                     sources.append("apitcg")
             except (AdapterGaveUp, RateLimited) as exc:
                 self.gap((game, language), "apitcg_unreachable", str(exc)[:200])
+
+            # The commercial providers cannot express the three Chinese
+            # printings at all, so anything still empty here falls through to
+            # the open sources, tried in priority order and stopping at the
+            # first that delivers. Each failure is recorded separately: the
+            # useful output of an empty combo is WHICH sources were asked.
+            if not rows and language in ("CN-S", "CN-T"):
+                rows, tried = self.chinese_fallback(game, language)
+                sources.extend(tried["used"])
+                for src, why in tried["failed"]:
+                    self.gap((game, language), f"{src}_no_cards", why)
 
             deduped = {r["card_uid"]: r for r in rows}
             if not deduped and not any(
@@ -222,7 +299,8 @@ class CatalogBuilder:
 def to_targets(catalog, gaps):
     """The shape the daily runner reads. Card identities only -- no prices."""
     per_source = {name: {"cards": []} for name in
-                  ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting")}
+                  ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting",
+                   "manual")}
     for combo, entry in catalog.items():
         for card in entry["cards"]:
             target = {"card_uid": card["card_uid"], "game": card["game"],
@@ -231,6 +309,15 @@ def to_targets(catalog, gaps):
                       "external_id": card["external_id"],
                       "game_id": TCGAPI_GAME_ID.get((card["game"],
                                                      card["language"]))}
+            # No price source covers a Chinese printing -- not tcgapi, not
+            # PPT, not PriceCharting. The open catalog sources added this
+            # session supply IDENTITY only. Routing these anywhere would spend
+            # quota on a guaranteed miss, so they are listed in their own
+            # bucket: tracked, identified, and awaiting manual prices. Visible
+            # rather than silently dropped.
+            if card["language"] in ("CN-S", "CN-T"):
+                per_source["manual"]["cards"].append(target)
+                continue
             per_source["tcgapi"]["cards"].append(target)
             per_source["apitcg"]["cards"].append(target)
             # PokemonPriceTracker is Pokemon-only by construction, and
@@ -257,6 +344,9 @@ def main(argv=None):
     parser.add_argument("--write", action="store_true")
     parser.add_argument("--out", default=TARGETS)
     parser.add_argument("--combos", default="all")
+    parser.add_argument("--coverage", action="store_true",
+                        help="measure what the open Chinese sources actually "
+                             "serve, per combo, and report it without building")
     args = parser.parse_args(argv)
 
     combos = COMBOS
@@ -265,6 +355,23 @@ def main(argv=None):
         combos = [c for c in COMBOS if f"{c[0]}:{c[1]}" in wanted]
 
     builder = CatalogBuilder()
+
+    if args.coverage:
+        rows = builder.coverage([c for c in combos if c[1] in ("CN-S", "CN-T")])
+        print(f"{'source':12} {'combo':14} {'claims':>7} {'reached':>8} "
+              f"{'cards':>6}  detail")
+        for row in rows:
+            reached = {True: "yes", False: "NO", None: "-"}[row["reachable"]]
+            print(f"{row['source']:12} {row['combo']:14} "
+                  f"{'yes' if row['claimed'] else '-':>7} {reached:>8} "
+                  f"{row['cards']:>6}  {row['detail'][:80]}")
+        served = {r["combo"] for r in rows if r["cards"]}
+        unserved = sorted({r["combo"] for r in rows} - served)
+        print(f"\ncovered: {sorted(served) or 'none'}")
+        print(f"NOT covered by any open source: {unserved or 'none'}")
+        # Zero coverage is the honest answer when it is the true one, so this
+        # does not fail. The report IS the deliverable.
+        return 0
     catalog = builder.build(combos)
     targets = to_targets(catalog, builder.gaps)
 

@@ -24,12 +24,25 @@ boundary, and `card_uid()` refuses anything that is not an internal code.
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 # -- internal vocabulary ---------------------------------------------------
 
 GAMES = ("optcg", "pkmn", "riftbound")
 LANGUAGES = ("EN", "JP", "CN-S", "CN-T")
+
+# Which physical printing of a collector number this is. `card_uid` does not
+# validate against this list -- a new set can invent a treatment we have never
+# seen and refusing it would lose the card -- but everything that GENERATES a
+# variant draws from here, so a typo does not quietly create a second card.
+#
+# Four of these exist because the number alone does not identify the card:
+# `treasure_rare` and `serialized` are printed AT the base card's number, and
+# `ar`/`sar` are separate printings of art that also exists at a base number.
+VARIANTS = ("base", "parallel", "alt_art", "promo", "ar", "sar", "sir",
+            "manga_rare", "treasure_rare", "serialized", "overnumbered",
+            "signature")
 
 # Which languages each game actually ships in. Riftbound is English-only;
 # there is no Japanese release (see probe/COVERAGE.md).
@@ -38,6 +51,98 @@ GAME_LANGUAGES = {
     "pkmn": ("EN", "JP", "CN-S", "CN-T"),
     "riftbound": ("EN",),
 }
+
+# -- how each printing numbers itself --------------------------------------
+#
+# The two Chinese Pokémon printings behave in OPPOSITE ways, and a scheme that
+# handles one wrong-way-round is wrong for the other:
+#
+#   CN-T  reuses the Japanese collector numbers VERBATIM and marks the set code
+#         with an F suffix. Same art, same number, different card. Matching on
+#         (game, number) alone therefore MERGES a Traditional Chinese card into
+#         its Japanese parent -- which is the exact failure card_uid.md exists
+#         to prevent, and the only thing standing in the way is `language`.
+#
+#   CN-S  renumbers into combined sets, so the SAME art carries a DIFFERENT
+#         number from its Japanese parent. Matching on (game, number) alone
+#         therefore MISSES it entirely -- the opposite failure, from the same
+#         naive rule, in the same game.
+#
+# Both are recorded because the useful thing is that they disagree. Any code
+# that treats "Chinese Pokémon" as one behaviour is wrong for half of it.
+NUMBERING_PARENT = {"CN-T": "JP"}
+RENUMBERED = frozenset({"CN-S"})
+
+# Documented for CN-T. There is no equivalent entry for CN-S: both Simplified
+# sets we have externally-verified identities for (151C, csv6C) happen to end
+# in C, but two observations is not a naming rule and nothing enforces it.
+SET_CODE_SUFFIX = {"CN-T": "F"}
+
+
+def shares_numbering_with(language: str) -> Optional[str]:
+    """The printing whose collector numbers this one reuses verbatim, if any.
+
+    Returns None for a language that numbers itself, INCLUDING one that
+    renumbers -- `renumbers(language)` is the separate question.
+    """
+    return NUMBERING_PARENT.get(language)
+
+
+def renumbers(language: str) -> bool:
+    """True where the same art carries a different number from its parent."""
+    return language in RENUMBERED
+
+
+# -- variant, derived from what the provider calls the rarity ---------------
+#
+# Providers state a rarity ("TR", "Special Illustration Rare"), never our
+# variant token. Deriving one from the other in a single place is what keeps
+# the catalog builder and the resolver from disagreeing about what a card is --
+# they used to hold two copies of this and only one knew about Treasure Rares.
+
+# Applied to the rarity string. Order matters: the first match wins, so the
+# longer, more specific phrase is listed above the abbreviation it contains.
+_RARITY_RULES = (
+    ("treasure_rare", r"treasure|\btr\b"),
+    ("manga_rare",    r"\bmanga\b"),
+    ("signature",     r"\bsignature\b"),
+    # `overnumbered` first: it contains the word `serialized` looks for, and
+    # a Riftbound overnumbered card is not a serial-numbered parallel.
+    ("overnumbered",  r"overnumber"),
+    ("serialized",    r"serial|\bnumbered\b"),
+    ("sir",           r"special illustration|\bsir\b"),
+    ("sar",           r"special art rare|\bsar\b"),
+    ("ar",            r"\bart rare\b|\bar\b"),
+    ("promo",         r"\bpromo\b"),
+    ("parallel",      r"parallel"),
+    ("alt_art",       r"\balt(?:ernate)?\b"),
+)
+
+# Applied to the card NAME only when the rarity said nothing. Abbreviations are
+# deliberately absent here: a two-letter token inside a card name is a
+# coincidence far more often than it is a rarity.
+_NAME_SAFE = frozenset({"treasure_rare", "manga_rare", "signature",
+                        "serialized", "overnumbered", "promo", "parallel",
+                        "alt_art"})
+
+
+def variant_from_rarity(rarity, name=None) -> str:
+    """Rarity (and, failing that, name) -> a variant token. `base` if neither says.
+
+    A guess, and treated as one downstream: the resolver scores a variant
+    disagreement as evidence AGAINST a match rather than as a disqualification,
+    so a wrong guess here costs confidence instead of producing a wrong card.
+    """
+    text = str(rarity or "").lower()
+    for token, pattern in _RARITY_RULES:
+        if re.search(pattern, text):
+            return token
+    text = str(name or "").lower()
+    for token, pattern in _RARITY_RULES:
+        if token in _NAME_SAFE and re.search(pattern, text):
+            return token
+    return "base"
+
 
 # -- external vocabulary ---------------------------------------------------
 #

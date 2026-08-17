@@ -166,14 +166,22 @@ class Adapter:
     # -- transport --------------------------------------------------------
 
     def get(self, url: str, *, headers: Optional[dict] = None,
-            label: Optional[str] = None) -> dict:
-        """One GET, cached raw, with bounded backoff and quota accounting."""
+            label: Optional[str] = None,
+            attempts: Optional[int] = None) -> dict:
+        """One GET, cached raw, with bounded backoff and quota accounting.
+
+        `attempts` overrides the retry budget for this call. Discovery uses
+        `attempts=1`: when several candidate URLs are being tried because the
+        endpoint shape is not verified, backing off four times on each wrong
+        guess spends a minute proving nothing.
+        """
         headers = dict(headers or {})
         if self.key_env and self.key:
             headers[self.api_key_header] = self.key
 
+        budget = self.max_attempts if attempts is None else max(1, int(attempts))
         last_error = None
-        for attempt in range(self.max_attempts):
+        for attempt in range(budget):
             if self.exhausted():
                 raise RateLimited(
                     f"{self.name}: {self.quota.note()}; stopping before the "
@@ -183,7 +191,7 @@ class Adapter:
                 status, body = self._send(url, headers)
             except OSError as exc:
                 last_error = f"{type(exc).__name__}: {exc}"
-                self._backoff(attempt, last_error)
+                self._backoff(attempt, last_error, budget)
                 continue
 
             self.quota.consumed_this_run += 1
@@ -192,7 +200,7 @@ class Adapter:
 
             if status == 429:
                 last_error = "429 rate limited"
-                self._backoff(attempt, last_error)
+                self._backoff(attempt, last_error, budget)
                 continue
 
             try:
@@ -216,8 +224,25 @@ class Adapter:
             return payload
 
         raise AdapterGaveUp(
-            f"{self.name}: gave up after {self.max_attempts} attempts on {url} "
+            f"{self.name}: gave up after {budget} attempts on {url} "
             f"({last_error}). Recorded as a gap, never as 'no data'.")
+
+    def probe(self, candidates, *, label: str):
+        """First candidate URL that answers with JSON, and which one it was.
+
+        Returns (url, payload) or (None, [(url, why), ...]). Used where the
+        endpoint shape has NOT been verified against the live service: the
+        alternative is hardcoding one guess and reporting its failure as
+        "the source has no data for this", which is the confusion ingest_gap
+        exists to prevent.
+        """
+        tried = []
+        for url in candidates:
+            try:
+                return url, self.get(url, label=label, attempts=1)
+            except (AdapterGaveUp, RateLimited, OSError) as exc:
+                tried.append((url, str(exc)[:160]))
+        return None, tried
 
     def _send(self, url: str, headers: dict):
         if self._transport is not None:
@@ -234,7 +259,13 @@ class Adapter:
         finally:
             conn.close()
 
-    def _backoff(self, attempt: int, why: str):
+    def _backoff(self, attempt: int, why: str, budget: Optional[int] = None):
+        # Nothing follows the last attempt, so sleeping after it only delays
+        # the error. Discovery calls with attempts=1 would otherwise pay a
+        # full backoff for every candidate URL it rules out.
+        if budget is not None and attempt >= budget - 1:
+            self.log.append(f"{self.name} giving up after {why}")
+            return
         delay = self.base_delay * (2 ** attempt)
         self.log.append(f"{self.name} backoff {delay:.0f}s after {why}")
         self._sleep(delay)

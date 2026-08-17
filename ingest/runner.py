@@ -36,13 +36,24 @@ SOURCES_YML = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 # I meant to configure but did not is a failure. Collapsing them meant one
 # deferred paid provider took down a run that four working providers should
 # have completed.
+# A third distinction joined them: a source that has NEVER been exercised
+# against its live service. The three Chinese catalog sources were written
+# against documentation, in a sandbox whose egress proxy refuses all three
+# hosts, so their endpoint shapes are candidates rather than facts. The first
+# real run is the experiment that settles it -- and an experiment that takes
+# down four working providers when it comes back negative is a bad experiment.
+#
+# `unverified_failed` is therefore a gap that reports loudly, with the exact
+# error, so run #1 tells us the true endpoint shape. Flipping `unverified` off
+# in sources.yml promotes the source to a hard dependency.
 STATUS = {
-    "ok":              {"failure": False, "ingested": True},
-    "empty":           {"failure": False, "ingested": False},
-    "deferred":        {"failure": False, "ingested": False},
-    "not_configured":  {"failure": True,  "ingested": False},
-    "failed":          {"failure": True,  "ingested": False},
-    "rate_limited":    {"failure": True,  "ingested": False},
+    "ok":                {"failure": False, "ingested": True},
+    "empty":             {"failure": False, "ingested": False},
+    "deferred":          {"failure": False, "ingested": False},
+    "unverified_failed": {"failure": False, "ingested": False},
+    "not_configured":    {"failure": True,  "ingested": False},
+    "failed":            {"failure": True,  "ingested": False},
+    "rate_limited":      {"failure": True,  "ingested": False},
 }
 
 
@@ -57,7 +68,29 @@ def _now():
     return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 
 
+CARD_IDENTITY = ("card_uid", "game", "set_code", "number", "variant", "language")
+
+
+def _write_card(store, record):
+    """A catalog row, if it carries a whole identity.
+
+    Enrichment records -- an artist, a Chinese name, anything keyed on a
+    card_uid alone -- are NOT written and NOT counted. The store is
+    insert-or-ignore with no update path, so a partial row would either be
+    rejected by the uid CHECK or would win the race and become the card. Both
+    are worse than declining, and declining is visible in the row count.
+    """
+    payload = dict(record.payload)
+    if not all(payload.get(k) for k in CARD_IDENTITY):
+        return False
+    identity = {k: payload.pop(k) for k in CARD_IDENTITY}
+    store.upsert_card(observed_at=record.observed_at, source=record.source,
+                      **identity, **payload)
+    return True
+
+
 WRITERS = {
+    "card": _write_card,
     "price": lambda s, r: s.add_price(as_of=r.as_of, observed_at=r.observed_at,
                                       source=r.source, **r.payload),
     "pop": lambda s, r: s.add_pop(as_of=r.as_of, observed_at=r.observed_at,
@@ -101,27 +134,36 @@ def run_source(store: Store, name: str, adapter, targets,
         return {"source": name, "status": status, "reason": reason,
                 "expected": expected, "rows": 0, "gaps": 1, "detail": detail}
 
+    # A source whose endpoint shape has never been confirmed against the live
+    # service downgrades a hard failure to a loud gap. See STATUS.
+    unverified = bool(expectation.get("unverified"))
+
     rows = gaps = 0
     try:
         records = adapter.fetch(since=None, **targets)
-    except RateLimited as exc:
-        store.add_gap(source=name, kind="quota", reason="rate limited",
-                      detail=str(exc)[:400], as_of=started, observed_at=_now())
-        _finish(store, run_id, "rate_limited", 0, 1, adapter, str(exc)[:400])
-        return {"source": name, "status": "rate_limited", "expected": expected,
-                "rows": 0, "gaps": 1, "detail": str(exc)[:200]}
-    except AdapterGaveUp as exc:
-        store.add_gap(source=name, kind="unreachable", reason="adapter gave up",
-                      detail=str(exc)[:400], as_of=started, observed_at=_now())
-        _finish(store, run_id, "failed", 0, 1, adapter, str(exc)[:400])
-        return {"source": name, "status": "failed", "expected": expected,
-                "rows": 0, "gaps": 1, "detail": str(exc)[:200]}
+    except (RateLimited, AdapterGaveUp) as exc:
+        limited = isinstance(exc, RateLimited)
+        status = ("unverified_failed" if unverified and not limited
+                  else "rate_limited" if limited else "failed")
+        detail = str(exc)[:400]
+        if unverified and not limited:
+            detail = ("UNVERIFIED SOURCE, first contact failed -- this is the "
+                      "measurement, not a regression: " + detail)
+        store.add_gap(source=name,
+                      kind="quota" if limited else "unreachable",
+                      reason="rate limited" if limited else "adapter gave up",
+                      detail=detail, as_of=started, observed_at=_now())
+        _finish(store, run_id, status, 0, 1, adapter, detail)
+        return {"source": name, "status": status, "expected": expected,
+                "unverified": unverified, "rows": 0, "gaps": 1,
+                "detail": detail[:220]}
 
     for record in records:
         writer = WRITERS.get(record.kind)
         if writer is None:
             continue
-        writer(store, record)
+        if writer(store, record) is False:
+            continue
         rows += 1
 
     if rows == 0:
@@ -149,7 +191,8 @@ def _finish(store, run_id, status, rows, gaps, adapter, detail):
 
 SYMBOL = {"ok": "ingested", "empty": "reached, no rows",
           "deferred": "skipped by choice", "not_configured": "KEY MISSING",
-          "failed": "FAILED", "rate_limited": "RATE LIMITED"}
+          "failed": "FAILED", "rate_limited": "RATE LIMITED",
+          "unverified_failed": "unverified, did not answer"}
 
 
 def render_summary(results, seal=None, db_path=None) -> str:
@@ -183,6 +226,15 @@ def render_summary(results, seal=None, db_path=None) -> str:
         detail = str(detail).replace("|", "\\|").replace("\n", " ")[:160]
         lines.append(f"| `{r['source']}` | {SYMBOL[r['status']]} | {r['rows']} "
                      f"| {r['gaps']} | {detail} |")
+
+    unverified = [r for r in results if r["status"] == "unverified_failed"]
+    if unverified:
+        lines += ["", "**Unverified sources that did not answer.** These were "
+                  "written against documentation and have never reached their "
+                  "live service. The error below IS the coverage finding -- "
+                  "copy it into the adapter and re-run:", ""]
+        lines += [f"- `{r['source']}` -- {r.get('detail', '')}"
+                  for r in unverified]
 
     if deferred:
         lines += ["", "**Skipped by choice.** These have no key and "

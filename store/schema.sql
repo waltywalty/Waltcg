@@ -74,9 +74,24 @@ CREATE TABLE cards (
     release_date      DATE,
     obtainment_class  obtainment_t NOT NULL DEFAULT 'unknown',
     image_url         VARCHAR,
+    -- Simplified Chinese One Piece prints a BOX code (OPC-07) and a card
+    -- number from a different set (OP04-092), and the two do not correspond.
+    -- PSA slabs the card under the box code, so a comp that names it is the
+    -- same asset. Both are stored; only the printed set reaches the uid.
+    box_code          VARCHAR,
+    -- Serialized parallels are printed AT an ordinary card's number, so the
+    -- number cannot distinguish them and the flag has to exist. It is
+    -- redundant with the variant on purpose: the engine reads the boolean,
+    -- the uid reads the variant, and the CHECK stops them drifting apart.
+    serialized        BOOLEAN     NOT NULL DEFAULT FALSE,
+    -- NULL means not observed, never "not foil". A missing foil flag scored
+    -- as False would make every unobserved card look unlike a Treasure Rare.
+    foil              BOOLEAN,
     observed_at       TIMESTAMP   NOT NULL,
     source            VARCHAR     NOT NULL,
     CHECK (observed_at <= now()),
+    CHECK (NOT serialized OR variant = 'serialized'),
+    CHECK (box_code IS NULL OR box_code <> set_code),
     -- The uid must be exactly its own parts. A card whose uid disagrees with
     -- its columns is two cards wearing one key, and every language-merge bug
     -- this schema exists to prevent starts there.

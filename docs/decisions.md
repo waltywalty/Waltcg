@@ -1109,3 +1109,117 @@ valuable row in the set and overwriting it would discard the finding.
 means either the candidates were too easy or the review was not real — and a
 set with no corrections cannot distinguish those two. The warning fires above
 20 confirmations with no corrections.
+
+---
+
+## ADR-0017 — Three open catalog sources, and none of them close One Piece
+
+**2026-08-17.** The three Chinese combinations were recorded as having no
+catalog source. That was true of the five commercial providers and false of the
+open ecosystem, and I did not check the open ecosystem. Adapters added, in the
+priority order they are tried:
+
+| Source | Serves | Enumerates? |
+|---|---|---|
+| `tcgdex` | `pkmn:CN-T`, `pkmn:CN-S` | yes |
+| `cryst` | `pkmn:CN-S` | yes |
+| `wiki52poke` | `pkmn:CN-S`, `pkmn:CN-T` | **no** — names only |
+
+**The headline is the one that is easy to skip past: all three are Pokémon.**
+`optcg:CN-S` — Simplified Chinese One Piece, the printing that four of the nine
+externally-verified seed identities belong to — still has no catalog source.
+Calling these "the Chinese sources" would paper over exactly the gap that
+matters most, so `TheFallbackStopsAtTheFirstSourceThatDelivers.test_no_open_
+source_covers_one_piece` asserts it and TCGdex's refusal message says it in
+prose.
+
+### They are alternatives, not supplements
+
+The fallback stops at the first source that returns cards. Merging two catalogs
+that disagree about a collector number would manufacture cards neither of them
+lists — and the two Chinese Pokémon printings are precisely where two databases
+are most likely to disagree, because one of them renumbers.
+
+### 52poke refuses a capability rather than half-implementing it
+
+It has the standard MediaWiki action API and is the best Chinese-language
+reference for both printings, so enumerating a set is *nearly* possible: pick a
+category title and page through it. The problem is that the category titles are
+in Chinese and I have verified none of them, and **a guessed category title
+returns an empty page that is indistinguishable from an empty set.** That is
+the exact confusion `ingest_gap` exists to prevent, arriving through the front
+door. So `can_enumerate = False` and the adapter offers name enrichment only.
+
+Under CLAUDE.md's rule about fields a source cannot supply: rather than an
+enumerate path that half-works, there is no enumerate path.
+
+---
+
+## ADR-0018 — An unverified source failing is a gap, not a failed run
+
+**2026-08-17.** None of the three adapters in ADR-0017 has ever reached its live
+service. The environment they were written in cannot: the egress proxy answers
+403 to CONNECT for all three hosts. Every URL in them is a candidate, and each
+adapter `probe()`s a list rather than hardcoding one guess.
+
+That leaves a real question: what should happen on run #1 when a guess is
+wrong? Two bad options and one good one.
+
+- Mark them `expected: true` — a wrong guess fails the run, and one speculative
+  source takes down four working providers. That is the bug fixed in `eefa1c3`,
+  reintroduced in a new costume.
+- Mark them `expected: false` — a wrong guess is silent, and the one experiment
+  that could establish the endpoint shape produces nothing to act on.
+
+So: a third status. `unverified: true` in `ingest/sources.yml` downgrades a
+first-contact failure to `unverified_failed` — a gap row, exit code unchanged,
+**and its own section in the job summary carrying the full error.** The error is
+the coverage finding. Run #1 is the experiment; the summary is the result.
+
+Removing `unverified` promotes the source to a hard dependency, which is the
+correct state the moment it returns a row. It is one line, and it should be
+flipped the day the coverage report comes back positive.
+
+**What is NOT claimed:** that any of this parses a real payload correctly. It
+cannot be, until a real payload arrives. What the tests assert is narrower and
+is the part that matters now — that every path which does not know something
+says so: unreachable is not empty, empty is not unreachable, and a combination
+a source does not serve is neither.
+
+---
+
+## ADR-0019 — The collector number is not a key, and the rarity filter proved it
+
+**2026-08-17.** Four documented printing practices, each verified outside this
+repository, each breaking naive matching, now asserted in
+`tests/test_identity_rules.py`: Treasure Rares and serialized parallels printed
+at a base card's number; a Simplified Chinese One Piece box code that does not
+correspond to the printed card number and that PSA slabs under; and the two
+Chinese Pokémon printings numbering themselves in *opposite* directions. Full
+statement in `contracts/card_uid.md`.
+
+Three columns follow: `box_code`, `serialized`, `foil`. `serialized` is
+redundant with the variant deliberately — the engine reads the boolean, the uid
+reads the variant, and a `CHECK` stops them drifting. `foil` is three-state and
+only ever scored when both sides state it.
+
+### The bug this found
+
+`rarity_band()` matched substrings, and every one of the relevant abbreviations
+is a substring of the word `rare`: `"ar" in "rare"` is `True`. So **Art Rares
+were filed as ordinary rares, and Treasure Rares fell through to `rare` too.**
+`ingest/catalog.py` tracks only `chase` and `premium`, which means the target
+builder was excluding the top chase rarity in One Piece and the entire Art Rare
+tier in Pokémon — the cards this whole engine exists to price. Now regexes with
+word boundaries, with a regression test naming the collision.
+
+It went unnoticed because the catalog builder has never run against a live
+catalog. A filter that has only ever been applied to nothing looks correct.
+
+### What was deliberately not asserted
+
+The Japanese counterpart numbers for the Simplified Chinese seeds came back
+unverified, so no seed claims one. Both verified Simplified set codes end in
+`C`; that is two observations, not a naming rule, and `SET_CODE_SUFFIX` records
+only the documented CN-T `F` rule. A test asserts the absence, so a later
+session cannot add the pattern without deciding to.

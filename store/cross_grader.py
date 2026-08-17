@@ -22,6 +22,7 @@ about the data, and the engine is not built this session.
 from __future__ import annotations
 
 import datetime as _dt
+import re
 import statistics
 from decimal import Decimal
 from typing import Optional
@@ -48,18 +49,28 @@ class NotEnoughHistory(RuntimeError):
             "cross-grader comp gap stays flagged rather than estimated.")
 
 
+# Matched in order, first band wins. Regexes rather than substrings because
+# the abbreviations are all substrings of the word `rare`: `"ar" in "rare"` is
+# True, and matching that way filed every Art Rare as an ordinary rare. It also
+# quietly dropped One Piece Treasure Rares, which are the top chase rarity in
+# the game -- ingest/catalog.py tracks only `chase` and `premium`, so both were
+# excluded from the target list they most belong in.
+_BANDS = (
+    ("chase",   r"secret|hyper|special illustration|\bsar\b|\bsir\b|manga|"
+                r"signature|treasure|\btr\b|serial"),
+    ("premium", r"illustration|ultra|\balt\b|alternate|parallel|full art|"
+                r"art rare|\bar\b"),
+    ("rare",    r"holo|rare|leader"),
+)
+
+
 def rarity_band(rarity: Optional[str]) -> str:
     """Coarse bands. Finer ones split the sample faster than they add signal,
     and the sample is the binding constraint here."""
     text = (rarity or "").lower()
-    if any(k in text for k in ("secret", "hyper", "special illustration",
-                               "sar", "sir", "manga", "signature")):
-        return "chase"
-    if any(k in text for k in ("illustration", "ultra", "alt", "parallel",
-                               "full art")):
-        return "premium"
-    if any(k in text for k in ("holo", "rare", "leader")):
-        return "rare"
+    for band, pattern in _BANDS:
+        if re.search(pattern, text):
+            return band
     return "base"
 
 

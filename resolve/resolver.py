@@ -18,6 +18,21 @@ The other rule, and the one this file exists to protect: **language is part of
 identity.** Bandai prints OP01-121 in English, Japanese and Simplified Chinese.
 Matching on (set_code, number) alone merges three assets that trade in three
 separate markets, and nothing downstream would look wrong.
+
+**The collector number is not a key, and four documented cases prove it.** Each
+is handled here rather than in a caller, because a caller that forgets one
+produces a confident wrong card. See tests/test_identity_rules.py.
+
+1. A One Piece Treasure Rare is printed AT its base card's number -- Sanji
+   OP01-013 exists as an R and as a TR. Rarity and foil separate them.
+2. Serialized parallels do the same: Nami OP01-016, Hancock OP07-051, Yamato
+   EB02-006 all share the base number of an ordinary card.
+3. Simplified Chinese One Piece carries a box code (OPC-07) AND a printed card
+   number (OP04-092) which do not correspond, and graders slab under the box
+   code. A match must accept either.
+4. Simplified Chinese Pokémon renumbers into combined sets, so identical art
+   has a DIFFERENT number from Japanese; Traditional Chinese uses an F suffix
+   and SHARES the Japanese numbers. Opposite behaviour, one game.
 """
 
 from __future__ import annotations
@@ -28,7 +43,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .identity import GAMES, LANGUAGES, card_uid, parse_card_uid
+from .identity import (GAMES, LANGUAGES, card_uid, parse_card_uid,
+                       variant_from_rarity)
 
 # Below this, a fuzzy match is written but never used in a signal.
 SIGNAL_THRESHOLD = 0.90
@@ -182,6 +198,14 @@ class Resolver:
                 None, 0.0, None,
                 f"no card in {game}/{language} with number {number!r}")
 
+        # A provider states a rarity, never our variant token. Deriving one is
+        # the ONLY thing separating a Treasure Rare from the ordinary card it
+        # shares a number with, so it happens before scoring, not after.
+        record_variant = str(record.get("variant") or "").lower()
+        if not record_variant and record.get("rarity"):
+            record_variant = variant_from_rarity(record.get("rarity"),
+                                                 record.get("name"))
+
         scored = []
         for card in pool:
             similarity = name_similarity(record.get("name", ""),
@@ -189,19 +213,40 @@ class Resolver:
             confidence = similarity
             # A stated set_code that disagrees is strong evidence against, and
             # is the signal that separates a reprint from its original.
+            #
+            # `box_code` is the exception. Simplified Chinese One Piece prints a
+            # box code (OPC-07) alongside a card number from a different set
+            # (OP04-092), the two do not correspond, and PSA slabs the card
+            # under the BOX code. A comp that names the box code is the same
+            # card, so both are accepted and neither is penalised.
             record_set = str(record.get("set_code") or "").upper()
-            if record_set and record_set != str(card["set_code"]).upper():
+            known_sets = {str(card["set_code"]).upper()}
+            if card.get("box_code"):
+                known_sets.add(str(card["box_code"]).upper())
+            if record_set and record_set not in known_sets:
                 confidence *= 0.55
                 why = (f"number and language match but set_code differs "
-                       f"({record_set} vs {card['set_code']}): likely a reprint "
-                       "or a different print run")
+                       f"({record_set} vs {'/'.join(sorted(known_sets))}): "
+                       "likely a reprint or a different print run")
+            elif record_set and record_set != str(card["set_code"]).upper():
+                why = (f"matched on box code {record_set}, which does not "
+                       f"correspond to the printed set {card['set_code']}")
             else:
                 why = f"fuzzy on ({game}, {card['set_code']}, {number})"
-            # A stated variant that disagrees is the alt-art trap.
-            record_variant = str(record.get("variant") or "").lower()
+            # A stated variant that disagrees is the alt-art trap, and the
+            # Treasure-Rare and serialized-parallel traps besides.
             if record_variant and record_variant != str(card["variant"]).lower():
                 confidence *= 0.65
                 why += f"; variant differs ({record_variant} vs {card['variant']})"
+            # Foil is a weaker discriminator and only counts when BOTH sides
+            # state it. An absent value means unobserved, never "not foil" --
+            # treating a missing field as False is how a Treasure Rare gets
+            # scored against an ordinary card it does not resemble.
+            record_foil, card_foil = record.get("foil"), card.get("foil")
+            if isinstance(record_foil, bool) and isinstance(card_foil, bool) \
+                    and record_foil != card_foil:
+                confidence *= 0.8
+                why += f"; foil differs ({record_foil} vs {card_foil})"
             scored.append(Candidate(card["card_uid"], round(confidence, 4),
                                     "fuzzy", why))
 

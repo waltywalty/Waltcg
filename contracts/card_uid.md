@@ -15,8 +15,16 @@ constructor and it refuses anything that is not an internal code.
 | `game` | Our internal game code. Never a provider slug. | `pkmn` |
 | `set_code` | Publisher's set code as printed | `sv3`, `OP05`, `OGN` |
 | `number` | Collector number as printed, including denominator | `223/197`, `OP05-119` |
-| `variant` | Which physical printing of that number | `base`, `sir`, `sar`, `manga_rare`, `parallel`, `promo`, `overnumbered`, `signature` |
+| `variant` | Which physical printing of that number | `base`, `ar`, `sar`, `sir`, `manga_rare`, `treasure_rare`, `serialized`, `parallel`, `alt_art`, `promo`, `overnumbered`, `signature` |
 | `language` | Printing language | `EN`, `JP`, `CN-S`, `CN-T` |
+
+`card_uid()` does not validate `variant` against that list — a new set can invent a
+treatment nobody has seen and refusing it would lose the card — but everything that
+*generates* a variant draws from `resolve.identity.VARIANTS`, so a typo cannot quietly
+create a second card. Providers state a rarity, never a variant token;
+`variant_from_rarity()` is the single translation and both the catalog builder and the
+resolver call it. They used to hold a copy each, and only one of them knew about
+Treasure Rares.
 
 Examples:
 
@@ -57,6 +65,54 @@ AUDIT_PROTOCOL Layer 3 adds a fourth: for every card in the labelled set that ex
 two languages, assert distinct uids **and** assert their price series are not correlated
 above 0.99 — a correlation that high means they were accidentally merged upstream even
 if the uids differ.
+
+---
+
+## The collector number is not a key
+
+Four documented printing practices break the obvious implementation. Each is asserted in
+`tests/test_identity_rules.py`, and each was verified outside this repository.
+
+**1. A Treasure Rare is printed at its base card's number.** Sanji `OP01-013` exists as
+an R *and* as a TR — one number, two cards, very different prices. Rarity and foil are
+the only discriminators, so a record carrying the number and nothing else must **refuse**
+rather than pick. Serialized parallels do the same thing: Nami `OP01-016`, Hancock
+`OP07-051`, Yamato `EB02-006` are all printed at an ordinary card's number.
+
+**2. Simplified Chinese One Piece carries two codes that do not correspond.** Rebecca has
+box code `OPC-07` and printed number `OP04-092`. **PSA slabs her under the box code**, so
+a graded comp names a set this card does not have. Both are stored; only the printed set
+reaches the uid, because a uid built from the box code would depend on which product the
+card shipped in.
+
+**3. The two Chinese Pokémon printings number themselves in opposite ways.**
+
+| Printing | Numbering | Naive `(game, number)` match |
+|---|---|---|
+| `CN-T` | reuses the **Japanese** numbers verbatim; set code takes an `F` suffix | **merges** it into its Japanese parent |
+| `CN-S` | **renumbers** into combined sets, so identical art gets a different number | **misses** it entirely |
+
+Same game, same naive rule, two opposite failures. Any code that treats "Chinese Pokémon"
+as one behaviour is wrong for half of it. Encoded as `NUMBERING_PARENT` and `RENUMBERED`
+in `resolve/identity.py`. There is deliberately **no** CN-S set-code rule: both verified
+Simplified sets (`151C`, `csv6C`) end in `C`, and two observations is not a naming rule.
+
+**4. The Chinese name is never a unique key.** Four distinct Pikachu ARs sit at `151C`
+`170/151` through `173/151` — one name, one artist (Oswaldo KATO), four cards. Artist is
+not a fallback discriminator either.
+
+### The three columns this needs
+
+| Column | Why it exists | NULL means |
+|---|---|---|
+| `box_code` | The product code a grader slabs under, when it differs from the printed set | no separate box code |
+| `serialized` | A serialized parallel shares the base number, so the number cannot flag it | not serialized |
+| `foil` | Separates a TR from the ordinary card at the same number when rarity is absent | **not observed** — never "not foil" |
+
+`serialized` is redundant with the variant on purpose: the engine reads the boolean, the
+uid reads the variant, and a `CHECK` stops them drifting. `foil` is three-state, and the
+resolver only scores it when *both* sides state it — a missing flag read as `False` would
+push every unobserved card toward the non-foil printing.
 
 ---
 

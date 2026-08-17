@@ -24,7 +24,28 @@ findings in `probe/COVERAGE.md`.
 | `youtube` | video count and view velocity | API key, instant | free quota |
 | `pytrends` | search interest, **set / character level only** | none | free |
 | `alpha_vantage` | FX only | connected | connected |
+| `tcgdex` | **catalog only**, Pokémon, language as a path segment | none | free |
+| `cryst` | **catalog only**, Simplified Chinese Pokémon, from Pokémon Shanghai | none | free |
+| `wiki52poke` | **names only**, Chinese; MediaWiki action API | none | free |
 | `manual` | anything a human types in | — | — |
+
+**The three open catalog sources, added 2026-08-17.** They supply card *identity* and
+never a price. All three are **unverified**: written against documentation in an
+environment that cannot reach any of the three hosts, so every endpoint below is a
+candidate the adapter *probes* rather than a shape it assumes. `ingest/sources.yml` marks
+them `unverified: true`, which downgrades a first-contact failure from a failed run to a
+loud gap carrying the error — run #1 is the experiment that settles the endpoint shape.
+
+Measure, don't assume: `python -m ingest.catalog --coverage`, on the Actions runner.
+
+**All three are Pokémon.** They close nothing for One Piece, so `optcg:CN-S` still has no
+catalog source at all — see section 6.
+
+| Source | Combos claimed | Enumerates? | Note |
+|---|---|---|---|
+| `tcgdex` | `pkmn:CN-T`, `pkmn:CN-S` | yes | Reads `/status` before believing a language is populated. CN-T documented as partial, CN-S as in progress |
+| `cryst` | `pkmn:CN-S` | yes | No published API contract; probes candidate paths and logs which answered |
+| `wiki52poke` | `pkmn:CN-S`, `pkmn:CN-T` | **no** | Enrichment only. Enumeration needs a Chinese category title, and a guessed one returns an empty page indistinguishable from an empty set |
 | `engine:<model>` | computed here from the above | — | — |
 
 **Not sources, and why** — TCGplayer API (closed to new applicants since the eBay
