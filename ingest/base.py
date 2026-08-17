@@ -137,16 +137,23 @@ class Adapter:
         A missing key marks the source untested rather than sending an
         unauthenticated request that comes back as a generic failure and gets
         recorded as "the source had nothing".
+
+        Every key in the returned dict is ALWAYS present, including for a
+        keyless source. It used to return a short dict in that case, which was
+        fine until the first keyless adapter arrived: the reporting step read
+        `key_length` on the ready branch and died with a KeyError before any
+        provider ran. A contract whose shape depends on a branch is a contract
+        that only holds on the branches something has exercised.
         """
-        if self.key_env is None:
-            return {"source": self.name, "key_required": False, "ready": True}
-        key = self.key
+        key = self.key if self.key_env else None
         return {
-            "source": self.name, "key_required": True, "ready": bool(key),
+            "source": self.name,
+            "key_required": self.key_env is not None,
+            "ready": bool(key) if self.key_env else True,
             "env": self.key_env,
             "key_length": len(key) if key else 0,
             "key_prefix": key[:4] if key else None,
-            "reason": None if key else "key absent",
+            "reason": None if (key or not self.key_env) else "key absent",
         }
 
     # -- raw cache --------------------------------------------------------

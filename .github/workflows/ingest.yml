@@ -62,29 +62,44 @@ jobs:
       # Reports. Does NOT abort. Which absences matter is decided by
       # ingest/sources.yml, and the runner enforces it -- this step exists so
       # the log says up front what the run is about to do.
+      # WHAT RUN #4 GOT WRONG. This step used to be a Python heredoc, and the
+      # heredoc read `key_length` on its ready branch -- correct for five
+      # key-bearing adapters, a KeyError on the first keyless one. The job died
+      # in fifteen seconds, before any provider ran, and the summary was empty
+      # because the runner never started.
+      #
+      # A shell heredoc inside a YAML file is not reachable from the test
+      # suite, so nothing could have caught it. The formatter now lives in
+      # ingest/runner.py where tests/test_ingest_runner.py exercises it,
+      # including against a keyless adapter and a module that will not import.
+      # continue-on-error because a REPORT must never be able to fail a run.
       - name: Preflight -- report key presence, never abort, never print a key
+        continue-on-error: true
         env:
           TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
           PPT_KEY: ${{ secrets.PPT_KEY }}
           APITCG_KEY: ${{ secrets.APITCG_KEY }}
           PRICECHARTING_TOKEN: ${{ secrets.PRICECHARTING_TOKEN }}
           ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY }}
+        run: python -m ingest.runner --preflight --summary "$GITHUB_STEP_SUMMARY"
+
+      # Every adapter module imports from requirements.txt alone. This is the
+      # check from 60ade11 made permanent: that failure passed locally because
+      # the session environment already had jsonschema installed and never
+      # declared it. The runner tolerates a broken import now -- it is one
+      # broken source, not a dead run -- but tolerating it is not the same as
+      # wanting it, so this reports every module that would not load.
+      - name: Every adapter imports from requirements.txt alone
+        continue-on-error: true
         run: |
           python - <<'PY'
-          from ingest.adapters import ADAPTERS
-          from ingest.runner import load_expectations
-          expectations = load_expectations()
-          for name, cls in ADAPTERS.items():
-              info = cls().preflight()
-              expected = expectations.get(name, {}).get("expected", True)
-              if info["ready"]:
-                  state = f"ready (key {info['key_length']} chars, " \
-                          f"starts {info['key_prefix']!r})"
-              elif expected:
-                  state = f"NO KEY and expected -- {info['env']} unset, run will fail"
-              else:
-                  state = f"no key, deferred by choice -- {info['env']} unset"
-              print(f"{name:22} {state}")
+          import sys
+          from ingest.registry import ADAPTERS, BROKEN_ADAPTERS, ALL_SOURCE_NAMES
+          for name in ALL_SOURCE_NAMES:
+              print(f"{name:22} {'ok' if name in ADAPTERS else 'BROKEN'}")
+          for name, failure in BROKEN_ADAPTERS.items():
+              print(f"\n--- {name} ---\n{failure['traceback']}", file=sys.stderr)
+          sys.exit(1 if BROKEN_ADAPTERS else 0)
           PY
 
       # The measurement the sandbox cannot take. The three open Chinese catalog

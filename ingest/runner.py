@@ -22,8 +22,9 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ingest.adapters import ADAPTERS                       # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited          # noqa: E402
+from ingest.registry import (ADAPTERS, ALL_SOURCE_NAMES,    # noqa: E402
+                             BROKEN_ADAPTERS)
 from store.db import Store, new_run_id                      # noqa: E402
 
 
@@ -101,6 +102,31 @@ WRITERS = {
                                               observed_at=r.observed_at,
                                               source=r.source, **r.payload),
 }
+
+
+def broken_source(store, name, failure, expectation=None) -> dict:
+    """A source whose module would not import, recorded as a result.
+
+    Not raised, not skipped: a source that cannot load is a fact about the day
+    exactly like an unreachable one, and it belongs in the store and in the
+    summary. The traceback goes in the detail because it is the only thing that
+    can fix it, and run #4 lost its traceback entirely -- the reporting step
+    died alongside the code it was reporting on.
+    """
+    expectation = expectation or {}
+    unverified = bool(expectation.get("unverified"))
+    status = "unverified_failed" if unverified else "failed"
+    detail = f"import of {failure['module']} failed -- {failure['error']}"
+    if unverified:
+        detail = ("UNVERIFIED SOURCE, code did not import. Contained to this "
+                  "source; the others ran. " + detail)
+    store.add_gap(source=name, kind="broken_import",
+                  reason="adapter module failed to import",
+                  detail=(detail + "\n" + failure["traceback"])[:2000],
+                  as_of=_now(), observed_at=_now())
+    return {"source": name, "status": status, "expected": True,
+            "unverified": unverified, "rows": 0, "gaps": 1, "detail": detail,
+            "traceback": failure["traceback"]}
 
 
 def run_source(store: Store, name: str, adapter, targets,
@@ -189,6 +215,59 @@ def _finish(store, run_id, status, rows, gaps, adapter, detail):
         [_now(), status, rows, gaps, adapter.quota.remaining, detail, run_id])
 
 
+def render_preflight(expectations=None, adapters=None, broken=None) -> str:
+    """The pre-run key report, as text.
+
+    It lives here rather than in a heredoc inside the workflow because that is
+    where run #4 died: a formatter that read `key_length` on the ready branch,
+    correct for five key-bearing adapters and a KeyError on the first keyless
+    one. Nothing tested it, because nothing could -- a shell heredoc in a YAML
+    file is not reachable from the test suite. Moved here, it is.
+
+    Never raises and never prints a key. A reporting step that can crash is
+    worse than no reporting step, because it takes the run with it.
+    """
+    expectations = load_expectations() if expectations is None else expectations
+    adapters = ADAPTERS if adapters is None else adapters
+    broken = BROKEN_ADAPTERS if broken is None else broken
+
+    # Every known source, plus anything the caller supplied that is not in the
+    # spec list. A report that could only describe the sources it already knew
+    # about would go quiet on exactly the one that had just been added.
+    names = list(ALL_SOURCE_NAMES)
+    names += [n for n in list(adapters) + list(broken) if n not in names]
+
+    lines = []
+    for name in names:
+        expectation = expectations.get(name, {})
+        expected = expectation.get("expected", True)
+        if name in broken:
+            state = f"CODE DID NOT IMPORT -- {broken[name]['error']}"
+        elif name not in adapters:
+            state = "not registered"
+        else:
+            try:
+                info = adapters[name]().preflight()
+            except Exception as exc:                        # noqa: BLE001
+                state = f"preflight raised -- {type(exc).__name__}: {exc}"
+            else:
+                if not info["key_required"]:
+                    state = "ready (no key required)"
+                elif info["ready"]:
+                    state = (f"ready (key {info['key_length']} chars, "
+                             f"starts {info['key_prefix']!r})")
+                elif expected:
+                    state = (f"NO KEY and expected -- {info['env']} unset, "
+                             "run will fail")
+                else:
+                    state = (f"no key, deferred by choice -- {info['env']} "
+                             "unset")
+        if expectation.get("unverified"):
+            state += "  [unverified: a failure here is a gap, not a failed run]"
+        lines.append(f"{name:22} {state}")
+    return "\n".join(lines) + "\n"
+
+
 SYMBOL = {"ok": "ingested", "empty": "reached, no rows",
           "deferred": "skipped by choice", "not_configured": "KEY MISSING",
           "failed": "FAILED", "rate_limited": "RATE LIMITED",
@@ -226,6 +305,15 @@ def render_summary(results, seal=None, db_path=None) -> str:
         detail = str(detail).replace("|", "\\|").replace("\n", " ")[:160]
         lines.append(f"| `{r['source']}` | {SYMBOL[r['status']]} | {r['rows']} "
                      f"| {r['gaps']} | {detail} |")
+
+    no_import = [r for r in results if r.get("traceback")]
+    if no_import:
+        lines += ["", "**Sources whose code did not import.** Contained to the "
+                  "source: everything else in the table above still ran. The "
+                  "traceback is the fix:", ""]
+        for r in no_import:
+            lines += [f"- `{r['source']}` ({r['status']})", "", "```",
+                      str(r["traceback"]).strip()[:1500], "```"]
 
     unverified = [r for r in results if r["status"] == "unverified_failed"]
     if unverified:
@@ -288,7 +376,19 @@ def main(argv=None):
                         help="write a Markdown summary here (GITHUB_STEP_SUMMARY)")
     parser.add_argument("--results", default=None,
                         help="write the raw results JSON here")
+    parser.add_argument("--preflight", action="store_true",
+                        help="report key presence and exit 0. Never aborts: "
+                             "which absences matter is the runner's decision, "
+                             "not this step's")
     args = parser.parse_args(argv)
+
+    if args.preflight:
+        report = render_preflight()
+        print(report, end="")
+        if args.summary:
+            with open(args.summary, "a", encoding="utf-8") as handle:
+                handle.write("### Preflight\n\n```\n" + report + "```\n\n")
+        return 0
 
     targets = {}
     if args.targets and os.path.exists(args.targets):
@@ -296,7 +396,12 @@ def main(argv=None):
             targets = json.load(handle)
 
     expectations = load_expectations()
-    names = list(ADAPTERS) if args.sources == "all" else args.sources.split(",")
+    # ALL_SOURCE_NAMES, not ADAPTERS: a source whose module failed to import is
+    # absent from ADAPTERS, and iterating that would make it vanish from the
+    # run entirely -- no row, no gap, no line in the summary. Disappearing
+    # quietly is the one outcome this runner exists to prevent.
+    names = (list(ALL_SOURCE_NAMES) if args.sources == "all"
+             else args.sources.split(","))
 
     # The store is opened BEFORE anything can go wrong with a source, so the
     # database file exists even on a run where every source is skipped. An
@@ -305,11 +410,28 @@ def main(argv=None):
 
     results = []
     for name in names:
+        if name in BROKEN_ADAPTERS:
+            results.append(broken_source(store, name, BROKEN_ADAPTERS[name],
+                                         expectations.get(name)))
+            continue
         adapter_cls = ADAPTERS.get(name)
         if adapter_cls is None:
             print(f"unknown source {name}", file=sys.stderr)
             return 2
-        results.append(run_source(store, name, adapter_cls(),
+        # Constructing an adapter can fail too -- a class attribute evaluated
+        # at first instantiation, a bad default. Same containment.
+        try:
+            adapter = adapter_cls()
+        except Exception as exc:                            # noqa: BLE001
+            import traceback as _tb
+            results.append(broken_source(
+                store, name,
+                {"module": adapter_cls.__module__,
+                 "error": f"{type(exc).__name__}: {exc}",
+                 "traceback": _tb.format_exc()},
+                expectations.get(name)))
+            continue
+        results.append(run_source(store, name, adapter,
                                   targets.get(name, {}),
                                   expectations.get(name)))
 

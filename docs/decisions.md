@@ -1223,3 +1223,79 @@ unverified, so no seed claims one. Both verified Simplified set codes end in
 `C`; that is two observations, not a naming rule, and `SET_CODE_SUFFIX` records
 only the documented CN-T `F` rule. A test asserts the absence, so a later
 session cannot add the pattern without deciding to.
+
+---
+
+## ADR-0020 — Run #4 died in a report, and reports cannot be allowed to fail
+
+**2026-08-17.** Fifteen seconds, exit 1, no database, no results file, empty
+summary. Not a missing dependency and not an import error — a clean venv built
+from `requirements.txt` alone imports every adapter and runs all 420 tests.
+
+`Adapter.preflight()` returned a **different shape** for a keyless source:
+
+```python
+if self.key_env is None:
+    return {"source": ..., "key_required": False, "ready": True}   # short
+```
+
+and the workflow's reporting step read `key_length` on its `ready` branch. Five
+key-bearing adapters had exercised that branch for months. The three keyless
+catalog sources were the first to reach it, and `KeyError: 'key_length'` ended
+the job before any provider ran.
+
+Three separate faults, and fixing only the first would have left the shape of
+the failure intact.
+
+### 1. A contract whose shape depends on a branch
+
+`preflight()` now returns every key always. A contract that varies by branch
+only holds on the branches something has exercised, and nothing had ever
+exercised the keyless one.
+
+### 2. The report lived where no test could reach it
+
+It was a Python heredoc inside a YAML file. Nothing in `tests/` can import a
+heredoc, so no test could have caught this — and the step that explains a
+failure is exactly the step that must not have untested code in it. Moved to
+`ingest.runner.render_preflight()`, invoked as `python -m ingest.runner
+--preflight`, and exercised against a keyless adapter, an adapter whose
+`preflight()` raises, and a module that will not import. It is also
+`continue-on-error` now: **a report must never be able to fail the run it is
+reporting on.**
+
+### 3. New code executed in the same breath as working code
+
+The real fault. A single line in the newest, least-verified adapters stopped
+four providers that had nothing to do with it.
+
+`ingest/registry.py` now imports each adapter module independently, inside a
+try, and the three unverified adapters live in their own module
+(`ingest/catalog_sources.py`) so a syntax error there is containable at all.
+The result mirrors what `sources.yml` already does for absent keys:
+
+| | outcome |
+|---|---|
+| import fails, source `unverified` | gap with the traceback, run continues |
+| import fails, source expected | failure — but **after** the others ran and the summary rendered |
+
+Containment is not forgiveness. A verified provider whose code broke still
+exits 1. What changed is that it no longer exits 1 *early and silently*.
+
+The runner iterates `ALL_SOURCE_NAMES`, not `ADAPTERS`. A broken source is
+absent from `ADAPTERS`, and iterating that would make it vanish from the run
+entirely — no row, no gap, no line in the summary. That is the same silent
+disappearance the gap rows exist to prevent, arriving through a different door.
+
+Verified by breaking `catalog_sources.py` on purpose: preflight named the
+syntax error and its line, all eight sources produced results, the database and
+results file were written, and the three broken sources came back
+`unverified_failed` without failing the run. Seven mutations, all caught.
+
+### The check that should have existed
+
+`60ade11` — CI red for days because `jsonschema` was undeclared and the session
+environment happened to have it — was verified in a clean venv **once, by
+hand**, and never made permanent. It is now a workflow step: every adapter
+module must import from `requirements.txt` alone, and a broken one is reported
+with its traceback. A one-off verification is a verification of one commit.

@@ -27,8 +27,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ingest.adapters import (CN_SOURCE_PRIORITY, CrystAdapter,       # noqa: E402
-                             Poke52Adapter, TcgdexAdapter, _catalog_row)
+from ingest.catalog_sources import (CrystAdapter, Poke52Adapter,     # noqa: E402
+                                    TcgdexAdapter, _catalog_row)
+from ingest.registry import CN_SOURCE_PRIORITY                       # noqa: E402
 from ingest.base import AdapterGaveUp                                # noqa: E402
 from ingest.catalog import CatalogBuilder                            # noqa: E402
 from ingest.runner import STATUS, _write_card, render_summary        # noqa: E402

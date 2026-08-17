@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ingest.adapters import ApiTcgAdapter, TcgApiAdapter          # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited, find          # noqa: E402
-from ingest.adapters import CN_SOURCE_PRIORITY, ADAPTERS          # noqa: E402
+from ingest.registry import ADAPTERS, CN_SOURCE_PRIORITY          # noqa: E402
 from resolve.identity import (TCGAPI_GAME_ID, card_uid,           # noqa: E402
                               variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402

@@ -261,3 +261,304 @@ class TheStoreExistsEvenWhenNothingIngests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ---------------------------------------------------------------------------
+# Run #4: a reporting step that could crash, and code that could take the run
+# down before anything ran
+# ---------------------------------------------------------------------------
+
+
+class ThePreflightContractHoldsOnEveryBranch(unittest.TestCase):
+    """Run #4 died in fifteen seconds with a KeyError on `key_length`.
+
+    `preflight()` returned a SHORT dict for a keyless source and a full one
+    otherwise, and the reporting step read `key_length` on the ready branch.
+    Five key-bearing adapters had exercised that branch for months; the first
+    keyless adapter reached it and the job was over before any provider ran.
+
+    A contract whose shape depends on a branch only holds on the branches
+    something has exercised. So the shape is now invariant.
+    """
+
+    KEYS = ("source", "key_required", "ready", "env", "key_length",
+            "key_prefix", "reason")
+
+    # NB: the module-level `Keyless` means "key absent", not "no key required".
+    # This one is genuinely keyless, which is the case run #4 tripped over.
+    class NoKeyNeeded(Adapter):
+        name = "nokey"
+        key_env = None
+
+    def test_a_keyless_source_returns_the_same_keys_as_a_key_bearing_one(self):
+        keyless = self.NoKeyNeeded().preflight()
+        bearing = Working().preflight()
+        self.assertEqual(set(keyless), set(bearing))
+        for key in self.KEYS:
+            self.assertIn(key, keyless)
+
+    def test_a_keyless_source_is_ready_and_requires_nothing(self):
+        info = self.NoKeyNeeded().preflight()
+        self.assertTrue(info["ready"])
+        self.assertFalse(info["key_required"])
+        self.assertIsNone(info["env"])
+        self.assertEqual(info["key_length"], 0)
+
+    def test_no_preflight_ever_reveals_a_key(self):
+        os.environ["WALTCG_TEST_KEY"] = "supersecretvalue"
+        try:
+            class Bearing(Adapter):
+                name, key_env = "bearing", "WALTCG_TEST_KEY"
+            info = Bearing().preflight()
+        finally:
+            os.environ.pop("WALTCG_TEST_KEY")
+        self.assertNotIn("supersecretvalue", repr(info))
+        self.assertEqual(info["key_prefix"], "supe")
+        self.assertEqual(info["key_length"], 16)
+
+
+class ThePreflightReportCannotFailTheRun(unittest.TestCase):
+    """It is a REPORT. The one thing it must never do is stop the thing it is
+    reporting on -- which is exactly what it did on run #4."""
+
+    def test_it_renders_a_keyless_source_without_raising(self):
+        from ingest.runner import render_preflight
+        class NoKeyNeeded(Adapter):
+            name, key_env = "nokey", None
+
+        report = render_preflight(expectations={},
+                                  adapters={"nokey": NoKeyNeeded}, broken={})
+        self.assertIn("no key required", report)
+
+    def test_it_renders_a_source_whose_code_did_not_import(self):
+        from ingest.runner import render_preflight
+        report = render_preflight(
+            expectations={}, adapters={},
+            broken={"tcgdex": {"module": "ingest.catalog_sources",
+                               "error": "ImportError: no module named nope",
+                               "traceback": "Traceback..."}})
+        self.assertIn("CODE DID NOT IMPORT", report)
+        self.assertIn("no module named nope", report)
+
+    def test_it_survives_an_adapter_whose_preflight_raises(self):
+        """Belt and braces. Anything reachable from a report is a thing that
+        can end the run if the report is allowed to die."""
+        from ingest.runner import render_preflight
+
+        class Exploding(Adapter):
+            name = "exploding"
+
+            def preflight(self):
+                raise RuntimeError("boom")
+
+        report = render_preflight(expectations={},
+                                  adapters={"exploding": Exploding}, broken={})
+        self.assertIn("preflight raised", report)
+        self.assertIn("boom", report)
+
+    def test_it_marks_which_sources_are_unverified(self):
+        from ingest.runner import render_preflight
+        report = render_preflight(
+            expectations={"keyless": {"unverified": True}},
+            adapters={"keyless": Keyless}, broken={})   # key absent + unverified
+        self.assertIn("unverified", report)
+
+
+class ABrokenImportIsOneBrokenSource(unittest.TestCase):
+    """The structural fix. New, speculative code used to execute in the same
+    breath as four working providers, so it could stop them before they
+    started. Now each module is imported on its own terms."""
+
+    def test_the_registry_returns_the_ones_that_loaded_and_names_the_rest(self):
+        from ingest.registry import load
+        adapters, broken = load((
+            ("tcgapi", "ingest.adapters", "TcgApiAdapter"),
+            ("nope", "ingest.this_module_does_not_exist", "Whatever"),
+        ))
+        self.assertIn("tcgapi", adapters)
+        self.assertIn("nope", broken)
+        self.assertIn("Traceback", broken["nope"]["traceback"])
+
+    def test_a_missing_class_in_a_real_module_is_also_contained(self):
+        from ingest.registry import load
+        adapters, broken = load((
+            ("tcgapi", "ingest.adapters", "TcgApiAdapter"),
+            ("ghost", "ingest.adapters", "NoSuchAdapter"),
+        ))
+        self.assertEqual(list(adapters), ["tcgapi"])
+        self.assertIn("AttributeError", broken["ghost"]["error"])
+
+    def test_the_speculative_adapters_live_in_their_own_module(self):
+        """Load-bearing, not cosmetic: the three unverified adapters are the
+        code most likely to be wrong, and keeping them out of adapters.py is
+        what makes their breakage containable at all."""
+        from ingest.registry import SPECS
+        modules = {name: module for name, module, _c in SPECS}
+        for name in ("tcgdex", "cryst", "wiki52poke"):
+            self.assertEqual(modules[name], "ingest.catalog_sources")
+        for name in ("tcgapi", "pokemonpricetracker", "apitcg",
+                     "pricecharting", "fx_alphavantage"):
+            self.assertEqual(modules[name], "ingest.adapters")
+
+    def test_an_unverified_source_that_will_not_import_is_a_gap(self):
+        from ingest.runner import broken_source
+        store = seeded_store()
+        result = broken_source(store, "tcgdex",
+                               {"module": "ingest.catalog_sources",
+                                "error": "SyntaxError: bad", "traceback": "T"},
+                               {"unverified": True})
+        self.assertEqual(result["status"], "unverified_failed")
+        self.assertFalse(STATUS[result["status"]]["failure"])
+        self.assertEqual(decide_exit([
+            {"source": "tcgapi", "status": "ok", "rows": 9, "gaps": 0},
+            result])[0], 0)
+
+    def test_an_expected_source_that_will_not_import_still_fails_the_run(self):
+        """Containment is not forgiveness. A verified provider whose code
+        broke is a real regression and the run must go red -- just not before
+        the others have run and the summary has rendered."""
+        from ingest.runner import broken_source
+        store = seeded_store()
+        result = broken_source(store, "tcgapi",
+                               {"module": "ingest.adapters",
+                                "error": "ImportError: x", "traceback": "T"},
+                               {"expected": True})
+        self.assertEqual(result["status"], "failed")
+        self.assertTrue(STATUS[result["status"]]["failure"])
+        self.assertEqual(decide_exit([result])[0], 1)
+
+    def test_it_writes_a_gap_row_so_the_store_records_the_day(self):
+        from ingest.runner import broken_source
+        store = seeded_store()
+        broken_source(store, "cryst",
+                      {"module": "ingest.catalog_sources",
+                       "error": "ImportError: x", "traceback": "T"},
+                      {"unverified": True})
+        rows = store.con.execute(
+            "SELECT kind, reason FROM ingest_gap WHERE source = 'cryst'"
+        ).fetchall()
+        self.assertEqual(rows[0][0], "broken_import")
+
+    def test_the_summary_carries_the_traceback(self):
+        """Run #4's traceback was lost entirely -- the reporting step died
+        alongside the code it was reporting on. The traceback is the only
+        thing that can fix a broken import, so it has to survive."""
+        summary = render_summary([
+            {"source": "tcgapi", "status": "ok", "rows": 12, "gaps": 0},
+            {"source": "tcgdex", "status": "unverified_failed", "rows": 0,
+             "gaps": 1, "detail": "import failed",
+             "traceback": "Traceback (most recent call last):\n  KeyError: 'x'"},
+        ])
+        self.assertIn("did not import", summary)
+        self.assertIn("KeyError", summary)
+        self.assertIn("OK --", summary,
+                      "a broken unverified source took the run down with it")
+
+    def test_a_broken_source_still_appears_in_the_run(self):
+        """It is absent from ADAPTERS, so iterating that would make it vanish
+        -- no row, no gap, no line in the summary. Disappearing quietly is the
+        one outcome this runner exists to prevent."""
+        from ingest.registry import ALL_SOURCE_NAMES, SPECS
+        self.assertEqual(set(ALL_SOURCE_NAMES),
+                         {name for name, _m, _c in SPECS})
+        self.assertIn("tcgdex", ALL_SOURCE_NAMES)
+
+
+class EveryAdapterImportsFromRequirementsAlone(unittest.TestCase):
+    """The 60ade11 check, made permanent. That failure passed locally because
+    the session environment already had jsonschema and never declared it."""
+
+    def test_nothing_is_broken_right_now(self):
+        from ingest.registry import BROKEN_ADAPTERS
+        self.assertEqual(
+            BROKEN_ADAPTERS, {},
+            "an adapter module does not import: "
+            + "; ".join(f"{n}: {f['error']}"
+                        for n, f in BROKEN_ADAPTERS.items()))
+
+    def test_no_adapter_module_imports_a_third_party_package(self):
+        """A declared dependency is one CI installs. An undeclared one is one
+        that happens to be in the environment you tested in."""
+        import ast
+        declared = {"yaml", "duckdb", "jsonschema"}
+        for module in ("ingest/adapters.py", "ingest/catalog_sources.py",
+                       "ingest/base.py", "ingest/registry.py"):
+            with open(module, encoding="utf-8") as handle:
+                tree = ast.parse(handle.read())
+            for node in ast.walk(tree):
+                names = []
+                if isinstance(node, ast.Import):
+                    names = [a.name.split(".")[0] for a in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                    names = [(node.module or "").split(".")[0]]
+                for name in names:
+                    if name in declared:
+                        continue
+                    self.assertIn(
+                        name, sys.stdlib_module_names | {"ingest", "resolve",
+                                                         "store", ""},
+                        f"{module} imports {name!r}, which is neither stdlib "
+                        "nor declared in requirements.txt")
+
+
+class TheRunCoversEverySourceEvenTheBrokenOnes(unittest.TestCase):
+    """End to end through main(). The unit tests above assert the pieces; this
+    asserts the loop actually visits a source that is absent from ADAPTERS.
+
+    Iterating ADAPTERS instead of ALL_SOURCE_NAMES makes a broken source
+    vanish -- no row, no gap, no line in the summary -- which is the same
+    silent disappearance the gap rows exist to prevent, arriving through a
+    different door.
+    """
+
+    def test_a_source_missing_from_adapters_still_produces_a_result(self):
+        import json as _json
+        import tempfile
+        from ingest import runner as mod
+
+        saved = mod.ADAPTERS, mod.BROKEN_ADAPTERS
+        mod.ADAPTERS = {k: v for k, v in saved[0].items() if k != "tcgdex"}
+        mod.BROKEN_ADAPTERS = {"tcgdex": {
+            "module": "ingest.catalog_sources",
+            "error": "SyntaxError: '(' was never closed",
+            "traceback": "Traceback (most recent call last): SyntaxError"}}
+        work = tempfile.mkdtemp()
+        results_path = os.path.join(work, "r.json")
+        try:
+            mod.main(["--db", os.path.join(work, "t.duckdb"),
+                      "--results", results_path])
+            with open(results_path, encoding="utf-8") as handle:
+                results = _json.load(handle)["results"]
+        finally:
+            mod.ADAPTERS, mod.BROKEN_ADAPTERS = saved
+
+        by_source = {r["source"]: r for r in results}
+        self.assertEqual(set(by_source), set(mod.ALL_SOURCE_NAMES),
+                         "a source dropped out of the run entirely")
+        self.assertEqual(by_source["tcgdex"]["status"], "unverified_failed")
+        self.assertIn("SyntaxError", by_source["tcgdex"]["traceback"])
+
+    def test_the_database_and_results_survive_a_broken_module(self):
+        """Run #4 produced neither. Both are what a post-mortem reads."""
+        import tempfile
+        from ingest import runner as mod
+
+        saved = mod.ADAPTERS, mod.BROKEN_ADAPTERS
+        mod.ADAPTERS = {}
+        mod.BROKEN_ADAPTERS = {n: {"module": "m", "error": "ImportError: x",
+                                   "traceback": "T"}
+                               for n in mod.ALL_SOURCE_NAMES}
+        work = tempfile.mkdtemp()
+        db_path = os.path.join(work, "t.duckdb")
+        summary_path = os.path.join(work, "s.md")
+        try:
+            code = mod.main(["--db", db_path, "--summary", summary_path])
+        finally:
+            mod.ADAPTERS, mod.BROKEN_ADAPTERS = saved
+
+        self.assertEqual(code, 1, "every source broken should still exit 1")
+        self.assertTrue(os.path.exists(db_path), "no database was written")
+        with open(summary_path, encoding="utf-8") as handle:
+            summary = handle.read()
+        self.assertIn("did not import", summary)
+        self.assertTrue(summary.strip(), "the summary came back empty again")
