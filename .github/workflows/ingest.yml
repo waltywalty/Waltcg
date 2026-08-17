@@ -91,16 +91,7 @@ jobs:
       # wanting it, so this reports every module that would not load.
       - name: Every adapter imports from requirements.txt alone
         continue-on-error: true
-        run: |
-          python - <<'PY'
-          import sys
-          from ingest.registry import ADAPTERS, BROKEN_ADAPTERS, ALL_SOURCE_NAMES
-          for name in ALL_SOURCE_NAMES:
-              print(f"{name:22} {'ok' if name in ADAPTERS else 'BROKEN'}")
-          for name, failure in BROKEN_ADAPTERS.items():
-              print(f"\n--- {name} ---\n{failure['traceback']}", file=sys.stderr)
-          sys.exit(1 if BROKEN_ADAPTERS else 0)
-          PY
+        run: python -m ingest.registry
 
       # The measurement the sandbox cannot take. The three open Chinese catalog
       # sources were written against documentation, in an environment whose
@@ -111,18 +102,7 @@ jobs:
       # takes the run down cannot be read.
       - name: Measure Chinese catalog coverage -- report, never assume
         continue-on-error: true
-        run: |
-          {
-            echo "### Chinese catalog coverage"
-            echo
-            echo "Measured now, on this runner. Written against documentation"
-            echo "and never before exercised -- an unreachable row here is the"
-            echo "true endpoint shape being discovered, not a regression."
-            echo
-            echo '```'
-            python -m ingest.catalog --coverage 2>&1 | tail -n 40
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: python -m ingest.catalog --coverage --summary "$GITHUB_STEP_SUMMARY"
 
       # MUST come before the ingest step. Run #5 went green having ingested
       # 8,313 card identities and zero prices: tcgapi, PPT and apitcg each
@@ -134,31 +114,24 @@ jobs:
       # a price source with no targets (`no_targets`, which fails the run), so
       # a catalog step that silently produced nothing cannot pass as a green
       # run a second time. This is the guard; that is the backstop.
+      #
+      # WHAT RUN #7 GOT WRONG, and it is the run #4 lesson repeating. This step
+      # was `python -m ingest.catalog --write` followed by a shell block that
+      # wrote the summary. The catalog found zero cards and returned 1; GitHub
+      # runs `bash -e`; the script aborted on that exit code; and the block
+      # that would have EXPLAINED the zero never executed. `continue-on-error`
+      # then hid the failed step, so the run reported nothing at all about the
+      # thing that produced the input for everything downstream.
+      #
+      # One command now. `--summary` is written inside Python, BEFORE the exit
+      # code is returned, so no exit code and no shell option can suppress it.
+      # There is no shell logic left in this step to get wrong.
       - name: Build targets from the catalogs -- BEFORE anything prices them
         continue-on-error: true
         env:
           TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
           APITCG_KEY: ${{ secrets.APITCG_KEY }}
-        run: |
-          python -m ingest.catalog --write
-          {
-            echo "### Targets"
-            echo
-            echo '```'
-            python - <<'PY'
-          import json
-          targets = json.load(open("ingest/targets.json"))
-          for name, entry in sorted(targets.items()):
-              if isinstance(entry, dict) and "cards" in entry:
-                  print(f"{name:22} {len(entry['cards']):>6} cards")
-          print()
-          for combo, count in sorted(targets.get("_counts", {}).items()):
-              print(f"  {combo:16} {count:>6} tracked")
-          for gap in targets.get("_gaps", []):
-              print(f"  GAP {gap['combo']:12} {gap['reason']}")
-          PY
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: python -m ingest.catalog --write --summary "$GITHUB_STEP_SUMMARY"
 
       # Always runs to completion. The exit code is the runner's decision.
       - name: Run adapters and write snapshots

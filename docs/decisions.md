@@ -1424,3 +1424,70 @@ That is a weaker join and it is labelled as one. Where several Japanese cards
 share an illustrator, the candidate is proposed **without** a parent and says
 the pairing is the open question. A wrong pairing rejected by a human costs one
 click; a wrong pairing accepted silently costs the measurement.
+
+---
+
+## ADR-0024 — Run #7: the report that could not report
+
+**2026-08-17.** The `no_targets` backstop fired exactly as designed — all three
+price sources reported NEVER ASKED, FX was fixed, tcgdex ingested 8,313. And
+the job summary contained **no catalog section at all**, so the one question
+that mattered was unanswerable.
+
+The catalog step was present and correctly ordered. It ran. It found zero
+cards, and `ingest/catalog.py` returns 1 when the total is zero. GitHub runs
+`bash -e`. The script aborted on that exit code, and the `{ ... } >>
+$GITHUB_STEP_SUMMARY` block that would have **explained** the zero never
+executed. `continue-on-error: true` then hid the failed step.
+
+**This is run #4 repeating.** That failure was a Python heredoc inside YAML
+that no test could reach; ADR-0020 moved the formatter into tested Python and
+said so. Then the next thing that needed a report got a shell block, and the
+shell block failed in a new way. Twice is a pattern, so the rule is now
+asserted rather than remembered: `NoStepPutsLogicInAShell` parses the workflow
+and fails on any step containing a heredoc. There are none left.
+
+`ingest.catalog --summary` writes its report **before** the exit code is
+returned. No exit code and no shell option can suppress it.
+
+### What the zero was actually hiding
+
+Walking the routing answered the real question. `ingest/catalog.py` reaches
+tcgapi for `optcg:EN`, `pkmn:EN`, `pkmn:JP`, `riftbound:EN`; apitcg adds
+`optcg:JP`; tcgdex serves the two Chinese Pokémon printings; `optcg:CN-S` has
+nothing. So tcgapi and apitcg are **both catalog and price sources**, and the
+ingest step's "0 calls" said nothing about whether the catalog step called them
+— different adapter instances, separate accounting. The summary now reports the
+catalog step's own call counts.
+
+And the endpoints it calls were **never verified**. `probe/COVERAGE.md` records
+a 200 from tcgapi `/v1/games` and `/v1/search`, and from apitcg
+`/api/{game}/cards?name={name}`. It records nothing about `/v1/sets`,
+`/v1/bulk`, `/v1/cards`, or apitcg enumeration by page. Those four were
+invented in the catalog builder and used as facts.
+
+That is the same class of guess as the superseded `cryst` adapter, with one
+difference that mattered: **cryst was marked unverified, so its failure read as
+a finding.** These were not, so a wrong URL came back as "this combination has
+no chase cards" and the catalog quietly wrote nothing. They are probed now, in
+the same way, and which candidate answered is reported.
+
+### Zero has four meanings
+
+| Verdict | Means |
+|---|---|
+| `ok` | cards found |
+| `catalog_ran_empty` | asked, answered, nothing in a tracked rarity band |
+| `source_unreachable` | asked, no answer — a wrong endpoint lands here |
+| `no_catalog_source` | nothing serves this combination; it is manual |
+
+Plus a fourth absence that is not a combo verdict at all: **the catalog never
+ran**, which `describe_target_absence` detects from a missing `_generated_at`
+and reports differently from all of the above.
+
+One bug fell out of writing this down. `sets_for` recorded tcgapi's missing
+game entry as `no_catalog_source`, which made `pkmn:CN-S` report "nothing
+serves this" while tcgdex was serving it 877 cards. It is a fact about tcgapi,
+not about the combination; it is `tcgapi_no_game_entry` now, and the
+combo-level verdict is computed at the end from every source that was actually
+asked.

@@ -82,3 +82,31 @@ CN_SOURCE_PRIORITY = ("tcgdex", "cryst", "wiki52poke")
 # import silently vanishes from the summary, which is the same disappearance
 # the gap rows exist to prevent.
 ALL_SOURCE_NAMES = tuple(name for name, _m, _c in SPECS)
+
+
+def render_import_report(adapters=None, broken=None) -> str:
+    adapters = ADAPTERS if adapters is None else adapters
+    broken = BROKEN_ADAPTERS if broken is None else broken
+    lines = [f"{name:22} {'ok' if name in adapters else 'BROKEN'}"
+             for name in ALL_SOURCE_NAMES]
+    for name, failure in sorted(broken.items()):
+        lines += ["", f"--- {name} ({failure['module']}) ---",
+                  failure["traceback"].rstrip()]
+    return "\n".join(lines) + "\n"
+
+
+def main(argv=None):
+    """`python -m ingest.registry` -- every adapter module, imported or not.
+
+    In Python rather than a shell heredoc in the workflow. Two of this
+    project's failures have now been shell logic inside YAML that no test could
+    reach (runs #4 and #7), and this file exists because of the first one.
+    """
+    report = render_import_report()
+    print(report, end="")
+    return 1 if BROKEN_ADAPTERS else 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

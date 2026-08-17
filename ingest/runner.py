@@ -149,8 +149,45 @@ def broken_source(store, name, failure, expectation=None) -> dict:
             "traceback": failure["traceback"]}
 
 
+def describe_target_absence(name, catalog_meta) -> str:
+    """WHY this source has no targets. Four different answers.
+
+    Run #7's `no_targets` said only that the list was empty. It was right and
+    it was not actionable: "the catalog never ran" and "the catalog ran, asked
+    tcgapi, and got a wrong endpoint back" are different problems with
+    different fixes, and the status could not tell them apart.
+    """
+    if not catalog_meta or not catalog_meta.get("_generated_at"):
+        return ("THE CATALOG NEVER RAN. ingest/targets.json carries no "
+                "`_generated_at`, so it is the checked-in stub rather than "
+                "something a catalog build produced. Run "
+                "`python -m ingest.catalog --write` before the ingest step.")
+
+    when = catalog_meta["_generated_at"]
+    routed = {combo: sources.get(name, 0)
+              for combo, sources in (catalog_meta.get("_routing") or {}).items()}
+    if any(routed.values()):
+        return (f"the catalog ran at {when} and routed "
+                f"{sum(routed.values())} cards to this source, but the target "
+                "list handed to it was empty. That is a ROUTING fault between "
+                "catalog and runner, not a coverage one.")
+
+    statuses = catalog_meta.get("_combo_status") or {}
+    by_status = {}
+    for combo, entry in statuses.items():
+        by_status.setdefault(entry.get("status", "unknown"), []).append(combo)
+    breakdown = "; ".join(f"{status}: {', '.join(sorted(combos))}"
+                          for status, combos in sorted(by_status.items()))
+    return (f"THE CATALOG RAN at {when} AND FOUND NOTHING for this source. "
+            f"Per-combo verdict -- {breakdown or 'no combo status recorded'}. "
+            "`source_unreachable` means an endpoint was asked and did not "
+            "answer; `catalog_ran_empty` means it answered and listed nothing "
+            "trackable; `no_catalog_source` means nothing serves that combo "
+            "and it is manual.")
+
+
 def run_source(store: Store, name: str, adapter, targets,
-               expectation=None) -> dict:
+               expectation=None, catalog_meta=None) -> dict:
     run_id = new_run_id()
     started = _now()
     store.con.execute(
@@ -197,9 +234,9 @@ def run_source(store: Store, name: str, adapter, targets,
     # did not run, or ran and wrote nothing, and the day has no prices.
     if getattr(adapter, "requires_targets", False) and not _has_targets(targets):
         detail = ("no targets supplied. This source prices a card list and the "
-                  "list was empty, so it made zero calls -- it was never asked, "
-                  "which is not the same as having nothing to say. Run "
-                  "`python -m ingest.catalog --write` before the ingest step.")
+                  "list was empty, so it made zero calls -- it was never "
+                  "asked, which is not the same as having nothing to say. "
+                  + describe_target_absence(name, catalog_meta))
         store.add_gap(source=name, kind="no_targets",
                       reason="targets.json had no cards for this source",
                       detail=detail, as_of=started, observed_at=_now())
@@ -454,6 +491,9 @@ def main(argv=None):
     if args.targets and os.path.exists(args.targets):
         with open(args.targets, encoding="utf-8") as handle:
             targets = json.load(handle)
+    # The catalog step's own metadata, carried alongside the card lists. It is
+    # what lets `no_targets` say WHICH of the four absences this is.
+    catalog_meta = {k: v for k, v in targets.items() if k.startswith("_")}
 
     expectations = load_expectations()
     # ALL_SOURCE_NAMES, not ADAPTERS: a source whose module failed to import is
@@ -493,7 +533,8 @@ def main(argv=None):
             continue
         results.append(run_source(store, name, adapter,
                                   targets.get(name, {}),
-                                  expectations.get(name)))
+                                  expectations.get(name),
+                                  catalog_meta=catalog_meta))
 
     seal = store.verify_seal()
     print(json.dumps({"results": results, "seal": seal}, indent=2))

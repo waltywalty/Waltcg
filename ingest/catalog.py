@@ -75,6 +75,25 @@ class CatalogBuilder:
         self._cn = dict(cn_sources or {})
         self.gaps = []
         self.log = []
+        # Which candidate URL actually answered, per endpoint. Populated by
+        # discovery and reported, because "which endpoint worked" is the fact
+        # that turns a zero into a diagnosis.
+        self.endpoints_used = {}
+        # Per combo: why it has the count it has. `ok` and `catalog_ran_empty`
+        # and `no_catalog_source` are three different facts and only one of
+        # them is "nothing to see here".
+        self.combo_status = {}
+        # combo -> {sources a request was actually issued to}
+        self.attempted = {}
+
+    def attempt(self, combo, source):
+        """Record that a request was actually ISSUED for this combination.
+
+        The difference between `no_catalog_source` and `source_unreachable` is
+        whether anything was asked, and that cannot be reconstructed from the
+        gap reasons -- a gap is written in both cases.
+        """
+        self.attempted.setdefault(f"{combo[0]}:{combo[1]}", set()).add(source)
 
     def gap(self, combo, reason, detail=""):
         game, language = combo
@@ -82,18 +101,61 @@ class CatalogBuilder:
                           "combo": f"{game}:{language}", "reason": reason,
                           "detail": detail})
 
+    # THESE FOUR ENDPOINTS WERE NEVER VERIFIED. probe/COVERAGE.md records a 200
+    # from tcgapi's `/v1/games` and `/v1/search`, and from apitcg's
+    # `/api/{game}/cards?name={name}`. It records nothing about `/v1/sets`,
+    # `/v1/bulk`, `/v1/cards`, or apitcg enumeration by page -- those were
+    # invented here and used as though they were facts.
+    #
+    # That is the same class of guess as the superseded `cryst` adapter, with
+    # one difference that mattered: cryst was MARKED unverified, so its failure
+    # read as a finding. These were not, so a wrong URL came back as "this
+    # combination has no chase cards" and the catalog quietly wrote nothing.
+    #
+    # So they are probed, in the same way, and which candidate answered is
+    # reported. `endpoints_used` is the record.
+    SET_CANDIDATES = (
+        "https://api.tcgapi.dev/v1/sets?game={game}&page={page}&per_page=100",
+        "https://api.tcgapi.dev/v1/sets?game_id={game}&page={page}",
+        "https://api.tcgapi.dev/v1/games/{game}/sets?page={page}",
+    )
+    CARD_CANDIDATES = (
+        "https://api.tcgapi.dev/v1/cards?game={game}&set={set}&page={page}&per_page=250",
+        "https://api.tcgapi.dev/v1/cards?game={game}&set_code={set}&page={page}",
+        "https://api.tcgapi.dev/v1/sets/{set}/cards?game={game}&page={page}",
+    )
+
     def sets_for(self, game, language):
         """Every set for a combo, read to the LAST page."""
         game_id = TCGAPI_GAME_ID.get((game, language))
         if game_id is None:
-            self.gap((game, language), "no_catalog_source",
+            # A fact about TCGAPI, not about the combination. Naming it
+            # `no_catalog_source` made pkmn:CN-S report "nothing serves this"
+            # while tcgdex was serving it 877 cards -- the combo-level verdict
+            # is computed at the end, from every source that was asked.
+            self.gap((game, language), "tcgapi_no_game_entry",
                      "tcgapi has no game entry for this combination")
             return []
+
+        self.attempt((game, language), "tcgapi")
+        template = self.endpoints_used.get("tcgapi.sets")
+        if template is None:
+            url, payload = self.tcgapi.probe(
+                [c.format(game=game_id, page=1) for c in self.SET_CANDIDATES],
+                label=f"sets-{game}-{language}-discover")
+            if url is None:
+                raise AdapterGaveUp(
+                    "no tcgapi set endpoint answered. Tried "
+                    + "; ".join(f"{u} ({why})" for u, why in payload))
+            template = self.SET_CANDIDATES[
+                [c.format(game=game_id, page=1) for c in self.SET_CANDIDATES].index(url)]
+            self.endpoints_used["tcgapi.sets"] = template
+            self.log.append(f"tcgapi sets endpoint resolved to {template}")
+
         out, page = [], 1
         while True:
-            payload = self.tcgapi.get(
-                f"https://api.tcgapi.dev/v1/sets?game={game_id}"
-                f"&page={page}&per_page=100", label=f"sets-{game}-{language}-p{page}")
+            payload = self.tcgapi.get(template.format(game=game_id, page=page),
+                                      label=f"sets-{game}-{language}-p{page}")
             batch = find(payload, "data", "sets", "results") or []
             out.extend(batch)
             meta = find(payload, "meta") or {}
@@ -109,21 +171,41 @@ class CatalogBuilder:
         one call instead of one per page is the difference between a full
         catalog refresh fitting in the daily quota and not."""
         game_id = TCGAPI_GAME_ID.get((game, language))
-        try:
-            payload = self.tcgapi.get(
-                f"https://api.tcgapi.dev/v1/bulk?game={game_id}&set={set_code}",
-                label=f"bulk-{game}-{language}-{set_code}")
-            cards = find(payload, "data", "cards", "results")
-            if cards:
-                return cards
-        except AdapterGaveUp:
-            self.log.append(f"{game}:{language}:{set_code} no /bulk, paging /cards")
+        if self.endpoints_used.get("tcgapi.bulk") != "unavailable":
+            try:
+                payload = self.tcgapi.get(
+                    f"https://api.tcgapi.dev/v1/bulk?game={game_id}&set={set_code}",
+                    label=f"bulk-{game}-{language}-{set_code}", attempts=1)
+                cards = find(payload, "data", "cards", "results")
+                if cards:
+                    self.endpoints_used["tcgapi.bulk"] = "/v1/bulk"
+                    return cards
+            except AdapterGaveUp:
+                # Ruled out ONCE, not once per set. Re-probing a known-absent
+                # endpoint for every set in the game is how a catalog refresh
+                # spends its whole quota discovering the same 404.
+                self.endpoints_used["tcgapi.bulk"] = "unavailable"
+                self.log.append("tcgapi /v1/bulk did not answer; paging /cards")
+
+        template = self.endpoints_used.get("tcgapi.cards")
+        if template is None:
+            candidates = [c.format(game=game_id, set=set_code, page=1)
+                          for c in self.CARD_CANDIDATES]
+            url, payload = self.tcgapi.probe(
+                candidates, label=f"cards-{set_code}-discover")
+            if url is None:
+                raise AdapterGaveUp(
+                    "no tcgapi card endpoint answered. Tried "
+                    + "; ".join(f"{u} ({why})" for u, why in payload))
+            template = self.CARD_CANDIDATES[candidates.index(url)]
+            self.endpoints_used["tcgapi.cards"] = template
+            self.log.append(f"tcgapi cards endpoint resolved to {template}")
 
         out, page = [], 1
         while True:
             payload = self.tcgapi.get(
-                f"https://api.tcgapi.dev/v1/cards?game={game_id}&set={set_code}"
-                f"&page={page}&per_page=250", label=f"cards-{set_code}-p{page}")
+                template.format(game=game_id, set=set_code, page=page),
+                label=f"cards-{set_code}-p{page}")
             batch = find(payload, "data", "cards", "results") or []
             out.extend(batch)
             meta = find(payload, "meta") or {}
@@ -138,6 +220,7 @@ class CatalogBuilder:
         """apitcg fills One Piece JP, which tcgapi's catalog cannot express."""
         if language not in APITCG_LANGUAGES.get(game, ()):
             return []
+        self.attempt((game, language), "apitcg")
         slug = ApiTcgAdapter.SLUG.get(game)
         out, page = [], 1
         while True:
@@ -190,6 +273,7 @@ class CatalogBuilder:
             if (game, language) not in adapter.serves:
                 failed.append((name, f"{name} does not serve {game}:{language}"))
                 continue
+            self.attempt((game, language), name)
             try:
                 found = adapter.enumerate_combo(game, language)
             except (AdapterGaveUp, RateLimited) as exc:
@@ -279,11 +363,35 @@ class CatalogBuilder:
                     self.gap((game, language), f"{src}_no_cards", why)
 
             deduped = {r["card_uid"]: r for r in rows}
-            if not deduped and not any(
-                    g["combo"] == f"{game}:{language}" for g in self.gaps):
+            combo = f"{game}:{language}"
+            reasons = [g["reason"] for g in self.gaps if g["combo"] == combo]
+            asked = sorted(self.attempted.get(combo, ()))
+            unreachable = [r for r in reasons
+                           if "unreachable" in r or "no_cards" in r]
+            if deduped:
+                status = "ok"
+            elif not asked:
+                # Nothing serves this combination, so nothing was asked. The
+                # honest verdict, and the only one that means "stop looking
+                # here and enter it by hand".
+                status = "no_catalog_source"
+            elif unreachable:
+                # Something was asked and did not answer. A wrong endpoint
+                # lands here, which is where run #7's silence actually came
+                # from -- four never-verified URLs reported as "no chase cards".
+                status = "source_unreachable"
+            else:
+                # Asked, answered, and listed nothing in a tracked rarity band.
+                # A real state, and NOT the same as never having asked.
+                status = "catalog_ran_empty"
                 self.gap((game, language), "no_tracked_cards",
                          "catalog reachable but nothing in a tracked rarity band")
-            catalog[f"{game}:{language}"] = {
+                reasons.append("no_tracked_cards")
+            self.combo_status[combo] = {
+                "status": status, "cards": len(deduped), "sources": sources,
+                "asked": asked, "reasons": sorted(set(reasons)),
+            }
+            catalog[combo] = {
                 "sources": sources,
                 "cards": sorted(deduped.values(), key=lambda r: r["card_uid"]),
             }
@@ -309,12 +417,21 @@ class CatalogBuilder:
                 "source": source}
 
 
-def to_targets(catalog, gaps):
+def to_targets(catalog, gaps, combo_status=None, endpoints=None):
     """The shape the daily runner reads. Card identities only -- no prices."""
     per_source = {name: {"cards": []} for name in
                   ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting",
                    "manual")}
+    # combo -> {price source: how many of its cards route there}. The question
+    # "which price source is supposed to price pkmn:EN" had no answer anywhere
+    # in the output, so a combo that routed nowhere looked identical to one
+    # that routed somewhere and got nothing.
+    routing = {}
     for combo, entry in catalog.items():
+        # Every combo appears, including the empty ones. A combo missing from
+        # the routing map is indistinguishable from one that was never
+        # considered, which is the distinction this map exists to make.
+        routing.setdefault(combo, {})
         for card in entry["cards"]:
             target = {"card_uid": card["card_uid"], "game": card["game"],
                       "language": card["language"], "name": card["name"],
@@ -328,28 +445,114 @@ def to_targets(catalog, gaps):
             # quota on a guaranteed miss, so they are listed in their own
             # bucket: tracked, identified, and awaiting manual prices. Visible
             # rather than silently dropped.
+            bucket = routing.setdefault(combo, {})
             if card["language"] in ("CN-S", "CN-T"):
                 per_source["manual"]["cards"].append(target)
+                bucket["manual"] = bucket.get("manual", 0) + 1
                 continue
             per_source["tcgapi"]["cards"].append(target)
             per_source["apitcg"]["cards"].append(target)
+            bucket["tcgapi"] = bucket.get("tcgapi", 0) + 1
+            bucket["apitcg"] = bucket.get("apitcg", 0) + 1
             # PokemonPriceTracker is Pokemon-only by construction, and
             # PriceCharting covers the games it does not. Sending every card to
             # every source would burn quota on guaranteed misses.
             if card["game"] == "pkmn":
                 per_source["pokemonpricetracker"]["cards"].append(target)
+                bucket["pokemonpricetracker"] = bucket.get(
+                    "pokemonpricetracker", 0) + 1
             else:
                 per_source["pricecharting"]["cards"].append(target)
+                bucket["pricecharting"] = bucket.get("pricecharting", 0) + 1
     return {
         "_note": ("Generated by ingest/catalog.py. Card IDENTITIES only -- no "
                   "prices, no populations, no provider payloads. Re-run when "
                   "new sets drop; do not hand-edit."),
         "_generated_at": _now().isoformat() + "Z",
         "_counts": {combo: len(entry["cards"]) for combo, entry in catalog.items()},
+        # Per combo: WHY it has the count it has. `catalog_ran_empty` and
+        # `no_catalog_source` and `source_unreachable` are three different
+        # facts, and none of them is the fourth one -- catalog never ran, which
+        # is the absence of this whole key.
+        "_combo_status": combo_status or {},
+        "_routing": routing,
+        "_endpoints_used": endpoints or {},
         "_gaps": gaps,
         "fx_alphavantage": {},
         **per_source,
     }
+
+
+def render_catalog_summary(targets, builder=None) -> str:
+    """The catalog step's own report: what it asked, and what it got.
+
+    WHY THIS IS PYTHON AND NOT A SHELL BLOCK. Run #7's catalog step wrote
+    nothing to the job summary at all. The step was present and correctly
+    ordered; it ran, found zero cards, and returned 1 -- and GitHub runs
+    `bash -e`, so the script aborted on that exit code and the `{ ... } >>
+    $GITHUB_STEP_SUMMARY` block that would have explained the zero never
+    executed. `continue-on-error` then hid the failed step.
+
+    A step that produces the input for everything downstream and reports
+    nothing is the same invisibility `no_targets` exists to prevent, one layer
+    up. So the report is built here, it is written BEFORE the exit code is
+    returned, and no exit code can suppress it.
+    """
+    counts = targets.get("_counts", {})
+    statuses = targets.get("_combo_status", {})
+    routes = targets.get("_routing", {})
+    lines = ["### Catalog -> targets", ""]
+
+    total = sum(counts.values())
+    if total:
+        lines += [f"**{total} cards tracked across "
+                  f"{sum(1 for c in counts.values() if c)} combinations.**", ""]
+    else:
+        lines += ["**ZERO cards tracked.** Every price source will report "
+                  "`no_targets` and the run will fail. The per-combo status "
+                  "below is the diagnosis.", ""]
+
+    lines += ["| Combo | Cards | Status | Catalog source | Prices routed to |",
+              "|---|---:|---|---|---|"]
+    for combo in sorted(set(counts) | set(statuses) | set(routes)):
+        entry = statuses.get(combo, {})
+        status = entry.get("status", "not attempted")
+        sources = ", ".join(entry.get("sources") or []) or "--"
+        routed = ", ".join(f"{name} ({n})"
+                           for name, n in sorted(routes.get(combo, {}).items())) or "--"
+        lines.append(f"| `{combo}` | {counts.get(combo, 0)} | {status} | "
+                     f"{sources} | {routed} |")
+
+    if builder is not None:
+        lines += ["", "**Endpoints that answered.** These were never verified "
+                  "against the live service before run #8 -- probe/COVERAGE.md "
+                  "records a 200 only from tcgapi `/v1/games` and `/v1/search`, "
+                  "so the set and card endpoints below were discovered, not "
+                  "assumed:", ""]
+        if builder.endpoints_used:
+            lines += [f"- `{name}` -> `{url}`"
+                      for name, url in sorted(builder.endpoints_used.items())]
+        else:
+            lines += ["- NONE. No candidate URL answered, which is why the "
+                      "catalog is empty. The gaps below name what was tried."]
+
+        calls = {"tcgapi": builder.tcgapi, "apitcg": builder.apitcg}
+        lines += ["", "**Calls made by the catalog step** (separate accounting "
+                  "from the ingest step, which reports its own):", ""]
+        for name, adapter in calls.items():
+            made = getattr(getattr(adapter, "quota", None),
+                           "consumed_this_run", None)
+            lines.append(f"- `{name}` -- "
+                         + ("not called" if not made else f"{made} calls"))
+
+    gaps = targets.get("_gaps", [])
+    if gaps:
+        lines += ["", "**Gaps.** Each is a combination that produced nothing, "
+                  "and why:", "", "| Combo | Reason | Detail |", "|---|---|---|"]
+        for gap in gaps:
+            detail = str(gap.get("detail", "")).replace("|", "\\|")[:160]
+            lines.append(f"| `{gap['combo']}` | {gap['reason']} | {detail} |")
+    return "\n".join(lines) + "\n"
 
 
 def main(argv=None):
@@ -357,6 +560,10 @@ def main(argv=None):
     parser.add_argument("--write", action="store_true")
     parser.add_argument("--out", default=TARGETS)
     parser.add_argument("--combos", default="all")
+    parser.add_argument("--summary", default=None,
+                        help="append a Markdown report here "
+                             "(GITHUB_STEP_SUMMARY). Written BEFORE the exit "
+                             "code, so a zero-target run still explains itself")
     parser.add_argument("--coverage", action="store_true",
                         help="measure what the open Chinese sources actually "
                              "serve, per combo, and report it without building")
@@ -386,7 +593,8 @@ def main(argv=None):
         # does not fail. The report IS the deliverable.
         return 0
     catalog = builder.build(combos)
-    targets = to_targets(catalog, builder.gaps)
+    targets = to_targets(catalog, builder.gaps, builder.combo_status,
+                         builder.endpoints_used)
 
     total = sum(targets["_counts"].values())
     for combo, count in sorted(targets["_counts"].items()):
@@ -400,6 +608,16 @@ def main(argv=None):
             json.dump(targets, handle, indent=2, ensure_ascii=False)
             handle.write("\n")
         print(f"wrote {args.out}")
+
+    # BEFORE the exit code, always. Run #7's summary block sat after a command
+    # that returned 1 under `bash -e`, so the step aborted and the one report
+    # that could have explained the zero never ran. Nothing downstream of this
+    # line may be able to prevent it.
+    summary = render_catalog_summary(targets, builder)
+    if args.summary:
+        with open(args.summary, "a", encoding="utf-8") as handle:
+            handle.write(summary)
+    print("\n" + summary)
 
     # Zero everywhere means the daily run would fail its zero-rows gate, and
     # the reason is here rather than there.

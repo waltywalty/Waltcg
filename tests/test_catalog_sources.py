@@ -481,3 +481,318 @@ class TheChineseCombosNoLongerHaveToBeTyped(unittest.TestCase):
         self.assertNotIn(("optcg", "CN-S"), TCGDEX_COMBOS)
         self.assertEqual(set(TCGDEX_COMBOS),
                          {("pkmn", "CN-S"), ("pkmn", "CN-T")})
+
+
+class TheCatalogStepReportsWhateverHappens(unittest.TestCase):
+    """Run #7's catalog step produced no summary section at all.
+
+    It was present and correctly ordered. It ran, found zero cards, and
+    returned 1 -- and GitHub runs `bash -e`, so the script aborted on that exit
+    code and the shell block that would have EXPLAINED the zero never
+    executed. `continue-on-error` then hid the failed step.
+
+    A step that produces the input for everything downstream and reports
+    nothing is the same invisibility `no_targets` exists to prevent, one layer
+    up. So: the report is Python, and it is written BEFORE the exit code.
+    """
+
+    def _targets(self, **over):
+        base = {"_generated_at": "2026-08-17T06:15:00Z",
+                "_counts": {"pkmn:EN": 0, "pkmn:CN-S": 40},
+                "_combo_status": {
+                    "pkmn:EN": {"status": "source_unreachable", "cards": 0,
+                                "sources": [], "asked": ["tcgapi"]},
+                    "pkmn:CN-S": {"status": "ok", "cards": 40,
+                                  "sources": ["tcgdex"], "asked": ["tcgdex"]}},
+                "_routing": {"pkmn:CN-S": {"manual": 40}},
+                "_gaps": [{"combo": "pkmn:EN", "reason": "source_unreachable",
+                           "detail": "no tcgapi set endpoint answered"}]}
+        base.update(over)
+        return base
+
+    def test_the_summary_survives_a_nonzero_exit(self):
+        """The actual regression. Written before `return 0 if total else 1`."""
+        import subprocess
+        import tempfile
+        work = tempfile.mkdtemp()
+        summary = os.path.join(work, "summary.md")
+        result = subprocess.run(
+            [sys.executable, "-m", "ingest.catalog", "--write",
+             "--out", os.path.join(work, "targets.json"),
+             "--summary", summary],
+            capture_output=True, text=True, cwd=os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))))
+        # No network here, so it finds nothing and exits 1 -- which is the
+        # exact condition under which run #7 wrote nothing.
+        self.assertEqual(result.returncode, 1)
+        self.assertTrue(os.path.exists(summary), "no summary file was written")
+        with open(summary, encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertTrue(text.strip(), "the summary came back empty again")
+        self.assertIn("Catalog -> targets", text)
+
+    def test_it_reports_counts_per_combo_and_per_price_source(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary(self._targets())
+        self.assertIn("`pkmn:EN`", text)
+        self.assertIn("source_unreachable", text)
+        self.assertIn("`pkmn:CN-S`", text)
+        self.assertIn("manual (40)", text)
+
+    def test_zero_targets_says_what_will_happen_next(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary(self._targets(_counts={"pkmn:EN": 0}))
+        self.assertIn("ZERO cards tracked", text)
+        self.assertIn("no_targets", text)
+
+    def test_it_names_which_endpoints_answered(self):
+        """The four tcgapi/apitcg catalog endpoints were never verified --
+        probe/COVERAGE.md records a 200 only from /v1/games and /v1/search. A
+        wrong URL came back as 'this combination has no chase cards'."""
+        from ingest.catalog import CatalogBuilder, render_catalog_summary
+        builder = CatalogBuilder(tcgapi=object(), apitcg=object())
+        builder.endpoints_used = {"tcgapi.sets": "https://x/v1/sets"}
+        text = render_catalog_summary(self._targets(), builder)
+        self.assertIn("tcgapi.sets", text)
+        self.assertIn("Endpoints that answered", text)
+
+    def test_no_endpoint_answering_is_stated_as_the_cause(self):
+        from ingest.catalog import CatalogBuilder, render_catalog_summary
+        builder = CatalogBuilder(tcgapi=object(), apitcg=object())
+        text = render_catalog_summary(self._targets(), builder)
+        self.assertIn("NONE", text)
+
+    def test_it_reports_its_own_call_counts(self):
+        """Separate accounting from the ingest step. 'The ingest step made 0
+        calls' says nothing about whether the CATALOG step called anything."""
+        from ingest.catalog import CatalogBuilder, render_catalog_summary
+        builder = CatalogBuilder()
+        builder.tcgapi.quota.consumed_this_run = 12
+        text = render_catalog_summary(self._targets(), builder)
+        self.assertIn("12 calls", text)
+        self.assertIn("not called", text)      # apitcg made none
+
+
+class ZeroForACombinationHasFourMeanings(unittest.TestCase):
+    """Request #4: "catalog ran and found nothing for pkmn:EN" is a different
+    fact from "catalog never ran"."""
+
+    class Fake:
+        can_enumerate = True
+        cannot_enumerate_because = ""
+
+        def __init__(self, serves=()):
+            self.serves = set(serves)
+
+        def enumerate_combo(self, game, language):
+            return []
+
+    def _builder(self, serves=()):
+        from ingest.catalog import CatalogBuilder
+        return CatalogBuilder(tcgapi=object(), apitcg=object(),
+                              cn_sources={"tcgdex": self.Fake(serves),
+                                          "wiki52poke": self.Fake()})
+
+    def test_nothing_serves_it_is_no_catalog_source(self):
+        builder = self._builder()
+        builder.sets_for = lambda g, l: []
+        builder.apitcg_cards = lambda g, l: []
+        builder.build([("optcg", "CN-S")])
+        self.assertEqual(builder.combo_status["optcg:CN-S"]["status"],
+                         "no_catalog_source")
+
+    def test_asked_and_answered_with_nothing_trackable_is_catalog_ran_empty(self):
+        builder = self._builder()
+        builder.sets_for = lambda g, l: (builder.attempt((g, l), "tcgapi"), [])[1]
+        builder.apitcg_cards = lambda g, l: []
+        builder.build([("pkmn", "EN")])
+        self.assertEqual(builder.combo_status["pkmn:EN"]["status"],
+                         "catalog_ran_empty")
+
+    def test_asked_and_not_answered_is_source_unreachable(self):
+        builder = self._builder()
+
+        def boom(game, language):
+            builder.attempt((game, language), "tcgapi")
+            raise AdapterGaveUp("no tcgapi set endpoint answered")
+
+        builder.sets_for = boom
+        builder.apitcg_cards = lambda g, l: []
+        builder.build([("pkmn", "EN")])
+        self.assertEqual(builder.combo_status["pkmn:EN"]["status"],
+                         "source_unreachable")
+
+    def test_the_tcgapi_game_gap_is_not_the_combo_verdict(self):
+        """Naming tcgapi's missing game entry `no_catalog_source` made
+        pkmn:CN-S report 'nothing serves this' while tcgdex was serving it 877
+        cards. It is a fact about tcgapi, not about the combination."""
+        builder = self._builder(serves={("pkmn", "CN-T")})
+        builder.apitcg_cards = lambda g, l: []
+        builder.build([("pkmn", "CN-T")])
+        reasons = {g["reason"] for g in builder.gaps}
+        self.assertIn("tcgapi_no_game_entry", reasons)
+        self.assertNotEqual(builder.combo_status["pkmn:CN-T"]["status"],
+                            "no_catalog_source")
+
+    def test_the_runner_distinguishes_never_ran_from_ran_and_found_nothing(self):
+        from ingest.runner import describe_target_absence
+        never = describe_target_absence("tcgapi", {})
+        self.assertIn("NEVER RAN", never)
+        self.assertIn("ingest.catalog --write", never)
+
+        ran = describe_target_absence("tcgapi", {
+            "_generated_at": "2026-08-17T06:15:00Z", "_routing": {},
+            "_combo_status": {"pkmn:EN": {"status": "source_unreachable"}}})
+        self.assertIn("RAN", ran)
+        self.assertNotIn("NEVER RAN", ran)
+        self.assertIn("source_unreachable", ran)
+
+    def test_a_routing_fault_is_named_as_one(self):
+        """Catalog found cards and routed them here, but the list arrived
+        empty. Different problem, different fix."""
+        from ingest.runner import describe_target_absence
+        text = describe_target_absence("tcgapi", {
+            "_generated_at": "T", "_routing": {"pkmn:EN": {"tcgapi": 40}}})
+        self.assertIn("ROUTING fault", text)
+
+
+class NoStepPutsLogicInAShell(unittest.TestCase):
+    """Runs #4 and #7 were both shell logic inside YAML that no test could
+    reach. Two is a pattern, so this asserts the pattern is gone."""
+
+    def _workflow(self):
+        import yaml
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), ".github", "workflows", "ingest.yml")
+        with open(path, encoding="utf-8") as handle:
+            return yaml.safe_load(handle)
+
+    def test_no_step_embeds_a_heredoc(self):
+        offenders = [s.get("name") for s in self._workflow()["jobs"]["snapshot"]["steps"]
+                     if "<<" in (s.get("run") or "")]
+        self.assertEqual(offenders, [],
+                         "a workflow step embeds a heredoc no test can reach")
+
+    def test_the_catalog_step_runs_before_the_ingest_step(self):
+        names = [s.get("name", "") for s in
+                 self._workflow()["jobs"]["snapshot"]["steps"]]
+        catalog = next(i for i, n in enumerate(names) if n.startswith("Build targets"))
+        ingest = next(i for i, n in enumerate(names) if n.startswith("Run adapters"))
+        self.assertLess(catalog, ingest,
+                        "targets are read before they are written")
+
+    def test_the_catalog_step_passes_its_own_summary_flag(self):
+        """Not a shell redirect after the command -- inside it, so no exit
+        code can suppress the report."""
+        step = next(s for s in self._workflow()["jobs"]["snapshot"]["steps"]
+                    if s.get("name", "").startswith("Build targets"))
+        self.assertIn("--summary", step["run"])
+        self.assertNotIn(">>", step["run"])
+
+
+class TheRoutingMapIsBuiltNotDeclared(unittest.TestCase):
+    """`to_targets` must actually compute which price source each combo's
+    cards go to. Asserting the renderer prints a routing map it was handed
+    proves nothing about whether one is ever produced."""
+
+    def _catalog(self):
+        return {
+            "pkmn:EN": {"sources": ["tcgapi"], "cards": [
+                {"card_uid": "pkmn:sv3:223/197:sir:EN", "game": "pkmn",
+                 "language": "EN", "name": "Charizard ex", "number": "223/197",
+                 "set_code": "sv3", "external_id": "1"}]},
+            "optcg:EN": {"sources": ["tcgapi"], "cards": [
+                {"card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
+                 "game": "optcg", "language": "EN", "name": "Luffy",
+                 "number": "OP05-119", "set_code": "OP05", "external_id": "2"}]},
+            "pkmn:CN-S": {"sources": ["tcgdex"], "cards": [
+                {"card_uid": "pkmn:151C:170/151:ar:CN-S", "game": "pkmn",
+                 "language": "CN-S", "name": "Pikachu", "number": "170/151",
+                 "set_code": "151C", "external_id": "3"}]},
+        }
+
+    def test_pokemon_routes_to_ppt_and_one_piece_to_pricecharting(self):
+        from ingest.catalog import to_targets
+        routing = to_targets(self._catalog(), [])["_routing"]
+        self.assertIn("pokemonpricetracker", routing["pkmn:EN"])
+        self.assertIn("pricecharting", routing["optcg:EN"])
+        self.assertNotIn("pricecharting", routing["pkmn:EN"])
+
+    def test_chinese_printings_route_only_to_manual(self):
+        """No price source covers a Chinese printing. Routing them anywhere
+        else spends quota on a guaranteed miss."""
+        from ingest.catalog import to_targets
+        routing = to_targets(self._catalog(), [])["_routing"]
+        self.assertEqual(set(routing["pkmn:CN-S"]), {"manual"})
+
+    def test_the_counts_match_the_card_lists(self):
+        from ingest.catalog import to_targets
+        targets = to_targets(self._catalog(), [])
+        self.assertEqual(targets["_routing"]["pkmn:EN"]["tcgapi"], 1)
+        self.assertEqual(len(targets["tcgapi"]["cards"]), 2)
+        self.assertEqual(len(targets["pokemonpricetracker"]["cards"]), 1)
+
+    def test_a_combo_with_no_cards_still_appears_in_the_routing_map(self):
+        """A combo that routed nowhere must be distinguishable from one that
+        was never considered."""
+        from ingest.catalog import to_targets
+        catalog = self._catalog()
+        catalog["riftbound:EN"] = {"sources": [], "cards": []}
+        routing = to_targets(catalog, [])["_routing"]
+        self.assertIn("riftbound:EN", routing)
+        self.assertEqual(routing["riftbound:EN"], {})
+
+
+class TheCatalogEndpointsAreDiscoveredNotAssumed(unittest.TestCase):
+    """probe/COVERAGE.md records a 200 from tcgapi `/v1/games` and
+    `/v1/search`, and nothing at all about `/v1/sets`, `/v1/bulk` or
+    `/v1/cards`. Those three were invented in ingest/catalog.py and used as
+    though they were facts -- the same class of guess as the superseded `cryst`
+    adapter, minus the label that would have made a failure read as a finding.
+    """
+
+    def _builder(self, routes):
+        from ingest.adapters import TcgApiAdapter
+        from ingest.catalog import CatalogBuilder
+        tcgapi = build(TcgApiAdapter, routes)
+        return CatalogBuilder(tcgapi=tcgapi, apitcg=object())
+
+    def test_the_second_candidate_is_tried_when_the_first_fails(self):
+        builder = self._builder({"/v1/sets?game_id=": {"data": [{"code": "sv3"}]}})
+        sets = builder.sets_for("pkmn", "EN")
+        self.assertEqual(len(sets), 1)
+        self.assertIn("game_id=", builder.endpoints_used["tcgapi.sets"])
+
+    def test_the_resolved_endpoint_is_reused_not_rediscovered(self):
+        """Re-probing per combo would spend three requests per game proving
+        the same two URLs wrong."""
+        builder = self._builder({"/v1/sets?game_id=": {"data": [{"code": "sv3"}]}})
+        builder.sets_for("pkmn", "EN")
+        before = builder.tcgapi.quota.consumed_this_run
+        builder.sets_for("pkmn", "JP")
+        after = builder.tcgapi.quota.consumed_this_run
+        self.assertEqual(after - before, 1,
+                         "the set endpoint was re-discovered for a second combo")
+
+    def test_no_candidate_answering_names_every_url_tried(self):
+        builder = self._builder({})
+        with self.assertRaises(AdapterGaveUp) as caught:
+            builder.sets_for("pkmn", "EN")
+        message = str(caught.exception)
+        self.assertIn("no tcgapi set endpoint answered", message)
+        # Each candidate is distinguishable by how it addresses the game.
+        for marker in ("/v1/sets?game=55", "/v1/sets?game_id=55",
+                       "/v1/games/55/sets"):
+            self.assertIn(marker, message)
+
+    def test_a_missing_bulk_endpoint_is_ruled_out_once_not_per_set(self):
+        """Re-probing a known-absent endpoint for every set in the game is how
+        a catalog refresh spends its whole quota discovering the same 404."""
+        builder = self._builder({"/v1/cards?game=": {"data": []}})
+        builder.cards_in_set("pkmn", "EN", "sv3")
+        self.assertEqual(builder.endpoints_used["tcgapi.bulk"], "unavailable")
+        before = builder.tcgapi.quota.consumed_this_run
+        builder.cards_in_set("pkmn", "EN", "sv4")
+        calls = builder.tcgapi.quota.consumed_this_run - before
+        self.assertEqual(calls, 1, f"{calls} calls for a second set; /v1/bulk "
+                                   "was probed again")
