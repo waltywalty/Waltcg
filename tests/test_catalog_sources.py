@@ -24,6 +24,7 @@ import os
 import sys
 import tempfile
 import unittest
+import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -55,6 +56,28 @@ def build(cls, routes, misses=None):
     tmp = tempfile.mkdtemp()
     return cls(raw_root=tmp, sleep=lambda _s: None,
                transport=transport(routes))
+
+
+def tcgdex_routes(code, cards, rarities=None, honour_filter=True):
+    """Routes for the server-side-filter strategy, which is the one tcgdex
+    takes when `?rarity=` is honoured.
+
+    Order matters: the fake transport matches by substring, so the filtered
+    `/cards?rarity=` route must come before the unfiltered `/cards?`.
+    """
+    rarities = rarities or sorted({c.get("rarity") for c in cards if c.get("rarity")})
+    # `filter_is_honoured` requires the filtered list to be SHORTER than the
+    # unfiltered one, so the unfiltered route returns cards plus a filler.
+    unfiltered = list(cards) + [{"id": f"{code}-filler", "localId": "999",
+                                 "name": "filler"}]
+    routes = {}
+    for rarity in rarities:
+        routes[f"/{code}/cards?rarity={urllib.parse.quote(rarity)}"] = [
+            c for c in cards if c.get("rarity") == rarity]
+    routes[f"/{code}/cards?rarity="] = []          # any other rarity: empty
+    routes[f"/{code}/cards?"] = unfiltered
+    routes[f"/{code}/rarities"] = list(rarities)
+    return routes
 
 
 class TcgdexDiscoversRatherThanAssumes(unittest.TestCase):
@@ -125,17 +148,17 @@ class TcgdexDiscoversRatherThanAssumes(unittest.TestCase):
                          ["pkmn:CN-T", "pkmn:CN-S"])
 
     def test_cards_come_back_with_a_whole_identity(self):
-        adapter = build(TcgdexAdapter, {
-            "/zh-tw/sets/sv2aF": {"id": "sv2aF", "cards": [
-                {"localId": "170/165", "name": "皮卡丘",
-                 "rarity": "Art Rare", "illustrator": "Oswaldo KATO"}]},
-            "/zh-tw/sets": [{"id": "sv2aF"}]})
+        adapter = build(TcgdexAdapter, tcgdex_routes("zh-tw", [
+            {"id": "sv2aF-170", "localId": "170/165", "name": "皮卡丘",
+             "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
+             "set_id": "sv2aF"}]))
         rows = adapter.enumerate_combo("pkmn", "CN-T")
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["card_uid"], "pkmn:sv2aF:170/165:ar:CN-T")
         self.assertEqual(rows[0]["name_jp"], "皮卡丘")
         self.assertNotIn("name_en", rows[0],
                          "a Traditional Chinese printing claimed an English name")
+        self.assertEqual(adapter.strategy, "server_side_filter")
 
 
 class CrystProbesAndReportsWhatAnswered(unittest.TestCase):
@@ -370,27 +393,29 @@ class TheChineseCombosNoLongerHaveToBeTyped(unittest.TestCase):
     proposal no longer has to come from memory.
     """
 
-    # NB: the more specific route must come FIRST -- the fake transport matches
-    # by substring, and "/ja/sets" is a prefix of "/ja/sets/sv2a".
-    JP = {"/ja/sets/sv2a": {"id": "sv2a", "cards": [
-              {"localId": "170/165", "name": "ピカチュウ", "rarity": "Art Rare",
-               "illustrator": "Oswaldo KATO"},
-              {"localId": "201/165", "name": "リザードンex", "rarity": "SAR",
-               "illustrator": "Takumi Wada"}]},
-          "/ja/sets": [{"id": "sv2a"}]}
-    CN_T = {"/zh-tw/sets/sv2aF": {"id": "sv2aF", "cards": [
-                {"localId": "170/165", "name": "皮卡丘", "rarity": "Art Rare",
-                 "illustrator": "Oswaldo KATO"}]},
-            "/zh-tw/sets": [{"id": "sv2aF"}]}
+    # Rarities are tcgdex's normalised English enum, not AR/SAR abbreviations:
+    # SAR is `Special illustration rare`, AR is `Illustration rare`.
+    JP = tcgdex_routes("ja", [
+        {"id": "sv2a-170", "localId": "170/165", "name": "ピカチュウ",
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
+         "set_id": "sv2a"},
+        {"id": "sv2a-201", "localId": "201/165", "name": "リザードンex",
+         "rarity": "Special illustration rare", "illustrator": "Takumi Wada",
+         "set_id": "sv2a"}])
+    CN_T = tcgdex_routes("zh-tw", [
+        {"id": "sv2aF-170", "localId": "170/165", "name": "皮卡丘",
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
+         "set_id": "sv2aF"}])
     # 174/151 deliberately: 170-173/151 are already in the labelled set as
     # externally-researched seeds, and an already-labelled card is not
     # re-proposed. See test_an_already_labelled_card_is_not_proposed_again.
-    CN_S = {"/zh-cn/sets/151C": {"id": "151C", "cards": [
-                {"localId": "174/151", "name": "皮卡丘", "rarity": "Art Rare",
-                 "illustrator": "Oswaldo KATO"},
-                {"localId": "170/151", "name": "皮卡丘", "rarity": "Art Rare",
-                 "illustrator": "Oswaldo KATO"}]},
-            "/zh-cn/sets": [{"id": "151C"}]}
+    CN_S = tcgdex_routes("zh-cn", [
+        {"id": "151C-174", "localId": "174/151", "name": "皮卡丘",
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
+         "set_id": "151C"},
+        {"id": "151C-170", "localId": "170/151", "name": "皮卡丘",
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
+         "set_id": "151C"}])
 
     def _catalog(self):
         from resolve.label_cli import _catalog_from_tcgdex
@@ -588,8 +613,9 @@ class ZeroForACombinationHasFourMeanings(unittest.TestCase):
             return []
 
     def _builder(self, serves=()):
+        from ingest.adapters import TcgApiAdapter
         from ingest.catalog import CatalogBuilder
-        return CatalogBuilder(tcgapi=object(), apitcg=object(),
+        return CatalogBuilder(tcgapi=build(TcgApiAdapter, {}), apitcg=object(),
                               cn_sources={"tcgdex": self.Fake(serves),
                                           "wiki52poke": self.Fake()})
 
@@ -743,56 +769,208 @@ class TheRoutingMapIsBuiltNotDeclared(unittest.TestCase):
         self.assertEqual(routing["riftbound:EN"], {})
 
 
-class TheCatalogEndpointsAreDiscoveredNotAssumed(unittest.TestCase):
-    """probe/COVERAGE.md records a 200 from tcgapi `/v1/games` and
-    `/v1/search`, and nothing at all about `/v1/sets`, `/v1/bulk` or
-    `/v1/cards`. Those three were invented in ingest/catalog.py and used as
-    though they were facts -- the same class of guess as the superseded `cryst`
-    adapter, minus the label that would have made a failure read as a finding.
+class TheCatalogEndpointsComeFromConfirmedSlugs(unittest.TestCase):
+    """Run #8's three candidate query-string shapes all 404'd, and the reason
+    was structural: tcgapi's set and card paths are SLUG-BASED AND NESTED.
+
+        /v1/games/{gameSlug}/sets/{setSlug}/cards
+
+    The numeric ids address `/v1/search` and `/v1/games` and nothing else. The
+    obvious slug guesses are wrong in the quietest possible way -- `one-piece`
+    is APITCG's slug for the same game; tcgapi calls it `one-piece-card-game`.
     """
 
     def _builder(self, routes):
         from ingest.adapters import TcgApiAdapter
         from ingest.catalog import CatalogBuilder
-        tcgapi = build(TcgApiAdapter, routes)
-        return CatalogBuilder(tcgapi=tcgapi, apitcg=object())
+        return CatalogBuilder(tcgapi=build(TcgApiAdapter, routes),
+                              apitcg=object())
 
-    def test_the_second_candidate_is_tried_when_the_first_fails(self):
-        builder = self._builder({"/v1/sets?game_id=": {"data": [{"code": "sv3"}]}})
+    def test_the_confirmed_slug_is_used_not_the_obvious_guess(self):
+        from resolve.identity import TCGAPI_GAME_SLUG
+        self.assertEqual(TCGAPI_GAME_SLUG[("optcg", "EN")],
+                         "one-piece-card-game")
+        self.assertNotEqual(TCGAPI_GAME_SLUG[("optcg", "EN")], "one-piece")
+
+    def test_sets_are_read_from_the_nested_slug_path(self):
+        builder = self._builder(
+            {"/v1/games/pokemon/sets": {"data": [{"code": "sv3"}]}})
         sets = builder.sets_for("pkmn", "EN")
         self.assertEqual(len(sets), 1)
-        self.assertIn("game_id=", builder.endpoints_used["tcgapi.sets"])
+        self.assertIn("games/{slug}/sets", builder.endpoints_used["tcgapi.sets"])
 
-    def test_the_resolved_endpoint_is_reused_not_rediscovered(self):
-        """Re-probing per combo would spend three requests per game proving
-        the same two URLs wrong."""
-        builder = self._builder({"/v1/sets?game_id=": {"data": [{"code": "sv3"}]}})
-        builder.sets_for("pkmn", "EN")
-        before = builder.tcgapi.quota.consumed_this_run
-        builder.sets_for("pkmn", "JP")
-        after = builder.tcgapi.quota.consumed_this_run
-        self.assertEqual(after - before, 1,
-                         "the set endpoint was re-discovered for a second combo")
+    def test_cards_are_read_from_the_nested_set_path(self):
+        builder = self._builder(
+            {"/v1/games/pokemon/sets/sv3/cards":
+             {"data": [{"number": "223/197", "name": "Charizard ex",
+                        "rarity": "Special Illustration Rare"}]}})
+        cards = builder.cards_in_set("pkmn", "EN", "sv3")
+        self.assertEqual(len(cards), 1)
 
-    def test_no_candidate_answering_names_every_url_tried(self):
+    def test_an_unconfirmed_language_is_resolved_not_invented(self):
+        """Only English slugs are confirmed. `pokemon-japan` is a plausible
+        guess and plausible guesses are what cost run #7, so a slug that is not
+        confirmed is looked up in the provider's own /v1/games."""
+        from resolve.identity import TCGAPI_GAME_SLUG
+        self.assertNotIn(("pkmn", "JP"), TCGAPI_GAME_SLUG)
+        builder = self._builder({"/v1/games?": {
+            "data": [{"id": "19", "slug": "pokemon-japanese"}], "meta": {}}})
+        self.assertEqual(builder.game_slug("pkmn", "JP"), "pokemon-japanese")
+
+    def test_an_unresolvable_slug_is_a_gap_not_a_guess(self):
         builder = self._builder({})
-        with self.assertRaises(AdapterGaveUp) as caught:
-            builder.sets_for("pkmn", "EN")
-        message = str(caught.exception)
-        self.assertIn("no tcgapi set endpoint answered", message)
-        # Each candidate is distinguishable by how it addresses the game.
-        for marker in ("/v1/sets?game=55", "/v1/sets?game_id=55",
-                       "/v1/games/55/sets"):
-            self.assertIn(marker, message)
+        self.assertIsNone(builder.game_slug("pkmn", "JP"))
+        builder.sets_for("pkmn", "JP")
+        reasons = {g["reason"] for g in builder.gaps}
+        self.assertIn("tcgapi_no_game_entry", reasons)
 
-    def test_a_missing_bulk_endpoint_is_ruled_out_once_not_per_set(self):
-        """Re-probing a known-absent endpoint for every set in the game is how
-        a catalog refresh spends its whole quota discovering the same 404."""
-        builder = self._builder({"/v1/cards?game=": {"data": []}})
-        builder.cards_in_set("pkmn", "EN", "sv3")
-        self.assertEqual(builder.endpoints_used["tcgapi.bulk"], "unavailable")
+    def test_the_games_list_is_read_once_not_per_combo(self):
+        builder = self._builder({"/v1/games?": {
+            "data": [{"id": "19", "slug": "pokemon-japanese"}], "meta": {}}})
+        builder.game_slug("pkmn", "JP")
         before = builder.tcgapi.quota.consumed_this_run
-        builder.cards_in_set("pkmn", "EN", "sv4")
-        calls = builder.tcgapi.quota.consumed_this_run - before
-        self.assertEqual(calls, 1, f"{calls} calls for a second set; /v1/bulk "
-                                   "was probed again")
+        builder.game_slug("pkmn", "JP")
+        self.assertEqual(builder.tcgapi.quota.consumed_this_run, before)
+
+
+class ApitcgMatchesItsOpenApiSpec(unittest.TestCase):
+    """Every previous run got a non-JSON body from apitcg, which is what a
+    wrong endpoint looks like when the host serves an HTML SPA. Read from
+    raw.githubusercontent.com/apitcg/docs.apitcg.com/main/openapi.json.
+
+    Two things were wrong, and neither was a parsing bug.
+    """
+
+    def test_the_host_is_the_api_subdomain(self):
+        """`apitcg.com` is the docs SPA. The API is `api.apitcg.com`."""
+        from ingest.adapters import ApiTcgAdapter
+        self.assertEqual(ApiTcgAdapter.host, "api.apitcg.com")
+        self.assertTrue(ApiTcgAdapter.BASE.startswith("https://api.apitcg.com"))
+
+    def test_there_is_no_cards_endpoint(self):
+        """Absent from openapi.json means non-existent, not missing data.
+        Cards are products."""
+        from ingest.adapters import ApiTcgAdapter
+        for template in (ApiTcgAdapter.PRODUCTS, ApiTcgAdapter.BY_CODE):
+            self.assertIn("/api/products", template)
+            self.assertNotIn("/cards", template)
+
+    def test_it_paginates_with_the_documented_parameters(self):
+        from ingest.adapters import ApiTcgAdapter
+        self.assertIn("limit=", ApiTcgAdapter.PRODUCTS)
+        self.assertIn("page=", ApiTcgAdapter.PRODUCTS)
+        self.assertLessEqual(ApiTcgAdapter.PAGE_SIZE, 100,
+                             "the spec caps limit at 100")
+
+    def test_rarity_is_read_from_the_attributes_map(self):
+        """`rarity` is not a top-level property. It lives in `attributes`, a
+        free-form string map whose keys depend on the game."""
+        from ingest.adapters import ApiTcgAdapter
+        adapter = build(ApiTcgAdapter, {})
+        hit = {"name": "Sanji", "attributes": {"Rarity": "SR",
+                                               "Number": "OP01-013",
+                                               "Artist": "Nekobayashi"}}
+        self.assertEqual(adapter._attr(hit, "Rarity"), "SR")
+        self.assertEqual(adapter._attr(hit, "Artist"), "Nekobayashi")
+
+    def test_attribute_keys_are_read_case_insensitively(self):
+        """The keys depend on the game, so a fixed spelling would work for One
+        Piece and silently return nothing for anything else."""
+        from ingest.adapters import ApiTcgAdapter
+        adapter = build(ApiTcgAdapter, {})
+        self.assertEqual(
+            adapter._attr({"attributes": {"rarity": "TR"}}, "Rarity"), "TR")
+
+    def test_its_slug_is_not_tcgapis_slug(self):
+        """Two providers, two vocabularies for one game. Confusing them is
+        what identity.py exists to prevent."""
+        from ingest.adapters import ApiTcgAdapter
+        from resolve.identity import TCGAPI_GAME_SLUG
+        self.assertEqual(ApiTcgAdapter.SLUG["optcg"], "one-piece")
+        self.assertEqual(TCGAPI_GAME_SLUG[("optcg", "EN")],
+                         "one-piece-card-game")
+
+    def test_products_reads_the_total_for_pagination(self):
+        from ingest.adapters import ApiTcgAdapter
+        adapter = build(ApiTcgAdapter, {"/api/products": {
+            "success": True, "total": 128,
+            "data": [{"name": "Sanji", "attributes": {"Rarity": "SR"}}]}})
+        rows, total = adapter.products("optcg")
+        self.assertEqual(total, 128)
+        self.assertEqual(len(rows), 1)
+
+
+class TheCatalogFilterUsesTheRarityAwareClassifier(unittest.TestCase):
+    """`rarity_band(None)` is `base`, and `base` is not tracked. That single
+    substitution is what turned 8,313 tcgdex cards into zero targets, so the
+    catalog builder must use `band_of`, which answers `unknown`."""
+
+    def _builder(self):
+        from ingest.catalog import CatalogBuilder
+        return CatalogBuilder(tcgapi=object(), apitcg=object())
+
+    def _hit(self, rarity):
+        return {"card_uid": "pkmn:151C:170/151:ar:CN-S", "set_code": "151C",
+                "number": "170/151", "variant": "ar", "rarity": rarity,
+                "name_jp": "皮卡丘"}
+
+    def test_a_card_with_no_rarity_survives_the_filter(self):
+        """The regression. It is not classifiable, so it is tracked and
+        counted -- not silently discarded as if it were a common."""
+        row = self._builder()._cn_row("pkmn", "CN-S", self._hit(None))
+        self.assertIsNotNone(row, "a card with unknown rarity was dropped")
+
+    def test_a_common_is_still_dropped(self):
+        """The exemption is for UNKNOWN, not for everything."""
+        self.assertIsNone(
+            self._builder()._cn_row("pkmn", "CN-S", self._hit("Common")))
+
+    def test_a_chase_card_is_kept(self):
+        self.assertIsNotNone(self._builder()._cn_row(
+            "pkmn", "CN-S", self._hit("Special illustration rare")))
+
+    def test_a_digital_pocket_card_is_dropped(self):
+        """Nothing to grade, so nothing to track."""
+        self.assertIsNone(
+            self._builder()._cn_row("pkmn", "CN-S", self._hit("Crown")))
+
+
+class TheSirSarCollapseIsResolvedByLanguage(unittest.TestCase):
+    """tcgdex normalises two DIFFERENT market conventions into one string.
+
+    A `Special illustration rare` is a SIR in English sets and a SAR in
+    Japanese ones, and this repository has always kept them apart --
+    `pkmn:sv3:223/197:sir:EN` and `pkmn:sv3:108/108:sar:JP` are the same art in
+    two markets with two price series. The provider cannot tell them apart, so
+    the language does; it is the only information that survives the
+    normalisation.
+    """
+
+    def _uid(self, code, language):
+        adapter = build(TcgdexAdapter, tcgdex_routes(code, [
+            {"id": f"{code}-1", "localId": "198/165", "name": "x",
+             "rarity": "Special illustration rare", "set_id": "sv2a"}]))
+        rows = adapter.enumerate_combo("pkmn", language)
+        self.assertEqual(len(rows), 1)
+        return rows[0]["card_uid"]
+
+    def test_english_gets_sir(self):
+        self.assertIn(":sir:EN", self._uid("en", "EN"))
+
+    def test_japanese_gets_sar(self):
+        self.assertIn(":sar:JP", self._uid("ja", "JP"))
+
+    def test_both_chinese_printings_follow_the_japanese_convention(self):
+        self.assertIn(":sar:CN-T", self._uid("zh-tw", "CN-T"))
+        self.assertIn(":sar:CN-S", self._uid("zh-cn", "CN-S"))
+
+    def test_the_two_are_different_cards(self):
+        self.assertNotEqual(self._uid("en", "EN"), self._uid("ja", "JP"))
+
+    def test_illustration_rare_is_ar_in_every_language(self):
+        """Only the SIR/SAR pair collapses. AR does not, and inventing a
+        second language rule would be a guess."""
+        from resolve.identity import variant_from_rarity
+        for language in ("EN", "JP", "CN-S", "CN-T"):
+            self.assertEqual(
+                variant_from_rarity("Illustration rare", None, language), "ar")

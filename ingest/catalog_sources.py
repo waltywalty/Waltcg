@@ -17,6 +17,7 @@ import urllib.parse
 from typing import Optional
 
 from .base import Adapter, AdapterGaveUp, RateLimited, Record, find
+from .rarity import TRACKED_BANDS, band_of, resolve_rarity
 
 
 # ---------------------------------------------------------------------------
@@ -123,15 +124,94 @@ class TcgdexAdapter(CatalogSource):
     key_env = None
     host = "api.tcgdex.net"
     serves = (("pkmn", "CN-T"), ("pkmn", "CN-S"))
-    verified = False
+    verified = True
+    # Which of the three strategies actually ran. Reported, not assumed.
+    strategy = None
 
     # The user gave `api.tcgdex.net/status`; the versioned form is the shape
     # every other endpoint takes. Both are tried rather than guessed between.
     STATUS_CANDIDATES = ("https://api.tcgdex.net/v2/status",
                          "https://api.tcgdex.net/status")
 
-    # Ours -> TCGdex path segment.
+    # Ours -> TCGdex path segment. Exact, not guessed: `zh-cn` Simplified,
+    # `zh-tw` Traditional.
     LANG = {"EN": "en", "JP": "ja", "CN-T": "zh-tw", "CN-S": "zh-cn"}
+
+    # tcgdex's own pagination spelling. Not `page`/`limit`.
+    PAGE = "pagination:page={page}&pagination:itemsPerPage={size}"
+    PAGE_SIZE = 250
+
+    def rarities(self, language) -> list:
+        """The distinct rarity strings actually PRESENT in this dataset.
+
+        The documented enum and the populated one are different questions --
+        `interfaces.d.ts` lists 43 members and says the vocabulary is still
+        being aligned to official lists. This is the empirical answer, and it
+        is why the filter is not hardcoded against the enum.
+        """
+        code = self.LANG.get(language)
+        if code is None:
+            raise AdapterGaveUp(f"{self.name}: no path segment for {language}")
+        payload = self.get(f"https://api.tcgdex.net/v2/{code}/rarities",
+                           label=f"rarities-{code}", attempts=2)
+        if isinstance(payload, list):
+            return [str(x) for x in payload]
+        return [str(x) for x in (find(payload, "data", "rarities") or [])]
+
+    def cards_by_rarity(self, language, rarity):
+        """Server-side filter: one request per rarity instead of per card.
+
+        THE FILTER IS VERIFIED, NOT ASSUMED. `?{field}={value}` is documented
+        to work on list endpoints even though the brief object omits the field,
+        but a query parameter a service silently ignores returns the FULL list
+        and looks exactly like a filter that matched everything. So the caller
+        compares the filtered count against the unfiltered one -- see
+        `filter_is_honoured`.
+        """
+        code = self.LANG[language]
+        quoted = urllib.parse.quote(str(rarity))
+        return self.get(
+            f"https://api.tcgdex.net/v2/{code}/cards?rarity={quoted}&"
+            + self.PAGE.format(page=1, size=self.PAGE_SIZE),
+            label=f"cards-{code}-rarity", attempts=2)
+
+    def filter_is_honoured(self, language) -> bool:
+        """Does `?rarity=` actually filter, or is it being ignored?
+
+        An ignored parameter returns everything, which reads as "every card in
+        the language is a Special Illustration Rare" -- a filter that matched
+        far too much rather than one that did not run. The check is that a
+        filtered list is SHORTER than an unfiltered one, and it decides whether
+        the N+1 fallback is needed at all.
+        """
+        code = self.LANG[language]
+        try:
+            # Probe with a rarity the dataset ACTUALLY contains. Hardcoding
+            # one -- `Special illustration rare` was the obvious pick -- makes
+            # the check report "filter ignored" for any dataset that happens
+            # not to hold that rarity, and the punishment for that wrong answer
+            # is 8,313 single-card fetches.
+            present = [r for r in self.rarities(language)
+                       if band_of(r) in TRACKED_BANDS]
+            if not present:
+                self.log.append(f"{self.name} {code} lists no trackable "
+                                "rarity; nothing to filter on")
+                return False
+            everything = self.get(
+                f"https://api.tcgdex.net/v2/{code}/cards?"
+                + self.PAGE.format(page=1, size=self.PAGE_SIZE),
+                label=f"cards-{code}-unfiltered", attempts=2)
+            filtered = self.cards_by_rarity(language, present[0])
+        except (AdapterGaveUp, RateLimited):
+            return False
+        whole = len(everything if isinstance(everything, list) else [])
+        part = len(filtered if isinstance(filtered, list) else [])
+        honoured = 0 < part < whole
+        self.log.append(
+            f"{self.name} {code} ?rarity= "
+            + (f"HONOURED ({part} of {whole})" if honoured
+               else f"IGNORED or empty ({part} vs {whole}) -- falling back"))
+        return honoured
 
     def status(self) -> dict:
         url, payload = self.probe(self.STATUS_CANDIDATES, label="status")
@@ -169,27 +249,130 @@ class TcgdexAdapter(CatalogSource):
         return payload if isinstance(payload, list) else (
             find(payload, "data", "sets") or [])
 
-    def enumerate_combo(self, game, language) -> list[dict]:
+    def enumerate_combo(self, game, language, english_by_id=None) -> list[dict]:
+        """Every card in the combination, WITH its rarity.
+
+        The rarity is the whole point and the reason this used to return
+        nothing usable. `GET /v2/{lang}/cards` and the `cards[]` array inside
+        `GET /v2/{lang}/sets/{setId}` return only `id`, `localId`, `name` and
+        `image` -- no `rarity` -- and the catalog filtered on it anyway. 8,313
+        cards, zero matches.
+
+        Three strategies, cheapest first, and the choice is MEASURED:
+
+        1. `?rarity=` server-side, one request per rarity per language, but
+           only if `filter_is_honoured` proves the parameter is not being
+           ignored.
+        2. GraphQL at /v2/graphql, one query per set, selecting the fields the
+           brief object omits.
+        3. Per-card fetches. N+1, and only reached when both above fail.
+        """
         if game != "pkmn":
             # A Pokémon database. Saying so is the point: it is why One Piece
             # Simplified Chinese is still uncovered after adding all three.
             raise AdapterGaveUp(
                 f"{self.name} is a Pokemon-only database; it cannot serve "
                 f"{game}. One Piece CN-S has no catalog source.")
-        code = self.LANG[language]
+
+        if self.filter_is_honoured(language):
+            hits = self._by_rarity(language)
+            self.strategy = "server_side_filter"
+        else:
+            hits = self._by_graphql(language)
+            self.strategy = "graphql" if hits else "per_card"
+            if not hits:
+                hits = self._per_card(language)
+
         rows = []
+        for hit in hits:
+            rarity, origin = resolve_rarity(hit, english_by_id)
+            row = _catalog_row(game, language, str(find(hit, "set_id", "set") or ""),
+                               {**hit, "rarity": rarity}, self.name)
+            if row:
+                # Where the classification came from, carried into the row. A
+                # borrowed rarity is a weaker claim than a printed one and the
+                # difference has to survive.
+                row["rarity_from"] = origin
+                rows.append(row)
+        return rows
+
+    def _by_rarity(self, language) -> list:
+        """One request per rarity present in the dataset. The cheap path."""
+        out, seen = [], set()
+        for rarity in self.rarities(language):
+            if band_of(rarity) not in TRACKED_BANDS:
+                # No point paying for a page of Commons.
+                continue
+            payload = self.cards_by_rarity(language, rarity)
+            for hit in (payload if isinstance(payload, list)
+                        else find(payload, "data") or []):
+                key = find(hit, "id")
+                if key in seen:
+                    continue
+                seen.add(key)
+                # The filter is the only thing that knows this card's rarity --
+                # the brief object still omits it -- so it is attached here.
+                out.append({**hit, "rarity": rarity})
+        return out
+
+    GRAPHQL = "https://api.tcgdex.net/v2/graphql"
+
+    def _by_graphql(self, language) -> list:
+        """One query per language, selecting what the brief object omits."""
+        code = self.LANG[language]
+        query = ("{cards(filters:{}){id localId name rarity illustrator "
+                 "set{id} variants{firstEdition holo reverse normal}}}")
+        try:
+            payload = self.get(
+                f"{self.GRAPHQL}?query={urllib.parse.quote(query)}",
+                label=f"graphql-{code}", attempts=2)
+        except (AdapterGaveUp, RateLimited) as exc:
+            self.log.append(f"{self.name} graphql unavailable: {str(exc)[:120]}")
+            return []
+        return find(payload, "cards") or []
+
+    def _per_card(self, language) -> list:
+        """N+1. The last resort, and it says so in the log because 8,313
+        single-card fetches is a quota decision, not an implementation
+        detail."""
+        code = self.LANG[language]
+        self.log.append(f"{self.name} {code} falling back to PER-CARD fetches "
+                        "-- neither the rarity filter nor GraphQL answered")
+        out = []
         for entry in self.sets(language):
             set_id = str(find(entry, "id", "code") or "")
             if not set_id:
                 continue
             payload = self.get(f"https://api.tcgdex.net/v2/{code}/sets/{set_id}",
                                label=f"set-{code}-{set_id}", attempts=2)
-            set_code = str(find(payload, "id", "code") or set_id)
-            for hit in (find(payload, "cards") or []):
-                row = _catalog_row(game, language, set_code, hit, self.name)
-                if row:
-                    rows.append(row)
-        return rows
+            for brief in (find(payload, "cards") or []):
+                card_id = find(brief, "id")
+                if not card_id:
+                    continue
+                full = self.get(f"https://api.tcgdex.net/v2/{code}/cards/{card_id}",
+                                label=f"card-{code}-{card_id}", attempts=1)
+                out.append({**brief, **(full if isinstance(full, dict) else {}),
+                            "set_id": set_id})
+        return out
+
+    def english_index(self) -> dict:
+        """id -> English card, for the rarity fallback.
+
+        tcgdex ids are stable across languages and English is the most complete
+        dataset, so a Chinese card that omits `rarity` can borrow one. Built
+        once per run and reused for both Chinese printings.
+        """
+        index = {}
+        try:
+            hits = self._by_rarity("EN") or self._by_graphql("EN")
+        except (AdapterGaveUp, RateLimited) as exc:
+            self.log.append(f"{self.name} no English index: {str(exc)[:120]}")
+            return index
+        for hit in hits:
+            key = find(hit, "id")
+            if key:
+                index[key] = hit
+        return index
 
 
 class CrystAdapter(CatalogSource):
@@ -324,9 +507,11 @@ def _catalog_row(game, language, set_code, hit, source) -> Optional[dict]:
                       "code") or "").strip()
     if not number or not set_code:
         return None
-    rarity = find(hit, "rarity")
+    rarity = hit.get("rarity") if isinstance(hit, dict) else None
+    if rarity in (None, ""):
+        rarity = find(hit, "rarity")
     name = find(hit, "name") or ""
-    variant = variant_from_rarity(rarity, name)
+    variant = variant_from_rarity(rarity, name, language)
     try:
         uid = _uid(game, set_code, number, variant, language)
     except (ValueError, KeyError):

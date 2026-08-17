@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import resolve.label_cli as CLI                                    # noqa: E402
 from ingest.base import Adapter, AdapterGaveUp                     # noqa: E402
+from ingest.adapters import ApiTcgAdapter, TcgApiAdapter  # noqa: E402
 from ingest.catalog import CatalogBuilder, _variant_of, to_targets  # noqa: E402
 from resolve.candidates import (MIN_PER_COMBO, TARGET_PER_COMBO,   # noqa: E402
                                 TARGET_TOTAL, generate, shortfall)
@@ -72,14 +73,19 @@ class TheCatalogFiltersToWhatIsWorthGrading(unittest.TestCase):
         """One Piece Japan is absent from tcgapi's game list entirely, and the
         three Chinese printings have no source at all. A shorter list is not
         the same fact as an unreachable source."""
-        class Dead(Adapter):
-            name = "dead"
-            key_env = None
+        # The REAL adapter classes with a dead transport, not a bare Adapter
+        # stub. A stub that lacks the methods the builder calls tests the stub.
+        import tempfile
 
-            def get(self, url, **kw):
-                raise AdapterGaveUp("no network")
+        def dead(_url, _headers):
+            raise OSError("no network")
 
-        builder = CatalogBuilder(tcgapi=Dead(), apitcg=Dead())
+        def build_dead(cls):
+            return cls(raw_root=tempfile.mkdtemp(), sleep=lambda _s: None,
+                       transport=dead)
+
+        builder = CatalogBuilder(tcgapi=build_dead(TcgApiAdapter),
+                                 apitcg=build_dead(ApiTcgAdapter))
         builder.build([("optcg", "JP"), ("pkmn", "CN-T")])
         reasons = {g["combo"]: g["reason"] for g in builder.gaps}
         self.assertIn("optcg:JP", reasons)

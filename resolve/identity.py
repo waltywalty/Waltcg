@@ -112,7 +112,10 @@ _RARITY_RULES = (
     ("serialized",    r"serial|\bnumbered\b"),
     ("sir",           r"special illustration|\bsir\b"),
     ("sar",           r"special art rare|\bsar\b"),
-    ("ar",            r"\bart rare\b|\bar\b"),
+    # tcgdex normalises the Japanese-system rarities into English strings:
+    # SAR arrives as `Special illustration rare` (caught by the `sir` rule
+    # above) and AR as `Illustration rare`.
+    ("ar",            r"\billustration rare\b|\bart rare\b|\bar\b"),
     ("promo",         r"\bpromo\b"),
     ("parallel",      r"parallel"),
     ("alt_art",       r"\balt(?:ernate)?\b"),
@@ -126,21 +129,38 @@ _NAME_SAFE = frozenset({"treasure_rare", "manga_rare", "signature",
                         "alt_art"})
 
 
-def variant_from_rarity(rarity, name=None) -> str:
+# tcgdex collapses two DIFFERENT market conventions into one string. A
+# `Special illustration rare` is called a SIR in English sets and a SAR in
+# Japanese ones, and this repository has always kept them apart --
+# `pkmn:sv3:223/197:sir:EN` and `pkmn:sv3:108/108:sar:JP` are the same art in
+# two markets. The provider cannot tell them apart, so the LANGUAGE does; it is
+# the only information that survives the normalisation.
+_SIR_BY_LANGUAGE = {"EN": "sir", "JP": "sar", "CN-S": "sar", "CN-T": "sar"}
+
+
+def variant_from_rarity(rarity, name=None, language=None) -> str:
     """Rarity (and, failing that, name) -> a variant token. `base` if neither says.
 
     A guess, and treated as one downstream: the resolver scores a variant
     disagreement as evidence AGAINST a match rather than as a disqualification,
     so a wrong guess here costs confidence instead of producing a wrong card.
+
+    `language` resolves one specific collapse and nothing else: see
+    `_SIR_BY_LANGUAGE`.
     """
+    def settle(token):
+        if token == "sir" and language:
+            return _SIR_BY_LANGUAGE.get(language, "sir")
+        return token
+
     text = str(rarity or "").lower()
     for token, pattern in _RARITY_RULES:
         if re.search(pattern, text):
-            return token
+            return settle(token)
     text = str(name or "").lower()
     for token, pattern in _RARITY_RULES:
         if token in _NAME_SAFE and re.search(pattern, text):
-            return token
+            return settle(token)
     return "base"
 
 
@@ -165,6 +185,34 @@ TCGAPI_GAME_ID = {
     ("pkmn", "JP"): "19",
     ("riftbound", "EN"): "5",
 }
+
+# tcgapi.dev's SET and CARD paths are slug-based and nested, not numeric:
+#
+#     /v1/games/{gameSlug}/sets/{setSlug}/cards
+#
+# The numeric ids above address `/v1/search` and `/v1/games`; they do not
+# address these. The obvious guesses are wrong in a way that returns a 404
+# rather than an error -- `one-piece` is apitcg's slug, and tcgapi calls the
+# same game `one-piece-card-game`.
+#
+# CONFIRMED, not inferred. Slugs for languages other than English are NOT
+# listed, because none has been confirmed and inventing `pokemon-japan` would
+# be exactly the guess that cost run #7. `ingest.catalog` resolves the rest at
+# runtime from `/v1/games`, which is a verified endpoint.
+TCGAPI_GAME_SLUG = {
+    ("optcg", "EN"): "one-piece-card-game",
+    ("pkmn", "EN"): "pokemon",
+    ("riftbound", "EN"): "riftbound",
+}
+
+# Every slug the provider is known to serve. Used to sanity-check a slug
+# resolved at runtime, and to keep the confirmed list somewhere a future
+# session can find it.
+TCGAPI_KNOWN_SLUGS = (
+    "one-piece-card-game", "dragon-ball-super-fusion-world",
+    "digimon-card-game", "lorcana-tcg", "pokemon", "magic", "yugioh",
+    "riftbound", "union-arena", "star-wars-unlimited", "gundam-card-game",
+)
 
 # External tokens that must never appear in a card_uid.
 #

@@ -1491,3 +1491,109 @@ serves this" while tcgdex was serving it 877 cards. It is a fact about tcgapi,
 not about the combination; it is `tcgapi_no_game_entry` now, and the
 combo-level verdict is computed at the end from every source that was actually
 asked.
+
+---
+
+## ADR-0025 — The filter read a field that was not there
+
+**2026-08-17.** tcgdex's brief card object — what `GET /v2/{lang}/cards` and
+the `cards[]` array inside `GET /v2/{lang}/sets/{setId}` return — carries `id`,
+`localId`, `name` and `image`. **There is no `rarity`.** The catalog builder
+filtered on `rarity` anyway, `rarity_band(None)` answered `base`, `base` is not
+tracked, and 8,313 cards produced zero matches.
+
+The filter was not too tight. It was reading a field that was never there, and
+the absence looked exactly like "none of these are chase cards".
+
+**The rule that follows is the whole thing: an absent rarity is UNKNOWN, never
+"not a chase card".** `band_of(None)` returns `unknown`, `unknown` is a TRACKED
+band, and the residue is counted and reported. Tracking a card we cannot
+classify costs quota; dropping one loses a chase card and says nothing.
+`test_the_old_behaviour_would_have_dropped_everything` pins the substitution.
+
+### Verified from source, and the transcription was short
+
+`interfaces.d.ts` fetched from raw.githubusercontent.com — reachable from here
+even though `api.tcgdex.net` is not. The union has **43 members, not 29.** The
+fourteen that were missing from the brief:
+
+- `Triple Rare`
+- **`Character Rare`, `Character Super Rare`** — Japanese Character Rares,
+  since SM11b Dream League. These matter more here than anywhere: this project
+  tracks JP and both Chinese printings, and omitting them repeats the exact bug.
+- `Promo`
+- ten Pokémon TCG Pocket rarities
+
+Two classification calls that are mine, not the brief's, and worth arguing with:
+
+- **`Double rare` is `rare`, not tracked.** It reads like a chase tier and is
+  the ordinary two-star `ex` — a couple of dollars, several thousand per set.
+- **The Pocket rarities get their own `digital` band.** Pokémon TCG Pocket is a
+  digital game. There is no physical card to grade, no submission to make and
+  no population to read. They are not cheap cards; they are not cards.
+
+### What the live check is still for
+
+`ingest.catalog --rarities` asks each dataset what it actually contains and
+diffs it against English. It has NOT run — `api.tcgdex.net` is unreachable from
+here. The documented enum and the populated one are different questions and
+only the runner can answer the second.
+
+### Three strategies, and the choice is measured
+
+`?rarity=` server-side first, GraphQL second, per-card N+1 last. A query
+parameter a service ignores returns the FULL list, which reads as "every card
+is a Special Illustration Rare" — a filter that matched too much rather than
+one that did not run. So `filter_is_honoured` compares a filtered count against
+an unfiltered one before trusting it.
+
+Writing that check found a bug in itself: it probed with a hardcoded
+`Special illustration rare`, so any dataset not holding that rarity would
+report "filter ignored" and pay 8,313 single-card fetches for the wrong answer.
+It probes with a rarity the dataset actually lists.
+
+### The SIR/SAR collapse
+
+tcgdex normalises two different market conventions into one string. A `Special
+illustration rare` is a SIR in English sets and a SAR in Japanese ones, and
+this repository has always kept them apart — `pkmn:sv3:223/197:sir:EN` and
+`pkmn:sv3:108/108:sar:JP` are the same art in two markets with two price
+series. The provider cannot tell them apart, so the **language** does. It is
+the only information that survives the normalisation.
+
+---
+
+## ADR-0026 — Two providers, two wrong endpoints, one readable spec
+
+**2026-08-17.**
+
+**apitcg was wrong in the host AND the path**, which is why every run got a
+non-JSON body — `apitcg.com` serves an HTML single-page app. Read from
+`raw.githubusercontent.com/apitcg/docs.apitcg.com/main/openapi.json`:
+
+| | was | is |
+|---|---|---|
+| host | `apitcg.com` | `api.apitcg.com` |
+| cards | `/api/{game}/cards` | **no such endpoint** — `/api/products?type=card` |
+| paging | invented | `limit` (≤100) + `page`, with `total` in the envelope |
+| rarity | top-level | `attributes.Rarity`, a free-form map |
+
+Anything absent from that file is treated as non-existent rather than as
+missing data. And `attributes` holds each game's OWN vocabulary — One Piece's
+`R`/`SR`/`SEC`/`TR`, not tcgdex's normalised English — which surfaced a second
+instance of the same bug: `SR` and `SEC` were scoring `base` and being dropped.
+
+**tcgapi's set and card paths are slug-based and nested**, not numeric:
+`/v1/games/{gameSlug}/sets/{setSlug}/cards`. The numeric ids address
+`/v1/search` and `/v1/games` and nothing else, which is why all three
+query-string shapes probed in run #8 returned 404.
+
+The slugs are confirmed and the obvious guesses are wrong in the quietest
+possible way: tcgapi calls One Piece `one-piece-card-game`, while **apitcg
+calls the same game `one-piece`**. Two providers, two vocabularies for one
+game — exactly what `resolve/identity.py` exists to keep apart.
+
+Only English slugs are recorded. `pokemon-japan` is a plausible guess and
+plausible guesses are what cost run #7, so any other language is resolved at
+runtime from `/v1/games` — a verified endpoint — and a slug that cannot be
+resolved is a gap, not an invention.

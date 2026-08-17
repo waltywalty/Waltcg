@@ -36,7 +36,8 @@ from ingest.adapters import ApiTcgAdapter, TcgApiAdapter          # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited, find          # noqa: E402
 from ingest.registry import ADAPTERS, CN_SOURCE_PRIORITY          # noqa: E402
 from ingest.runner import load_expectations                       # noqa: E402
-from resolve.identity import (TCGAPI_GAME_ID, card_uid,           # noqa: E402
+from resolve.identity import (TCGAPI_GAME_ID, TCGAPI_GAME_SLUG,   # noqa: E402
+                              TCGAPI_KNOWN_SLUGS, card_uid,
                               variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402
 
@@ -50,7 +51,11 @@ COMBOS = [("optcg", "EN"), ("optcg", "JP"), ("optcg", "CN-S"),
 # Bands kept. `rare` is deliberately excluded: an ordinary holo rare almost
 # never clears a grading fee, and including it would triple the daily quota
 # spend for cards no signal would ever surface.
-TRACKED_BANDS = ("chase", "premium")
+#
+# `unknown` IS kept, and that is the run #7 lesson: an absent rarity is not a
+# common. Imported rather than redeclared so the catalog filter and the
+# classifier cannot drift -- which is how the tcgdex zero survived a session.
+from ingest.rarity import TRACKED_BANDS, band_of  # noqa: E402
 
 # apitcg has no language dimension, so it can only fill a combo whose language
 # it actually serves. One Piece JP is its one genuine addition over tcgapi.
@@ -85,6 +90,7 @@ class CatalogBuilder:
         self.combo_status = {}
         # combo -> {sources a request was actually issued to}
         self.attempted = {}
+        self._slugs = None
 
     def attempt(self, combo, source):
         """Record that a request was actually ISSUED for this combination.
@@ -114,124 +120,112 @@ class CatalogBuilder:
     #
     # So they are probed, in the same way, and which candidate answered is
     # reported. `endpoints_used` is the record.
-    SET_CANDIDATES = (
-        "https://api.tcgapi.dev/v1/sets?game={game}&page={page}&per_page=100",
-        "https://api.tcgapi.dev/v1/sets?game_id={game}&page={page}",
-        "https://api.tcgapi.dev/v1/games/{game}/sets?page={page}",
-    )
-    CARD_CANDIDATES = (
-        "https://api.tcgapi.dev/v1/cards?game={game}&set={set}&page={page}&per_page=250",
-        "https://api.tcgapi.dev/v1/cards?game={game}&set_code={set}&page={page}",
-        "https://api.tcgapi.dev/v1/sets/{set}/cards?game={game}&page={page}",
-    )
+    # tcgapi's set and card paths are SLUG-based and nested. The numeric game
+    # ids address /v1/search and /v1/games and nothing else, which is why the
+    # three query-string shapes tried in run #8 all 404'd.
+    SETS = ("https://api.tcgapi.dev/v1/games/{slug}/sets"
+            "?page={page}&per_page=100")
+    CARDS = ("https://api.tcgapi.dev/v1/games/{slug}/sets/{set}/cards"
+             "?page={page}&per_page=100")
+
+    def game_slug(self, game, language):
+        """Slug for a combo, confirmed where known and RESOLVED where not.
+
+        Only English slugs are confirmed. Rather than invent `pokemon-japan`,
+        anything else is looked up in the provider's own `/v1/games` -- a
+        verified endpoint -- and matched by numeric id. A slug that cannot be
+        resolved is a gap, not a guess.
+        """
+        known = TCGAPI_GAME_SLUG.get((game, language))
+        if known:
+            return known
+        if self._slugs is None:
+            self._slugs = {}
+            try:
+                for entry in self.tcgapi.games():
+                    ident = str(find(entry, "id", "game_id") or "")
+                    slug = str(find(entry, "slug", "code") or "")
+                    if ident and slug:
+                        self._slugs[ident] = slug
+            except (AdapterGaveUp, RateLimited) as exc:
+                self.log.append(f"tcgapi /v1/games unavailable: {str(exc)[:120]}")
+            except Exception as exc:                        # noqa: BLE001
+                # A slug lookup that explodes must not take the build with it.
+                # Its failure means "no slug", which is already a gap.
+                self.log.append(f"tcgapi /v1/games raised "
+                                f"{type(exc).__name__}: {str(exc)[:100]}")
+        game_id = TCGAPI_GAME_ID.get((game, language))
+        resolved = self._slugs.get(str(game_id)) if game_id else None
+        if resolved and resolved not in TCGAPI_KNOWN_SLUGS:
+            self.log.append(f"tcgapi slug {resolved!r} for {game}:{language} is "
+                            "not in the confirmed list; using it anyway and "
+                            "recording that it was resolved, not confirmed")
+        return resolved
 
     def sets_for(self, game, language):
         """Every set for a combo, read to the LAST page."""
-        game_id = TCGAPI_GAME_ID.get((game, language))
-        if game_id is None:
-            # A fact about TCGAPI, not about the combination. Naming it
-            # `no_catalog_source` made pkmn:CN-S report "nothing serves this"
-            # while tcgdex was serving it 877 cards -- the combo-level verdict
-            # is computed at the end, from every source that was asked.
+        slug = self.game_slug(game, language)
+        if slug is None:
             self.gap((game, language), "tcgapi_no_game_entry",
-                     "tcgapi has no game entry for this combination")
+                     "tcgapi has no game slug for this combination, and none "
+                     "could be resolved from /v1/games")
             return []
 
         self.attempt((game, language), "tcgapi")
-        template = self.endpoints_used.get("tcgapi.sets")
-        if template is None:
-            url, payload = self.tcgapi.probe(
-                [c.format(game=game_id, page=1) for c in self.SET_CANDIDATES],
-                label=f"sets-{game}-{language}-discover")
-            if url is None:
-                raise AdapterGaveUp(
-                    "no tcgapi set endpoint answered. Tried "
-                    + "; ".join(f"{u} ({why})" for u, why in payload))
-            template = self.SET_CANDIDATES[
-                [c.format(game=game_id, page=1) for c in self.SET_CANDIDATES].index(url)]
-            self.endpoints_used["tcgapi.sets"] = template
-            self.log.append(f"tcgapi sets endpoint resolved to {template}")
-
         out, page = [], 1
         while True:
-            payload = self.tcgapi.get(template.format(game=game_id, page=page),
-                                      label=f"sets-{game}-{language}-p{page}")
+            payload = self.tcgapi.get(self.SETS.format(slug=slug, page=page),
+                                      label=f"sets-{slug}-p{page}")
             batch = find(payload, "data", "sets", "results") or []
             out.extend(batch)
             meta = find(payload, "meta") or {}
-            if not (meta.get("has_more") or meta.get("hasMore")):
+            if not (meta.get("has_more") or meta.get("hasMore")) or not batch:
                 break
             page += 1
             if page > 100:
                 raise AdapterGaveUp("set pagination did not terminate")
+        self.endpoints_used["tcgapi.sets"] = self.SETS
         return out
 
     def cards_in_set(self, game, language, set_code):
-        """Every card in one set. Prefers /bulk where the provider offers it --
-        one call instead of one per page is the difference between a full
-        catalog refresh fitting in the daily quota and not."""
-        game_id = TCGAPI_GAME_ID.get((game, language))
-        if self.endpoints_used.get("tcgapi.bulk") != "unavailable":
-            try:
-                payload = self.tcgapi.get(
-                    f"https://api.tcgapi.dev/v1/bulk?game={game_id}&set={set_code}",
-                    label=f"bulk-{game}-{language}-{set_code}", attempts=1)
-                cards = find(payload, "data", "cards", "results")
-                if cards:
-                    self.endpoints_used["tcgapi.bulk"] = "/v1/bulk"
-                    return cards
-            except AdapterGaveUp:
-                # Ruled out ONCE, not once per set. Re-probing a known-absent
-                # endpoint for every set in the game is how a catalog refresh
-                # spends its whole quota discovering the same 404.
-                self.endpoints_used["tcgapi.bulk"] = "unavailable"
-                self.log.append("tcgapi /v1/bulk did not answer; paging /cards")
-
-        template = self.endpoints_used.get("tcgapi.cards")
-        if template is None:
-            candidates = [c.format(game=game_id, set=set_code, page=1)
-                          for c in self.CARD_CANDIDATES]
-            url, payload = self.tcgapi.probe(
-                candidates, label=f"cards-{set_code}-discover")
-            if url is None:
-                raise AdapterGaveUp(
-                    "no tcgapi card endpoint answered. Tried "
-                    + "; ".join(f"{u} ({why})" for u, why in payload))
-            template = self.CARD_CANDIDATES[candidates.index(url)]
-            self.endpoints_used["tcgapi.cards"] = template
-            self.log.append(f"tcgapi cards endpoint resolved to {template}")
-
+        """Every card in one set, via the nested slug path."""
+        slug = self.game_slug(game, language)
+        if slug is None:
+            return []
         out, page = [], 1
         while True:
             payload = self.tcgapi.get(
-                template.format(game=game_id, set=set_code, page=page),
-                label=f"cards-{set_code}-p{page}")
+                self.CARDS.format(slug=slug, set=set_code, page=page),
+                label=f"cards-{slug}-{set_code}-p{page}")
             batch = find(payload, "data", "cards", "results") or []
             out.extend(batch)
             meta = find(payload, "meta") or {}
-            if not (meta.get("has_more") or meta.get("hasMore")):
+            if not (meta.get("has_more") or meta.get("hasMore")) or not batch:
                 break
             page += 1
             if page > 100:
                 raise AdapterGaveUp("card pagination did not terminate")
+        self.endpoints_used["tcgapi.cards"] = self.CARDS
         return out
 
     def apitcg_cards(self, game, language):
-        """apitcg fills One Piece JP, which tcgapi's catalog cannot express."""
+        """apitcg fills One Piece JP, which tcgapi's catalog cannot express.
+
+        Paged through /api/products per the OpenAPI spec -- 100 per page, which
+        is the documented cap, reading `total` to know when to stop rather than
+        guessing from a short page.
+        """
         if language not in APITCG_LANGUAGES.get(game, ()):
             return []
         self.attempt((game, language), "apitcg")
-        slug = ApiTcgAdapter.SLUG.get(game)
         out, page = [], 1
         while True:
-            payload = self.apitcg.get(
-                f"https://apitcg.com/api/{slug}/cards?page={page}&limit=100",
-                label=f"apitcg-{game}-{language}-p{page}")
-            batch = find(payload, "data", "cards") or []
-            out.extend(batch)
-            if len(batch) < 100 or page > 100:
+            rows, total = self.apitcg.products(game, page=page)
+            out.extend(rows)
+            if not rows or len(out) >= int(total or 0) or page > 100:
                 break
             page += 1
+        self.endpoints_used["apitcg.products"] = ApiTcgAdapter.PRODUCTS
         return out
 
     def cn_source(self, name):
@@ -289,8 +283,13 @@ class CatalogBuilder:
         return rows, {"used": used, "failed": failed}
 
     def _cn_row(self, game, language, hit):
-        """A catalog source row -> a targets row, filtered to tracked bands."""
-        if rarity_band(hit.get("rarity")) not in TRACKED_BANDS:
+        """A catalog source row -> a targets row, filtered to tracked bands.
+
+        `band_of`, not `rarity_band`: an absent rarity must classify as
+        `unknown` and stay tracked. `rarity_band(None)` returns `base`, which
+        is the substitution that produced 8,313 cards and zero matches.
+        """
+        if band_of(hit.get("rarity")) not in TRACKED_BANDS:
             return None
         return {"card_uid": hit["card_uid"], "game": game, "language": language,
                 "set_code": hit["set_code"], "number": hit["number"],
@@ -341,9 +340,20 @@ class CatalogBuilder:
             try:
                 extra = self.apitcg_cards(game, language)
                 for hit in extra:
-                    row = self._row(game, language,
-                                    str(find(hit, "set_code", "setCode",
-                                             "set") or ""), hit, "apitcg")
+                    # rarity/number live in the dynamic `attributes` map, so
+                    # the row is flattened before the shared filter sees it --
+                    # `find(hit, "rarity")` would reach into attributes by
+                    # accident and by luck, not by contract.
+                    flat = {**hit,
+                            "rarity": self.apitcg._attr(hit, "Rarity"),
+                            "number": (self.apitcg._attr(hit, "Number")
+                                       or find(hit, "cardNumber", "code")),
+                            "artist": self.apitcg._attr(hit, "Artist")}
+                    set_ref = find(hit, "set")
+                    set_code = str((set_ref.get("_id") or set_ref.get("slug"))
+                                   if isinstance(set_ref, dict)
+                                   else (set_ref or ""))
+                    row = self._row(game, language, set_code, flat, "apitcg")
                     if row:
                         rows.append(row)
                 if extra:
@@ -399,7 +409,9 @@ class CatalogBuilder:
 
     def _row(self, game, language, set_code, hit, source):
         rarity = find(hit, "rarity")
-        if rarity_band(rarity) not in TRACKED_BANDS:
+        # provider_native: tcgapi and apitcg return each game's own vocabulary
+        # (One Piece `R`/`SR`/`SEC`/`TR`), not tcgdex's normalised English.
+        if band_of(rarity, provider_native=True) not in TRACKED_BANDS:
             return None
         number = str(find(hit, "number", "collector_number", "code") or "").strip()
         if not number or not set_code:
@@ -483,6 +495,93 @@ def to_targets(catalog, gaps, combo_status=None, endpoints=None):
     }
 
 
+def rarity_report(adapter=None, languages=("EN", "JP", "CN-S", "CN-T")):
+    """What rarity strings each tcgdex dataset ACTUALLY contains.
+
+    THE STEP THAT SHOULD HAVE COME FIRST. `rarity` is absent from tcgdex's
+    brief card object, the catalog filtered on it anyway, and 8,313 cards
+    produced zero matches. The fix is not a better filter -- it is asking the
+    service what is in there before filtering on it.
+
+    `interfaces.d.ts` documents 43 rarity strings and says the vocabulary is
+    still being aligned to official lists, so the DOCUMENTED list and the
+    POPULATED list are different questions. This answers the second one, and
+    diffs each language against English.
+
+    Cannot be run from the sandbox: the egress proxy refuses api.tcgdex.net.
+    It runs on the Actions runner, like the coverage report.
+    """
+    from ingest.catalog_sources import TcgdexAdapter
+    from ingest.rarity import TCGDEX_RARITIES, band_of, normalise
+
+    adapter = adapter or TcgdexAdapter()
+    found, errors = {}, {}
+    for language in languages:
+        try:
+            found[language] = sorted(set(adapter.rarities(language)))
+        except (AdapterGaveUp, RateLimited) as exc:
+            errors[language] = str(exc)[:200]
+        except Exception as exc:                            # noqa: BLE001
+            errors[language] = f"{type(exc).__name__}: {exc}"[:200]
+
+    known = {normalise(r) for r in TCGDEX_RARITIES}
+    english = set(found.get("EN", []))
+    rows = []
+    for language, values in found.items():
+        missing_here = sorted(english - set(values)) if language != "EN" else []
+        extra_here = sorted(set(values) - english) if language != "EN" else []
+        unknown = sorted(v for v in values if normalise(v) not in known)
+        rows.append({
+            "language": language, "count": len(values), "values": values,
+            "absent_vs_english": missing_here, "extra_vs_english": extra_here,
+            "not_in_our_enum": unknown,
+            "tracked": sorted(v for v in values
+                              if band_of(v) in ("chase", "premium")),
+        })
+    return {"rows": rows, "errors": errors,
+            "enum_size": len(TCGDEX_RARITIES)}
+
+
+def render_rarity_report(report) -> str:
+    lines = ["### tcgdex rarities, as populated", "",
+             f"Our enum carries {report['enum_size']} strings, verbatim from "
+             "`tcgdex/cards-database/interfaces.d.ts`. This is what the live "
+             "datasets actually contain -- the documented list and the "
+             "populated list are different questions, and filtering on the "
+             "first cost 8,313 cards.", ""]
+    if not report["rows"]:
+        lines += ["**No language answered.** The diff below is unavailable; "
+                  "the errors are the finding.", ""]
+    else:
+        lines += ["| Language | Distinct rarities | Tracked (chase+premium) | "
+                  "Absent vs EN | Extra vs EN | Not in our enum |",
+                  "|---|---:|---:|---:|---:|---|"]
+        for row in report["rows"]:
+            lines.append(
+                f"| `{row['language']}` | {row['count']} | "
+                f"{len(row['tracked'])} | {len(row['absent_vs_english'])} | "
+                f"{len(row['extra_vs_english'])} | "
+                + (", ".join(f"`{v}`" for v in row["not_in_our_enum"]) or "--")
+                + " |")
+        for row in report["rows"]:
+            if row["extra_vs_english"] or row["not_in_our_enum"]:
+                lines += ["", f"**`{row['language']}` divergence.**"]
+                if row["extra_vs_english"]:
+                    lines.append("- present here and not in English: "
+                                 + ", ".join(f"`{v}`" for v in
+                                             row["extra_vs_english"]))
+                if row["not_in_our_enum"]:
+                    lines.append("- NOT in our enum, so classified `unknown` "
+                                 "and still tracked: "
+                                 + ", ".join(f"`{v}`" for v in
+                                             row["not_in_our_enum"]))
+    if report["errors"]:
+        lines += ["", "**Languages that did not answer:**", ""]
+        lines += [f"- `{lang}` -- {why}"
+                  for lang, why in sorted(report["errors"].items())]
+    return "\n".join(lines) + "\n"
+
+
 def render_catalog_summary(targets, builder=None) -> str:
     """The catalog step's own report: what it asked, and what it got.
 
@@ -564,6 +663,10 @@ def main(argv=None):
                         help="append a Markdown report here "
                              "(GITHUB_STEP_SUMMARY). Written BEFORE the exit "
                              "code, so a zero-target run still explains itself")
+    parser.add_argument("--rarities", action="store_true",
+                        help="ask tcgdex which rarity strings each dataset "
+                             "actually contains, and diff each language "
+                             "against English. Runs on the Actions runner")
     parser.add_argument("--coverage", action="store_true",
                         help="measure what the open Chinese sources actually "
                              "serve, per combo, and report it without building")
@@ -575,6 +678,16 @@ def main(argv=None):
         combos = [c for c in COMBOS if f"{c[0]}:{c[1]}" in wanted]
 
     builder = CatalogBuilder()
+
+    if args.rarities:
+        report = rarity_report()
+        text = render_rarity_report(report)
+        print(text)
+        if args.summary:
+            with open(args.summary, "a", encoding="utf-8") as handle:
+                handle.write(text)
+        # Reporting zero is a finding, not a failure. Same rule as --coverage.
+        return 0
 
     if args.coverage:
         rows = builder.coverage([c for c in combos if c[1] in ("CN-S", "CN-T")])

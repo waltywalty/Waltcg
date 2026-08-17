@@ -230,20 +230,77 @@ def _split_grade_key(key: str):
 
 
 class ApiTcgAdapter(Adapter):
-    """apitcg.com -- catalog and the only reliable ARTIST field.
+    """apitcg -- catalog and the only reliable ARTIST field.
 
-    Answers auth failures with HTTP 200 and an error object, which the base
-    class refuses to read as an empty result.
+    REWRITTEN FROM THE OPENAPI SPEC, not from guesses. Every previous run got a
+    non-JSON body from this provider, which is what a wrong endpoint looks like
+    when the host serves an HTML single-page app. Two things were wrong:
+
+    * **The host.** It is `api.apitcg.com`. `apitcg.com` is the docs SPA.
+    * **The path.** There is no `/cards` endpoint at all. Cards are
+      `/api/products?type=card`, filtered by `tcg`, `set`, `code` or `name`.
+
+    Read from raw.githubusercontent.com/apitcg/docs.apitcg.com/main/openapi.json
+    on 2026-08-17. Anything absent from that file is treated as non-existent
+    rather than as missing data.
+
+    WHERE THE FIELDS ARE. `rarity` is not a top-level property -- it lives in
+    `attributes`, a free-form string map whose keys depend on the game, and
+    whose values are the game's OWN vocabulary (`R`, `SR`, `SEC`, `TR` for One
+    Piece), not tcgdex's normalised English enum.
     """
 
     name = "apitcg"
     requires_targets = True
     key_env = "APITCG_KEY"
-    api_key_header = "x-api-key"
-    host = "apitcg.com"
+    api_key_header = "x-api-key"          # confirmed: components.securitySchemes
+    host = "api.apitcg.com"
 
-    CARDS = "https://apitcg.com/api/{game}/cards?property=code&value={number}"
+    BASE = "https://api.apitcg.com"
+    # limit is capped at 100 by the spec; default is 25.
+    PRODUCTS = (BASE + "/api/products?type=card&tcg={tcg}"
+                "&limit={limit}&page={page}")
+    BY_CODE = BASE + "/api/products?type=card&tcg={tcg}&code={code}"
+    SETS = BASE + "/api/{tcg}/sets"
+    PAGE_SIZE = 100
+
+    # apitcg's own slugs. `one-piece` here is correct and is NOT the same as
+    # tcgapi.dev's `one-piece-card-game` -- two providers, two vocabularies,
+    # and the confusion between them is why identity.py keeps them apart.
     SLUG = {"optcg": "one-piece", "pkmn": "pokemon", "riftbound": "riftbound"}
+
+    def attributes(self, hit) -> dict:
+        found = find(hit, "attributes")
+        return found if isinstance(found, dict) else {}
+
+    def _attr(self, hit, *names):
+        """Case-insensitive read from the dynamic attribute map. The keys
+        depend on the game, so a fixed spelling would work for One Piece and
+        silently return nothing for anything else."""
+        attributes = {str(k).lower(): v for k, v in self.attributes(hit).items()}
+        for name in names:
+            value = attributes.get(name.lower())
+            if value not in (None, ""):
+                return value
+        return None
+
+    def sets(self, game) -> list:
+        slug = self.SLUG.get(game)
+        if slug is None:
+            raise AdapterGaveUp(f"{self.name}: no slug for game {game!r}")
+        payload = self.get(self.SETS.format(tcg=slug), label=f"sets-{slug}")
+        return find(payload, "data", "sets") or []
+
+    def products(self, game, page=1) -> tuple:
+        """One page of cards. Returns (rows, total)."""
+        slug = self.SLUG.get(game)
+        if slug is None:
+            raise AdapterGaveUp(f"{self.name}: no slug for game {game!r}")
+        payload = self.get(
+            self.PRODUCTS.format(tcg=slug, limit=self.PAGE_SIZE, page=page),
+            label=f"products-{slug}-p{page}")
+        return (find(payload, "data") or [],
+                find(payload, "total") or 0)
 
     def fetch(self, since=None, cards=()) -> list[Record]:
         observed = self._now()
@@ -252,18 +309,18 @@ class ApiTcgAdapter(Adapter):
             slug = self.SLUG.get(card["game"])
             if slug is None:
                 continue
-            payload = self.get(self.CARDS.format(slug=slug, game=slug,
-                                                 number=card["number"]),
-                               label=f"cards-{card['card_uid']}")
-            for hit in find(payload, "data", "cards") or []:
+            payload = self.get(
+                self.BY_CODE.format(tcg=slug, code=card["number"]),
+                label=f"product-{card['card_uid']}")
+            for hit in find(payload, "data") or []:
                 records.append(Record(
                     kind="card", source=self.name, as_of=observed,
                     observed_at=observed,
                     payload={"card_uid": card["card_uid"],
-                             "artist": find(hit, "illustrator", "artist"),
-                             "rarity": find(hit, "rarity"),
+                             "artist": self._attr(hit, "Artist", "Illustrator"),
+                             "rarity": self._attr(hit, "Rarity"),
                              "name_en": find(hit, "name"),
-                             "image_url": find(hit, "image", "images")}))
+                             "image_url": find(hit, "images")}))
         return records
 
 

@@ -55,11 +55,16 @@ class NotEnoughHistory(RuntimeError):
 # quietly dropped One Piece Treasure Rares, which are the top chase rarity in
 # the game -- ingest/catalog.py tracks only `chase` and `premium`, so both were
 # excluded from the target list they most belong in.
+# The abbreviations are PROVIDER-NATIVE vocabularies. apitcg returns One
+# Piece's own strings in `attributes.Rarity` -- `R`, `SR`, `SEC`, `TR` -- and
+# not tcgdex's normalised English enum, so both have to be understood. `SR`
+# and `SEC` scoring as `base` was the same class of bug as the tcgdex zero:
+# a chase card filed as not worth tracking.
 _BANDS = (
     ("chase",   r"secret|hyper|special illustration|\bsar\b|\bsir\b|manga|"
-                r"signature|treasure|\btr\b|serial"),
+                r"signature|treasure|\btr\b|serial|\bsec\b|\bur\b|\bhr\b"),
     ("premium", r"illustration|ultra|\balt\b|alternate|parallel|full art|"
-                r"art rare|\bar\b"),
+                r"art rare|\bar\b|\bsr\b"),
     ("rare",    r"holo|rare|leader"),
 )
 

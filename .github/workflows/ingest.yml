@@ -104,6 +104,19 @@ jobs:
         continue-on-error: true
         run: python -m ingest.catalog --coverage --summary "$GITHUB_STEP_SUMMARY"
 
+      # THE STEP THAT SHOULD HAVE COME FIRST. `rarity` is absent from tcgdex's
+      # brief card object; the catalog filtered on it anyway; 8,313 cards
+      # produced zero matches. This asks the service what rarity strings each
+      # dataset actually contains, and diffs each language against English.
+      #
+      # The documented enum and the populated one are different questions.
+      # interfaces.d.ts lists 43 strings and says the vocabulary is still being
+      # aligned to official lists, so anything here that is not in our enum is
+      # classified `unknown` -- and `unknown` is TRACKED, never dropped.
+      - name: Which rarities each tcgdex dataset actually contains
+        continue-on-error: true
+        run: python -m ingest.catalog --rarities --summary "$GITHUB_STEP_SUMMARY"
+
       # MUST come before the ingest step. Run #5 went green having ingested
       # 8,313 card identities and zero prices: tcgapi, PPT and apitcg each
       # reported "0 calls made this run" because targets.json was still the
