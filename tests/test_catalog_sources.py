@@ -974,3 +974,80 @@ class TheSirSarCollapseIsResolvedByLanguage(unittest.TestCase):
         for language in ("EN", "JP", "CN-S", "CN-T"):
             self.assertEqual(
                 variant_from_rarity("Illustration rare", None, language), "ar")
+
+
+class TheGameReachesTheBandLookup(unittest.TestCase):
+    """`R`, `P` and `L` mean different things in different games, so the
+    catalog filter must pass the game through. Without it every Riftbound
+    rarity is `unknown` -- which is TRACKED -- so the filter silently stops
+    filtering and every common in the game becomes a price target."""
+
+    def _builder(self):
+        from ingest.catalog import CatalogBuilder
+        return CatalogBuilder(tcgapi=object(), apitcg=object())
+
+    def test_a_one_piece_common_is_dropped(self):
+        """The regression a missing `game=` would cause, and the reason this
+        test uses `C` rather than `Common`: `Common` is in the shared tcgdex
+        table and resolves either way, so it cannot tell the two apart. `C` is
+        only in the One Piece table -- without the game it is `unknown`, and
+        `unknown` is TRACKED, so every common in the game becomes a price
+        target and the filter silently stops filtering."""
+        for rarity in ("C", "UC"):
+            row = self._builder()._row(
+                "optcg", "EN", "OP01",
+                {"number": "OP01-001", "name": "Zoro", "rarity": rarity},
+                "tcgapi")
+            self.assertIsNone(row, f"a One Piece {rarity} became a price target")
+
+    def test_a_riftbound_common_is_dropped(self):
+        row = self._builder()._row(
+            "riftbound", "EN", "OGN",
+            {"number": "OGN-001", "name": "Minion", "rarity": "Common"},
+            "tcgapi")
+        self.assertIsNone(row, "a Riftbound common became a price target")
+
+    def test_a_riftbound_overnumbered_is_kept(self):
+        row = self._builder()._row(
+            "riftbound", "EN", "OGN",
+            {"number": "OGN-301", "name": "Jinx", "rarity": "Overnumbered"},
+            "tcgapi")
+        self.assertIsNotNone(row)
+        self.assertEqual(row["variant"], "overnumbered")
+
+    def test_one_piece_L_and_riftbound_have_different_answers(self):
+        from ingest.rarity import band_of
+        self.assertEqual(band_of("L", game="optcg"), "rare")
+        self.assertEqual(band_of("L", game="riftbound"), "unknown")
+
+    def test_an_unmapped_string_is_recorded_for_the_summary(self):
+        builder = self._builder()
+        builder._row("riftbound", "EN", "OGN",
+                     {"number": "OGN-999", "name": "x",
+                      "rarity": "Mythic Prismatic"}, "tcgapi")
+        self.assertEqual(builder.unmapped_rarities["riftbound:EN"],
+                         {"Mythic Prismatic"})
+
+    def test_a_mapped_string_is_not_recorded(self):
+        builder = self._builder()
+        builder._row("riftbound", "EN", "OGN",
+                     {"number": "OGN-1", "name": "x", "rarity": "Epic"},
+                     "tcgapi")
+        self.assertEqual(builder.unmapped_rarities, {})
+
+    def test_the_summary_names_them(self):
+        """Tracked is not the same as reported. `rarity_band` has been wrong
+        three times by classifying silently, so an unmapped string has to
+        appear in the output where somebody reads it."""
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"riftbound:EN": 3},
+            "_unmapped_rarities": {"riftbound:EN": ["Mythic Prismatic"]}})
+        self.assertIn("Mythic Prismatic", text)
+        self.assertIn("no table classifies", text)
+        self.assertIn("GAME_BANDS", text)
+
+    def test_the_summary_omits_the_section_when_everything_maps(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({"_counts": {"riftbound:EN": 3}})
+        self.assertNotIn("no table classifies", text)

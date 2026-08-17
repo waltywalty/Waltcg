@@ -118,7 +118,7 @@ _RARITY_RULES = (
     ("ar",            r"\billustration rare\b|\bart rare\b|\bar\b"),
     ("promo",         r"\bpromo\b"),
     ("parallel",      r"parallel"),
-    ("alt_art",       r"\balt(?:ernate)?\b"),
+    ("alt_art",       r"\balt(?:ernate)?\b|\bshowcase\b"),
 )
 
 # Applied to the card NAME only when the rarity said nothing. Abbreviations are
@@ -148,6 +148,14 @@ def variant_from_rarity(rarity, name=None, language=None) -> str:
     `language` resolves one specific collapse and nothing else: see
     `_SIR_BY_LANGUAGE`.
     """
+    # A PARALLEL MARKER is a finish, not a tier. Gundam writes
+    # `LR                +` and Union Arena writes `SR★★`; both are the same
+    # rarity with a different treatment, and the treatment is worth more than
+    # the tier. The band lookup normalises the marker away, so if the variant
+    # did not pick it up the parallel and its base card would become one card.
+    if any(marker in str(rarity or "") for marker in ("+", "\u2605", "\u2606")):
+        return "parallel"
+
     def settle(token):
         if token == "sir" and language:
             return _SIR_BY_LANGUAGE.get(language, "sir")

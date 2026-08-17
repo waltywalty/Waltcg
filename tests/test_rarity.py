@@ -188,3 +188,137 @@ class TheEnglishFallbackIsMarked(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class EveryObservedRarityMapsToANamedBand(unittest.TestCase):
+    """`rarity_band` was wrong twice. This is the assertion that pre-empts the
+    third, and it found one waiting.
+
+    The vocabularies in contracts/rarity_vocabulary.json are the DISTINCT
+    `rarity` values across every card file in the apitcg per-game data
+    repositories -- read from the games' own data rather than imagined. Every
+    one of them must map to a named band.
+    """
+
+    # apitcg's repo name -> our game key. The two differ only where we have
+    # our own code for the game (`one-piece` -> `optcg`).
+    GAME_KEY = {"riftbound": "riftbound", "one-piece": "optcg",
+                "pokemon": "pkmn", "gundam": "gundam", "digimon": "digimon",
+                "union-arena": "union-arena",
+                "dragon-ball-fusion": "dragon-ball-fusion",
+                "star-wars-unlimited": "star-wars-unlimited"}
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "contracts", "rarity_vocabulary.json")
+        with open(path, encoding="utf-8") as handle:
+            cls.vocab = json.load(handle)["games"]
+
+    def test_the_vocabulary_covers_the_games_we_track(self):
+        for game in ("riftbound", "one-piece", "pokemon"):
+            self.assertIn(game, self.vocab)
+
+    def test_every_game_in_the_vocabulary_has_a_key(self):
+        """A game added by the refresher with no mapping here would be skipped
+        by the coverage assertion below -- silently, which is the failure mode
+        this whole file exists to prevent. `star-wars-unlimited` arrived
+        exactly that way."""
+        self.assertEqual(sorted(set(self.vocab) - set(self.GAME_KEY)), [])
+
+    def test_star_wars_unlimited_is_recorded_as_empty(self):
+        """The repository exists and has no cards in it. Recorded so its
+        emptiness is a fact somebody read, not an omission somebody
+        re-checks."""
+        self.assertEqual(self.vocab["star-wars-unlimited"]["rarities"], [])
+
+    def test_every_string_in_every_tracked_game_maps(self):
+        """The headline. An unmapped string is `unknown` -- which is tracked
+        and safe -- but an unmapped string in a game we KNOW about is an
+        oversight, and this is where it surfaces."""
+        from ingest.rarity import unmapped
+        problems = {}
+        for game, entry in self.vocab.items():
+            missing = unmapped(entry["rarities"], game=self.GAME_KEY[game])
+            if missing:
+                problems[game] = missing
+        self.assertEqual(problems, {},
+                         "rarity strings that no table classifies: "
+                         f"{problems}")
+
+    def test_riftbounds_chase_treatments_are_not_dropped(self):
+        """Named explicitly because this is the one that was already broken.
+        Epic, Showcase and Overnumbered all scored `base` under the regex, and
+        Overnumbered is Riftbound's chase treatment."""
+        for rarity in ("Epic", "Showcase", "Alternate Art", "Overnumbered"):
+            self.assertIn(band_of(rarity, game="riftbound"), TRACKED_BANDS,
+                          f"{rarity} would never be fetched")
+
+    def test_riftbound_commons_are_still_dropped(self):
+        for rarity in ("Common", "Uncommon", "Rare"):
+            self.assertNotIn(band_of(rarity, game="riftbound"), TRACKED_BANDS,
+                             rarity)
+
+    def test_one_piece_secret_and_treasure_rares_are_chase(self):
+        for rarity in ("SEC", "TR", "SP CARD"):
+            self.assertEqual(band_of(rarity, game="optcg"), "chase", rarity)
+
+    def test_the_same_letter_means_different_things_per_game(self):
+        """`L` is Leader in One Piece and Legend in Dragon Ball; `P` is Promo
+        in both but `LR` is Gundam's chase and means nothing elsewhere. One
+        shared table would have to pick, and picking is guessing."""
+        self.assertEqual(band_of("LR", game="gundam"), "chase")
+        self.assertEqual(band_of("LR", game="riftbound"), UNKNOWN)
+        self.assertEqual(band_of("Epic", game="optcg"), UNKNOWN)
+
+    def test_gold_star_is_chase_not_rare(self):
+        """`Rare Holo Star` is Gold Star -- among the most valuable Pokemon
+        cards there are -- and it scored `rare` because the string contains
+        the word `rare`."""
+        self.assertEqual(band_of("Rare Holo Star", game="pkmn"), "chase")
+
+    def test_trainer_gallery_exists_in_apitcgs_vocabulary(self):
+        """tcgdex has no such string and apitcg does. Both are real, and a
+        classifier that only knew one would drop the other."""
+        self.assertNotIn("Trainer Gallery Rare Holo", TCGDEX_RARITIES)
+        self.assertEqual(band_of("Trainer Gallery Rare Holo", game="pkmn"),
+                         "premium")
+
+    def test_digimon_has_no_rarity_data_at_all(self):
+        """Not a classification failure -- a coverage fact. Every Digimon card
+        classifies `unknown`, which is tracked, which is correct."""
+        self.assertEqual(self.vocab["digimon"]["rarities"], [])
+        self.assertTrue(self.vocab["digimon"]["cards_with_no_rarity"])
+
+    def test_an_unlisted_string_is_named_not_dropped(self):
+        """New sets add rarities. The correct response is to track them until
+        someone classifies them, and to SAY which ones."""
+        from ingest.rarity import unmapped
+        self.assertEqual(unmapped(["Common", "Mythic Prismatic"],
+                                  game="riftbound"), ["Mythic Prismatic"])
+        self.assertEqual(band_of("Mythic Prismatic", game="riftbound"), UNKNOWN)
+        self.assertIn(UNKNOWN, TRACKED_BANDS)
+
+
+class ParallelMarkersAreMovedNotLost(unittest.TestCase):
+    """Gundam writes `LR                +` and Union Arena writes `SR★★`. Both
+    are the same rarity tier with a different finish, and the finish is worth
+    more than the tier. Normalisation drops the marker for banding; the variant
+    has to pick it up, or a parallel and its base card become one card."""
+
+    def test_the_marker_does_not_change_the_band(self):
+        self.assertEqual(band_of("LR                +", game="gundam"),
+                         band_of("LR", game="gundam"))
+        self.assertEqual(band_of("SR★★", game="union-arena"),
+                         band_of("SR", game="union-arena"))
+
+    def test_the_marker_becomes_a_parallel_variant(self):
+        from resolve.identity import variant_from_rarity
+        self.assertEqual(variant_from_rarity("LR                +"), "parallel")
+        self.assertEqual(variant_from_rarity("SR★★"), "parallel")
+
+    def test_an_unmarked_rarity_is_not_a_parallel(self):
+        from resolve.identity import variant_from_rarity
+        self.assertNotEqual(variant_from_rarity("LR"), "parallel")
+        self.assertNotEqual(variant_from_rarity("SR"), "parallel")

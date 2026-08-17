@@ -1597,3 +1597,80 @@ Only English slugs are recorded. `pokemon-japan` is a plausible guess and
 plausible guesses are what cost run #7, so any other language is resolved at
 runtime from `/v1/games` — a verified endpoint — and a slug that cannot be
 resolved is a gap, not an invention.
+
+---
+
+## ADR-0027 — Stop guessing rarity; read each game's vocabulary
+
+**2026-08-17.** `rarity_band` was wrong twice — Art Rares and Treasure Rares
+filed as ordinary rares, then One Piece `SR` and `SEC` filed as base. Both
+times a regex over an OPEN set of strings guessed, and both times it guessed
+LOW: a chase card classified as not worth tracking.
+
+A third instance was already waiting, in the game I was least equipped to
+guess about:
+
+| Riftbound rarity | was | is |
+|---|---|---|
+| `Epic` | **base** | premium |
+| `Showcase` | **base** | premium |
+| `Overnumbered` | **base** | **chase** |
+| `Alternate Art` | premium | premium |
+
+`Overnumbered` is Riftbound's chase treatment, and `overnumbered` was already a
+variant token in `resolve/identity.py` while the band table scored it `base`.
+Three of seven, including the top one.
+
+And it was not only Riftbound. `SCR` (Dragon Ball Secret Rare) — `\bsec\b`
+never matched it. `LR` (Gundam Legendary Rare). `Rare Holo Star` — **Gold
+Star**, among the most valuable Pokémon cards there are, scored `rare` because
+the string contains the word.
+
+### Read, don't imagine
+
+`raw.githubusercontent.com` is reachable from here even though the provider
+APIs are not, so the vocabularies come from the games' own data:
+`github.com/apitcg/{game}-tcg-data`, every card file, distinct values of
+`rarity`. **81 distinct strings across 7 games**, checked into
+`contracts/rarity_vocabulary.json` and refreshable with
+`python tools/rarity_vocabulary.py --write`.
+
+Strings only — no counts, no prices, no payloads. A vocabulary is not provider
+data and keeping counts out of it keeps that obviously true.
+
+`tests/test_rarity.py::test_every_string_in_every_tracked_game_maps` asserts
+every one of them maps to a named band. That test is the point of the whole
+exercise: it is the thing that would have caught all three instances.
+
+### One table per game, because the letters collide
+
+`R` is Rare in One Piece and Union Arena. `P` is Promo in One Piece and Gundam.
+`L` is Leader in One Piece and Legend in Dragon Ball. `LR` is Gundam's chase
+tier and means nothing in Riftbound. One shared table would have to pick, and
+picking is the guessing this ADR exists to stop.
+
+apitcg's **Pokémon** vocabulary is TCGplayer-style and is *not* tcgdex's —
+`Rare Ultra`, `Rare Secret`, `Rare Holo EX`, and a `Trainer Gallery Rare Holo`
+that tcgdex does not have at all. Both are served, so both are mapped.
+
+### An unmapped string is named, never dropped
+
+New sets add rarities; that is not a failure. `band_of` answers `unknown`,
+`unknown` is TRACKED, and `render_catalog_summary` **names** the string and the
+combination it appeared in. The three earlier failures were all silent — a
+finding that is not named is a finding that is lost.
+
+### Two things found on the way
+
+**Parallel markers were being thrown away.** Gundam writes `LR                +`
+and Union Arena writes `SR★★`. Normalisation strips the marker for banding,
+which is right — it is the same tier — but the marker is a *finish*, and the
+finish is worth more than the tier. `variant_from_rarity` now reads it as
+`parallel`, so the information moves rather than disappearing. Without that, a
+parallel and its base card become one card.
+
+**Digimon's repository carries no `rarity` on any card**, and
+`star-wars-unlimited-tcg-data` is empty. Neither is a classification failure;
+both are coverage facts, and they are recorded so the next session does not
+re-derive them. Every Digimon card classifies `unknown`, which is tracked,
+which is correct.

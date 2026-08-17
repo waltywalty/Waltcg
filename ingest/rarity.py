@@ -100,6 +100,99 @@ _DIGITAL = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Per-game vocabularies, from the games' own data
+# ---------------------------------------------------------------------------
+#
+# `rarity_band` was wrong twice -- Art Rares and Treasure Rares filed as
+# ordinary rares, then One Piece `SR` and `SEC` filed as base. Both times a
+# regex over an OPEN set of strings guessed, and guessed low. A third instance
+# was waiting: three of Riftbound's seven rarities (`Epic`, `Showcase`,
+# `Overnumbered`) scored `base`, and Overnumbered is its chase treatment.
+#
+# So the vocabularies are read from the games' own data rather than imagined:
+# github.com/apitcg/{game}-tcg-data, observed 2026-08-17, distinct values of
+# `rarity` across every card file. The strings are checked into
+# contracts/rarity_vocabulary.json and tests/test_rarity.py asserts that EVERY
+# one of them maps to a named band. An unmapped string is `unknown` -- tracked
+# and NAMED in the summary -- never silently `base`.
+#
+# Each game gets its own table because the same letters mean different things:
+# `R` is Rare in One Piece and Union Arena, `P` is Promo in One Piece and
+# Gundam, `L` is Leader in One Piece and Legend in Dragon Ball.
+
+GAME_BANDS = {
+    # Riftbound. Its vocabulary is nothing like Pokemon's, and the tiers that
+    # matter are treatments rather than rarities. CLAUDE.md holds Riftbound to
+    # exploratory status -- the game launched late 2025 and there is not enough
+    # history for a statistical claim -- so all four special tiers are tracked
+    # and none is assumed cheap.
+    "riftbound": {
+        "Common": "base", "Uncommon": "base", "Rare": "rare",
+        "Epic": "premium",
+        "Showcase": "premium",
+        "Alternate Art": "premium",
+        # Numbered beyond the set size. The chase treatment, and `overnumbered`
+        # was already a variant token in resolve/identity.py while the band
+        # table was scoring it `base`.
+        "Overnumbered": "chase",
+    },
+    # One Piece, via apitcg's `attributes.Rarity`.
+    "optcg": {
+        "C": "base", "UC": "base", "R": "rare",
+        "L": "rare",            # Leader; the ordinary printing
+        "SR": "premium",
+        "P": "premium",         # Promo
+        "SEC": "chase",         # Secret Rare
+        "TR": "chase",          # Treasure Rare
+        "SP CARD": "chase",     # signed / special treatment
+    },
+    "dragon-ball-fusion": {
+        "C": "base", "UC": "base", "R": "rare", "L": "rare",
+        "SR": "premium", "PR": "premium",
+        "SCR": "chase",         # Secret Rare -- `\bsec\b` never matched it
+    },
+    "gundam": {
+        "C": "base", "U": "base", "R": "rare",
+        "P": "premium",
+        "LR": "chase",          # Legendary Rare
+    },
+    "union-arena": {
+        "C": "base", "U": "base", "R": "rare",
+        "SR": "premium",
+        "UR": "chase",
+    },
+    # apitcg's Pokemon vocabulary is TCGplayer-style and is NOT tcgdex's. Both
+    # are served, so both are mapped; normalisation makes the overlapping ones
+    # (`Illustration Rare` / `Illustration rare`) one entry.
+    "pkmn": {
+        "Rare Ultra": "chase", "Rare Secret": "chase",
+        "Rare Rainbow": "chase", "Rare Shining": "chase",
+        "Rare ACE": "chase",
+        # Gold Star. Among the most valuable Pokemon cards there are, and it
+        # scored `rare` because the string contains the word.
+        "Rare Holo Star": "chase",
+        "Rare Holo EX": "premium", "Rare Holo GX": "premium",
+        "Rare Holo V": "premium", "Rare Holo VMAX": "premium",
+        "Rare Holo VSTAR": "premium", "Rare Shiny": "premium",
+        "Rare Shiny GX": "premium", "Rare Prism Star": "premium",
+        # tcgdex has no such string; apitcg does. Both are real.
+        "Trainer Gallery Rare Holo": "premium",
+        "Rare BREAK": "rare",
+    },
+    # Digimon's repository carries no `rarity` on any card. Every one of them
+    # classifies `unknown`, which is the correct and useful answer.
+    "digimon": {},
+}
+
+# Markers that indicate a PARALLEL treatment rather than a rarity tier, and are
+# stripped before the band lookup. Gundam writes `LR                +` and
+# Union Arena writes `SR★★`; both are the same rarity with a different finish.
+# Normalisation drops them for banding, and resolve.identity turns them into
+# the `parallel` variant, so the information is moved rather than lost.
+PARALLEL_MARKERS = ("+", "★", "☆", "*")
+
+
 def normalise(rarity) -> str:
     """Case- and separator-insensitive form.
 
@@ -124,26 +217,63 @@ for _group, _band in ((_CHASE, "chase"), (_PREMIUM, "premium"),
 # tests/test_rarity.py rather than trusted.
 UNCLASSIFIED = tuple(r for r in TCGDEX_RARITIES if normalise(r) not in _BY_NORM)
 
+# game -> {normalised rarity: band}
+_BY_GAME = {game: {normalise(k): v for k, v in table.items()}
+            for game, table in GAME_BANDS.items()}
 
-def band_of(rarity, *, provider_native: bool = False) -> str:
+
+def band_of(rarity, *, game=None, provider_native: bool = False) -> str:
     """Rarity string -> band. Absent or unrecognised -> `unknown`.
 
-    NEVER returns `base` for an absent value. That substitution is the bug this
-    module was written for: it turns "we do not know what this card is" into
-    "this card is not worth tracking", and the two are not the same sentence.
+    NEVER returns `base` for an absent or unrecognised value. That substitution
+    is the bug this module was written for, three times over: it turns "we do
+    not know what this card is" into "this card is not worth tracking", and the
+    two are not the same sentence.
+
+    Lookup order, most specific first:
+
+    1. the game's own table, because `R`, `P` and `L` mean different things in
+       different games
+    2. the shared tcgdex enum, which several games' strings normalise onto
+    3. `unknown` -- and `provider_native` opts into the legacy regex only for
+       callers that want a best guess rather than an honest absence
     """
     if rarity is None or str(rarity).strip() == "":
         return UNKNOWN
-    hit = _BY_NORM.get(normalise(rarity))
+    key = normalise(rarity)
+    if game:
+        hit = _BY_GAME.get(game, {}).get(key)
+        if hit is not None:
+            return hit
+    hit = _BY_NORM.get(key)
     if hit is not None:
         return hit
     if provider_native:
-        # apitcg returns One Piece's own vocabulary (`R`, `SR`, `SEC`, `TR`).
-        # rarity_band handles those; it returns `base` for anything it does not
-        # recognise, which is only safe because we asked it a question about a
-        # vocabulary it knows.
+        # The legacy regex. Kept for `store.cross_grader` bucketing, where a
+        # coarse guess is better than dropping a sale from a ratio -- but it
+        # answers `base` for anything it does not know, so the catalog filter
+        # must NOT use it.
         return rarity_band(rarity)
     return UNKNOWN
+
+
+def unmapped(strings, game=None) -> list:
+    """Which of these strings no table covers. The summary names them.
+
+    An unmapped string is not an error -- new sets add rarities and the correct
+    response is to track them until someone classifies them. It is a finding,
+    and a finding that is not named is a finding that is lost.
+    """
+    return sorted({str(s) for s in strings
+                   if s not in (None, "") and band_of(s, game=game) == UNKNOWN})
+
+
+def every_known_string():
+    """Every rarity string any table covers, for the coverage assertion."""
+    out = set(TCGDEX_RARITIES)
+    for table in GAME_BANDS.values():
+        out |= set(table)
+    return out
 
 
 # Bands worth spending price quota on.

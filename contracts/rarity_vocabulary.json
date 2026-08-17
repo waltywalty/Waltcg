@@ -1,0 +1,127 @@
+{
+  "_note": "Distinct rarity STRINGS observed in the apitcg per-game data repositories. Vocabulary only -- no prices, no populations, no card payloads, and deliberately no counts. This is the list a classifier must cover, and it exists so that covering it is a test rather than a memory.",
+  "_source": "github.com/apitcg/{game}-tcg-data, cards/**/*.json, `rarity`",
+  "_observed_on": "2026-08-17",
+  "_caveat": "A snapshot. New sets add strings, and an unlisted string must classify as `unknown` and be NAMED in the summary -- never dropped to `base`. Re-run tools/rarity_vocabulary.py to refresh.",
+  "games": {
+    "digimon": {
+      "rarities": [],
+      "cards_with_no_rarity": true
+    },
+    "dragon-ball-fusion": {
+      "rarities": [
+        "C",
+        "L",
+        "PR",
+        "R",
+        "SCR",
+        "SR",
+        "UC"
+      ],
+      "cards_with_no_rarity": true
+    },
+    "gundam": {
+      "rarities": [
+        "C",
+        "C                +",
+        "C                ++",
+        "LR",
+        "LR                +",
+        "LR                ++",
+        "P",
+        "R",
+        "R                +",
+        "U",
+        "U                +"
+      ],
+      "cards_with_no_rarity": false
+    },
+    "one-piece": {
+      "rarities": [
+        "C",
+        "L",
+        "P",
+        "R",
+        "SEC",
+        "SP CARD",
+        "SR",
+        "TR",
+        "UC"
+      ],
+      "cards_with_no_rarity": false
+    },
+    "pokemon": {
+      "rarities": [
+        "ACE SPEC Rare",
+        "Amazing Rare",
+        "Black White Rare",
+        "Classic Collection",
+        "Common",
+        "Double Rare",
+        "Hyper Rare",
+        "Illustration Rare",
+        "LEGEND",
+        "Promo",
+        "Radiant Rare",
+        "Rare",
+        "Rare ACE",
+        "Rare BREAK",
+        "Rare Holo",
+        "Rare Holo EX",
+        "Rare Holo GX",
+        "Rare Holo LV.X",
+        "Rare Holo Star",
+        "Rare Holo V",
+        "Rare Holo VMAX",
+        "Rare Holo VSTAR",
+        "Rare Prime",
+        "Rare Prism Star",
+        "Rare Rainbow",
+        "Rare Secret",
+        "Rare Shining",
+        "Rare Shiny",
+        "Rare Shiny GX",
+        "Rare Ultra",
+        "Shiny Rare",
+        "Shiny Ultra Rare",
+        "Special Illustration Rare",
+        "Trainer Gallery Rare Holo",
+        "Ultra Rare",
+        "Uncommon"
+      ],
+      "cards_with_no_rarity": true
+    },
+    "riftbound": {
+      "rarities": [
+        "Alternate Art",
+        "Common",
+        "Epic",
+        "Overnumbered",
+        "Rare",
+        "Showcase",
+        "Uncommon"
+      ],
+      "cards_with_no_rarity": true
+    },
+    "star-wars-unlimited": {
+      "rarities": [],
+      "cards_with_no_rarity": false
+    },
+    "union-arena": {
+      "rarities": [
+        "C",
+        "C★",
+        "R",
+        "R★",
+        "SR",
+        "SR★",
+        "SR★★",
+        "SR★★★",
+        "U",
+        "UR",
+        "U★"
+      ],
+      "cards_with_no_rarity": true
+    }
+  }
+}

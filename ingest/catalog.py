@@ -55,7 +55,7 @@ COMBOS = [("optcg", "EN"), ("optcg", "JP"), ("optcg", "CN-S"),
 # `unknown` IS kept, and that is the run #7 lesson: an absent rarity is not a
 # common. Imported rather than redeclared so the catalog filter and the
 # classifier cannot drift -- which is how the tcgdex zero survived a session.
-from ingest.rarity import TRACKED_BANDS, band_of  # noqa: E402
+from ingest.rarity import TRACKED_BANDS, UNKNOWN, band_of  # noqa: E402
 
 # apitcg has no language dimension, so it can only fill a combo whose language
 # it actually serves. One Piece JP is its one genuine addition over tcgapi.
@@ -91,6 +91,10 @@ class CatalogBuilder:
         # combo -> {sources a request was actually issued to}
         self.attempted = {}
         self._slugs = None
+        # Rarity strings no table classifies, per combo. Named in the summary:
+        # an unmapped rarity is tracked (it is `unknown`) but a finding that is
+        # not named is a finding that is lost.
+        self.unmapped_rarities = {}
 
     def attempt(self, combo, source):
         """Record that a request was actually ISSUED for this combination.
@@ -289,7 +293,8 @@ class CatalogBuilder:
         `unknown` and stay tracked. `rarity_band(None)` returns `base`, which
         is the substitution that produced 8,313 cards and zero matches.
         """
-        if band_of(hit.get("rarity")) not in TRACKED_BANDS:
+        self.note_rarity(game, language, hit.get("rarity"))
+        if band_of(hit.get("rarity"), game=game) not in TRACKED_BANDS:
             return None
         return {"card_uid": hit["card_uid"], "game": game, "language": language,
                 "set_code": hit["set_code"], "number": hit["number"],
@@ -407,11 +412,19 @@ class CatalogBuilder:
             }
         return catalog
 
+    def note_rarity(self, game, language, rarity):
+        if rarity not in (None, "") and band_of(rarity, game=game) == UNKNOWN:
+            self.unmapped_rarities.setdefault(
+                f"{game}:{language}", set()).add(str(rarity))
+
     def _row(self, game, language, set_code, hit, source):
         rarity = find(hit, "rarity")
+        self.note_rarity(game, language, rarity)
         # provider_native: tcgapi and apitcg return each game's own vocabulary
         # (One Piece `R`/`SR`/`SEC`/`TR`), not tcgdex's normalised English.
-        if band_of(rarity, provider_native=True) not in TRACKED_BANDS:
+        # `game=` first: `R`, `P` and `L` mean different things per game, so
+        # one shared table would have to pick, and picking is guessing.
+        if band_of(rarity, game=game) not in TRACKED_BANDS:
             return None
         number = str(find(hit, "number", "collector_number", "code") or "").strip()
         if not number or not set_code:
@@ -429,7 +442,8 @@ class CatalogBuilder:
                 "source": source}
 
 
-def to_targets(catalog, gaps, combo_status=None, endpoints=None):
+def to_targets(catalog, gaps, combo_status=None, endpoints=None,
+               unmapped_rarities=None):
     """The shape the daily runner reads. Card identities only -- no prices."""
     per_source = {name: {"cards": []} for name in
                   ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting",
@@ -489,6 +503,7 @@ def to_targets(catalog, gaps, combo_status=None, endpoints=None):
         "_combo_status": combo_status or {},
         "_routing": routing,
         "_endpoints_used": endpoints or {},
+        "_unmapped_rarities": unmapped_rarities or {},
         "_gaps": gaps,
         "fx_alphavantage": {},
         **per_source,
@@ -644,6 +659,20 @@ def render_catalog_summary(targets, builder=None) -> str:
             lines.append(f"- `{name}` -- "
                          + ("not called" if not made else f"{made} calls"))
 
+    unmapped_rarities = targets.get("_unmapped_rarities") or {}
+    if unmapped_rarities:
+        lines += ["", "**Rarity strings no table classifies.** These are "
+                  "TRACKED as `unknown`, not dropped -- but they are named "
+                  "here because a rarity nobody has classified is a decision "
+                  "waiting to be made, and `rarity_band` has now been wrong "
+                  "three times by making it silently:", ""]
+        for combo, values in sorted(unmapped_rarities.items()):
+            lines.append(f"- `{combo}` -- "
+                         + ", ".join(f"`{v}`" for v in sorted(values)))
+        lines += ["", "Add them to `GAME_BANDS` in ingest/rarity.py, or "
+                  "re-run `python tools/rarity_vocabulary.py` to refresh the "
+                  "checked-in vocabulary."]
+
     gaps = targets.get("_gaps", [])
     if gaps:
         lines += ["", "**Gaps.** Each is a combination that produced nothing, "
@@ -707,7 +736,9 @@ def main(argv=None):
         return 0
     catalog = builder.build(combos)
     targets = to_targets(catalog, builder.gaps, builder.combo_status,
-                         builder.endpoints_used)
+                         builder.endpoints_used,
+                         {k: sorted(v)
+                          for k, v in builder.unmapped_rarities.items()})
 
     total = sum(targets["_counts"].values())
     for combo, count in sorted(targets["_counts"].items()):
