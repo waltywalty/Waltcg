@@ -47,33 +47,47 @@ sources:
   # Remove `unverified` the moment one of these returns rows. That promotes it
   # to a hard dependency, which is the correct state for a source we rely on.
 
+  # VERIFIED on run #5: 877 cards for pkmn:CN-S and 7,436 for pkmn:CN-T. The
+  # `unverified` flag is gone, which promotes it to a hard dependency -- a
+  # failure here now fails the run, which is the correct state for the only
+  # source either Chinese Pokemon printing has.
   tcgdex:
     expected: true
-    unverified: true
+    verified_on: "2026-08-17"
     note: >-
-      Open Pokemon database, no key. First choice for the Chinese printings
-      because language is a path segment rather than a separate product.
-      Traditional Chinese is documented as partial and Simplified as in
-      progress, so the adapter reads /status before believing a combo is
-      covered. Pokemon only -- it does not close One Piece CN-S.
+      Open Pokemon database, no key. The sole catalog source for both Chinese
+      Pokemon printings. Pokemon only -- it does not close One Piece CN-S,
+      which remains manual.
 
+  # Superseded, not deleted. Its endpoint guess was wrong (tcg.mik.moe/api/sets
+  # returned non-JSON) and tcgdex covers everything it was for, so leaving it
+  # in the rotation would spend a request every run proving a known-wrong URL
+  # is still wrong and file the result as a gap that reads like missing data.
+  #
+  # Kept in the file rather than removed: "we tried this and it was superseded"
+  # is a different fact from "we never considered it", and the next session
+  # should not rediscover tcg.mik.moe from scratch.
   cryst:
-    expected: true
-    unverified: true
-    note: >-
-      Cryst's Card Database, Simplified Chinese Pokemon, sourced from Pokemon
-      Shanghai. Closest thing to a primary source for the combined-set
-      renumbering that makes SC identity hard. No published API contract was
-      available; the adapter probes candidate paths and reports which answered.
+    expected: false
+    superseded_by: tcgdex
+    superseded_on: "2026-08-17"
+    superseded_note: >-
+      Simplified Chinese Pokemon, which tcgdex now covers directly (877 cards).
+      The probed endpoints all returned non-JSON. Revisit only if tcgdex drops
+      zh-cn -- Cryst is sourced from Pokemon Shanghai and would be the better
+      primary for the combined-set renumbering if it ever answers.
 
   wiki52poke:
     expected: true
-    unverified: true
+    enrichment: true
     note: >-
-      MediaWiki, enrichment only. Supplies Chinese names for identities another
-      source established. It deliberately cannot enumerate a set: that needs a
-      category title in Chinese and a guessed one returns an empty page that is
-      indistinguishable from an empty set.
+      MediaWiki, enrichment only, and that is a capability statement rather
+      than a limitation to fix. It supplies Chinese names for identities
+      another source established. It deliberately cannot enumerate a set: that
+      needs a category title in Chinese and a guessed one returns an empty page
+      indistinguishable from an empty set. A run where nothing needed enriching
+      is `enrichment_idle`, NOT a gap -- filing it as a gap every day devalues
+      the gap rows that mean something.
 
   pricecharting:
     expected: false

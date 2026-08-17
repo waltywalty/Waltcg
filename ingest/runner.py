@@ -47,12 +47,25 @@ SOURCES_YML = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 # `unverified_failed` is therefore a gap that reports loudly, with the exact
 # error, so run #1 tells us the true endpoint shape. Flipping `unverified` off
 # in sources.yml promotes the source to a hard dependency.
+# `no_targets` joined them after run #5, which went GREEN having ingested 8,313
+# card identities and zero prices. tcgapi, PPT and apitcg each reported "0
+# calls made this run": targets.json was the hand-authored stub with an empty
+# card list for every price source, so each adapter looped over nothing and
+# returned nothing. That reads as `empty` -- reached the source, it had nothing
+# -- and `empty` does not fail a run. But the source was never asked. Those are
+# different facts and one of them is a broken run.
+#
+# `superseded` and `enrichment_idle` are the opposite case: sources that
+# correctly produce no rows and should stop being reported as gaps.
 STATUS = {
     "ok":                {"failure": False, "ingested": True},
     "empty":             {"failure": False, "ingested": False},
     "deferred":          {"failure": False, "ingested": False},
+    "superseded":        {"failure": False, "ingested": False},
+    "enrichment_idle":   {"failure": False, "ingested": False},
     "unverified_failed": {"failure": False, "ingested": False},
     "not_configured":    {"failure": True,  "ingested": False},
+    "no_targets":        {"failure": True,  "ingested": False},
     "failed":            {"failure": True,  "ingested": False},
     "rate_limited":      {"failure": True,  "ingested": False},
 }
@@ -104,6 +117,13 @@ WRITERS = {
 }
 
 
+def _has_targets(targets) -> bool:
+    """Did this source actually receive something to work on?"""
+    if not targets:
+        return False
+    return any(bool(value) for value in targets.values())
+
+
 def broken_source(store, name, failure, expectation=None) -> dict:
     """A source whose module would not import, recorded as a result.
 
@@ -140,6 +160,18 @@ def run_source(store: Store, name: str, adapter, targets,
     expectation = expectation or {}
     expected = bool(expectation.get("expected", True))
 
+    superseded_by = expectation.get("superseded_by")
+    if superseded_by:
+        # Not called at all. A superseded source left in the rotation spends a
+        # request proving a known-wrong endpoint is still wrong, every run, and
+        # files the result as a gap that reads like missing data.
+        detail = (f"superseded by {superseded_by}"
+                  + (f" -- {expectation['superseded_note'].strip()}"
+                     if expectation.get("superseded_note") else ""))
+        _finish(store, run_id, "superseded", 0, 0, adapter, detail)
+        return {"source": name, "status": "superseded", "expected": expected,
+                "rows": 0, "gaps": 0, "detail": detail}
+
     preflight = adapter.preflight()
     if preflight["key_required"] and not preflight["ready"]:
         # Never send an unauthenticated request: it comes back as a generic
@@ -159,6 +191,21 @@ def run_source(store: Store, name: str, adapter, targets,
         _finish(store, run_id, status, 0, 1, adapter, detail)
         return {"source": name, "status": status, "reason": reason,
                 "expected": expected, "rows": 0, "gaps": 1, "detail": detail}
+
+    # A source that needs a card list and was handed none was NEVER ASKED.
+    # Distinct from asked-and-empty, and a failure: it means the catalog step
+    # did not run, or ran and wrote nothing, and the day has no prices.
+    if getattr(adapter, "requires_targets", False) and not _has_targets(targets):
+        detail = ("no targets supplied. This source prices a card list and the "
+                  "list was empty, so it made zero calls -- it was never asked, "
+                  "which is not the same as having nothing to say. Run "
+                  "`python -m ingest.catalog --write` before the ingest step.")
+        store.add_gap(source=name, kind="no_targets",
+                      reason="targets.json had no cards for this source",
+                      detail=detail, as_of=started, observed_at=_now())
+        _finish(store, run_id, "no_targets", 0, 1, adapter, detail)
+        return {"source": name, "status": "no_targets", "expected": expected,
+                "rows": 0, "gaps": 1, "detail": detail}
 
     # A source whose endpoint shape has never been confirmed against the live
     # service downgrades a hard failure to a loud gap. See STATUS.
@@ -191,6 +238,16 @@ def run_source(store: Store, name: str, adapter, targets,
         if writer(store, record) is False:
             continue
         rows += 1
+
+    if rows == 0 and expectation.get("enrichment"):
+        # An enrichment source with nothing to enrich has not failed and has
+        # not lost data. It is idle, and filing that as a gap every run
+        # devalues the gap rows that mean something.
+        _finish(store, run_id, "enrichment_idle", 0, 0, adapter,
+                "enrichment only; no cards were passed to enrich")
+        return {"source": name, "status": "enrichment_idle",
+                "expected": expected, "rows": 0, "gaps": 0,
+                "detail": "enrichment only; nothing to enrich this run"}
 
     if rows == 0:
         # Reached the source and got nothing. A DIFFERENT fact from not
@@ -271,7 +328,10 @@ def render_preflight(expectations=None, adapters=None, broken=None) -> str:
 SYMBOL = {"ok": "ingested", "empty": "reached, no rows",
           "deferred": "skipped by choice", "not_configured": "KEY MISSING",
           "failed": "FAILED", "rate_limited": "RATE LIMITED",
-          "unverified_failed": "unverified, did not answer"}
+          "unverified_failed": "unverified, did not answer",
+          "superseded": "superseded, not called",
+          "enrichment_idle": "enrichment only, nothing to enrich",
+          "no_targets": "NEVER ASKED -- no targets"}
 
 
 def render_summary(results, seal=None, db_path=None) -> str:

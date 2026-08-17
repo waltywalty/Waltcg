@@ -124,6 +124,42 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # MUST come before the ingest step. Run #5 went green having ingested
+      # 8,313 card identities and zero prices: tcgapi, PPT and apitcg each
+      # reported "0 calls made this run" because targets.json was still the
+      # hand-authored stub with an empty card list, so each looped over nothing.
+      # Identities without prices is not a snapshot.
+      #
+      # continue-on-error, but that is not the safety net -- the runner refuses
+      # a price source with no targets (`no_targets`, which fails the run), so
+      # a catalog step that silently produced nothing cannot pass as a green
+      # run a second time. This is the guard; that is the backstop.
+      - name: Build targets from the catalogs -- BEFORE anything prices them
+        continue-on-error: true
+        env:
+          TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
+          APITCG_KEY: ${{ secrets.APITCG_KEY }}
+        run: |
+          python -m ingest.catalog --write
+          {
+            echo "### Targets"
+            echo
+            echo '```'
+            python - <<'PY'
+          import json
+          targets = json.load(open("ingest/targets.json"))
+          for name, entry in sorted(targets.items()):
+              if isinstance(entry, dict) and "cards" in entry:
+                  print(f"{name:22} {len(entry['cards']):>6} cards")
+          print()
+          for combo, count in sorted(targets.get("_counts", {}).items()):
+              print(f"  {combo:16} {count:>6} tracked")
+          for gap in targets.get("_gaps", []):
+              print(f"  GAP {gap['combo']:12} {gap['reason']}")
+          PY
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # Always runs to completion. The exit code is the runner's decision.
       - name: Run adapters and write snapshots
         id: ingest

@@ -272,8 +272,8 @@ class TheFallbackStopsAtTheFirstSourceThatDelivers(unittest.TestCase):
         first = self.Fake({("pkmn", "CN-S")}, rows=[self._row()])
         second = self.Fake({("pkmn", "CN-S")}, rows=[self._row()])
         builder = CatalogBuilder(tcgapi=object(), apitcg=object(),
-                                 cn_sources={"tcgdex": first, "cryst": second,
-                                             "wiki52poke": self.Fake(set())})
+                                 cn_sources={"tcgdex": first,
+                                             "wiki52poke": second})
         rows, tried = builder.chinese_fallback("pkmn", "CN-S")
         self.assertEqual(len(rows), 1)
         self.assertEqual(tried["used"], ["tcgdex"])
@@ -283,13 +283,31 @@ class TheFallbackStopsAtTheFirstSourceThatDelivers(unittest.TestCase):
         first = self.Fake({("pkmn", "CN-S")}, boom="404 everywhere")
         second = self.Fake({("pkmn", "CN-S")}, rows=[self._row()])
         builder = CatalogBuilder(tcgapi=object(), apitcg=object(),
-                                 cn_sources={"tcgdex": first, "cryst": second,
-                                             "wiki52poke": self.Fake(set())})
+                                 cn_sources={"tcgdex": first,
+                                             "wiki52poke": second})
         rows, tried = builder.chinese_fallback("pkmn", "CN-S")
-        self.assertEqual(tried["used"], ["cryst"])
+        self.assertEqual(tried["used"], ["wiki52poke"])
         self.assertIn("tcgdex", [name for name, _why in tried["failed"]])
         self.assertIn("404 everywhere",
                       dict(tried["failed"])["tcgdex"])
+
+    def test_a_superseded_source_is_never_asked(self):
+        """cryst probed a wrong URL every run and filed the answer as a gap
+        that reads like missing data. tcgdex covers everything it was for, so
+        sources.yml supersedes it and the rotation must honour that."""
+        builder = CatalogBuilder(tcgapi=object(), apitcg=object())
+        live = builder.live_cn_sources()
+        self.assertNotIn("cryst", live)
+        self.assertEqual(live[0], "tcgdex")
+
+    def test_superseding_is_recorded_rather_than_deleted(self):
+        """'We tried this and it was superseded' is a different fact from
+        'we never considered it'. The next session should not rediscover
+        tcg.mik.moe from scratch."""
+        from ingest.runner import load_expectations
+        entry = load_expectations()["cryst"]
+        self.assertEqual(entry["superseded_by"], "tcgdex")
+        self.assertTrue(entry.get("superseded_note"))
 
     def test_priority_order_is_the_one_that_was_asked_for(self):
         self.assertEqual(CN_SOURCE_PRIORITY,
@@ -339,3 +357,127 @@ class TheChaseRaritiesAreActuallyTracked(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TheChineseCombosNoLongerHaveToBeTyped(unittest.TestCase):
+    """Run #5 established the coverage -- 877 CN-S, 7,436 CN-T -- so the 55
+    cards those two combos need can be proposed rather than authored.
+
+    This does NOT weaken the non-circularity argument, and the distinction is
+    worth being precise about: ADR-0016 refuses *generating labels* from the
+    catalog the resolver reads. This generates PROPOSALS from it, and the human
+    verdict that breaks the circle is unchanged. What changed is only that the
+    proposal no longer has to come from memory.
+    """
+
+    # NB: the more specific route must come FIRST -- the fake transport matches
+    # by substring, and "/ja/sets" is a prefix of "/ja/sets/sv2a".
+    JP = {"/ja/sets/sv2a": {"id": "sv2a", "cards": [
+              {"localId": "170/165", "name": "ピカチュウ", "rarity": "Art Rare",
+               "illustrator": "Oswaldo KATO"},
+              {"localId": "201/165", "name": "リザードンex", "rarity": "SAR",
+               "illustrator": "Takumi Wada"}]},
+          "/ja/sets": [{"id": "sv2a"}]}
+    CN_T = {"/zh-tw/sets/sv2aF": {"id": "sv2aF", "cards": [
+                {"localId": "170/165", "name": "皮卡丘", "rarity": "Art Rare",
+                 "illustrator": "Oswaldo KATO"}]},
+            "/zh-tw/sets": [{"id": "sv2aF"}]}
+    # 174/151 deliberately: 170-173/151 are already in the labelled set as
+    # externally-researched seeds, and an already-labelled card is not
+    # re-proposed. See test_an_already_labelled_card_is_not_proposed_again.
+    CN_S = {"/zh-cn/sets/151C": {"id": "151C", "cards": [
+                {"localId": "174/151", "name": "皮卡丘", "rarity": "Art Rare",
+                 "illustrator": "Oswaldo KATO"},
+                {"localId": "170/151", "name": "皮卡丘", "rarity": "Art Rare",
+                 "illustrator": "Oswaldo KATO"}]},
+            "/zh-cn/sets": [{"id": "151C"}]}
+
+    def _catalog(self):
+        from resolve.label_cli import _catalog_from_tcgdex
+        adapter = build(TcgdexAdapter, {**self.JP, **self.CN_T, **self.CN_S})
+        catalog, failures = _catalog_from_tcgdex(adapter=adapter)
+        self.assertEqual(failures, [])
+        return catalog
+
+    def test_it_pulls_both_chinese_combos_and_the_japanese_parent(self):
+        """JP is not a target. It is fetched because the sharpest test in the
+        set is a Chinese card against its Japanese parent, and you cannot build
+        that pair from one side of it."""
+        languages = {c["language"] for c in self._catalog()}
+        self.assertEqual(languages, {"CN-S", "CN-T", "JP"})
+
+    def test_the_traditional_chinese_pair_is_found_by_its_shared_number(self):
+        """CN-T reuses the Japanese numbers, so this is the MERGE case: two
+        cards in one bucket that must not become one card."""
+        from resolve.candidates import generate
+        ideas = generate(self._catalog())
+        cn_t = [i for i in ideas.get("pkmn:CN-T", [])]
+        self.assertTrue(cn_t)
+        self.assertEqual(cn_t[0].priority, "same_art_across_languages")
+        self.assertIn("pkmn:sv2a:170/165:ar:JP", cn_t[0].siblings)
+
+    def test_the_simplified_chinese_pair_is_found_despite_renumbering(self):
+        """CN-S renumbers, so there is no shared number and the number-keyed
+        rule finds nothing. The illustrator join is what surfaces it -- and the
+        candidate says so, because it is a weaker join."""
+        from resolve.candidates import generate
+        ideas = generate(self._catalog())
+        cn_s = ideas.get("pkmn:CN-S", [])
+        self.assertTrue(cn_s)
+        top = cn_s[0]
+        self.assertEqual(top.priority, "same_art_across_languages")
+        self.assertIn("RENUMBERS", top.why)
+        self.assertIn("pkmn:sv2a:170/165:ar:JP", top.siblings)
+        self.assertIn("illustrator", top.why)
+
+    def test_an_ambiguous_illustrator_join_proposes_no_parent_and_says_so(self):
+        """A wrong pairing accepted silently costs the measurement. A wrong
+        pairing proposed costs one rejection. So where the join is ambiguous it
+        proposes the card alone and names the ambiguity."""
+        from resolve.candidates import generate
+        catalog = self._catalog()
+        catalog.append({"card_uid": "pkmn:sv2a:999/165:ar:JP", "game": "pkmn",
+                        "language": "JP", "set_code": "sv2a",
+                        "number": "999/165", "variant": "ar",
+                        "name": "ピカチュウ", "artist": "Oswaldo KATO"})
+        cn_s = generate(catalog).get("pkmn:CN-S", [])
+        top = cn_s[0]
+        self.assertEqual(top.siblings, [])
+        self.assertIn("ambiguous", top.why)
+
+    def test_the_japanese_printing_is_not_proposed_for_labelling(self):
+        """It was fetched to pair against. Proposing it would quietly re-open
+        a combo this run is not for."""
+        from resolve.label_cli import _propose_from
+        import tempfile
+        catalog = self._catalog()
+        out = os.path.join(tempfile.mkdtemp(), "queue.json")
+        _propose_from(catalog, out, only={"pkmn:CN-S", "pkmn:CN-T"})
+        with open(out, encoding="utf-8") as handle:
+            queue = json.load(handle)["candidates"]
+        self.assertTrue(queue)
+        self.assertEqual({c["card"]["language"] for c in queue},
+                         {"CN-S", "CN-T"})
+
+    def test_an_already_labelled_card_is_not_proposed_again(self):
+        """The generator is re-runnable as new sets drop. 170/151 is one of the
+        externally-researched seeds, so it is settled and must not come back
+        round for a second adjudication."""
+        from resolve.label_cli import _propose_from
+        import tempfile
+        out = os.path.join(tempfile.mkdtemp(), "queue.json")
+        _propose_from(self._catalog(), out, only={"pkmn:CN-S", "pkmn:CN-T"})
+        with open(out, encoding="utf-8") as handle:
+            queue = json.load(handle)["candidates"]
+        proposed = {c["card"]["card_uid"] for c in queue}
+        self.assertIn("pkmn:151C:174/151:ar:CN-S", proposed)
+        self.assertNotIn("pkmn:151C:170/151:ar:CN-S", proposed,
+                         "a card already in the labelled set was re-proposed")
+
+    def test_one_piece_simplified_chinese_is_still_manual(self):
+        """The gap that this session does NOT close, asserted so it cannot
+        quietly stop being reported."""
+        from resolve.label_cli import TCGDEX_COMBOS
+        self.assertNotIn(("optcg", "CN-S"), TCGDEX_COMBOS)
+        self.assertEqual(set(TCGDEX_COMBOS),
+                         {("pkmn", "CN-S"), ("pkmn", "CN-T")})

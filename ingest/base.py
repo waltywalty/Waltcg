@@ -106,12 +106,19 @@ class Adapter:
 
     # Backoff: 1s, 2s, 4s, 8s. Four attempts then give up loudly.
     max_attempts = 4
+    # Does this adapter need a card list to do anything at all? A source that
+    # was handed nothing did not "return no rows" -- it was never asked. Run #5
+    # conflated those and reported a snapshot with 8,313 identities and zero
+    # prices as a success.
+    requires_targets = False
     base_delay = 1.0
 
     def __init__(self, *, raw_root: str = RAW_ROOT, sleep=time.sleep,
-                 now=None, transport=None):
+                 now=None, transport=None, monotonic=None):
         self.raw_root = raw_root
         self._sleep = sleep
+        self._monotonic = monotonic or time.monotonic
+        self._last_call: Optional[float] = None
         self._now = now or (lambda: _dt.datetime.now(_dt.timezone.utc)
                             .replace(tzinfo=None))
         # Injected in tests and in replay so no code path can reach the network
@@ -189,6 +196,7 @@ class Adapter:
         budget = self.max_attempts if attempts is None else max(1, int(attempts))
         last_error = None
         for attempt in range(budget):
+            self.throttle()
             if self.exhausted():
                 raise RateLimited(
                     f"{self.name}: {self.quota.note()}; stopping before the "
@@ -202,6 +210,7 @@ class Adapter:
                 continue
 
             self.quota.consumed_this_run += 1
+            self._last_call = self._monotonic()
             path = self.cache_raw(label or url, body)   # BEFORE parsing
             self.log.append(f"{self.name} {status} {url} -> {path}")
 
@@ -277,6 +286,32 @@ class Adapter:
         self.log.append(f"{self.name} backoff {delay:.0f}s after {why}")
         self._sleep(delay)
 
+    # -- rate limiting ----------------------------------------------------
+    #
+    # Separate from quota on purpose. Quota is "how many are left today";
+    # this is "how fast may I go right now", and a provider can refuse you on
+    # the second while the first still says you have plenty. Alpha Vantage
+    # publishes both -- 25 a day and 5 a minute -- and run #5 tripped the
+    # per-minute one with five FX pairs and a four-attempt retry budget behind
+    # each: up to twenty requests in a couple of seconds against a 5/min cap.
+    #
+    # `min_interval_seconds` is None for providers that publish no per-minute
+    # limit. Inventing one would slow every run down to protect against a rule
+    # nobody stated.
+
+    min_interval_seconds: Optional[float] = None
+
+    def throttle(self):
+        """Wait, if going now would exceed the provider's stated rate."""
+        if not self.min_interval_seconds or self._last_call is None:
+            return
+        waited = self._monotonic() - self._last_call
+        remaining = self.min_interval_seconds - waited
+        if remaining > 0:
+            self.log.append(f"{self.name} throttling {remaining:.1f}s "
+                            f"({self.min_interval_seconds:.0f}s between calls)")
+            self._sleep(remaining)
+
     # -- quota ------------------------------------------------------------
 
     def note_quota(self, payload: dict):
@@ -291,22 +326,64 @@ class Adapter:
 
     # -- error bodies -----------------------------------------------------
 
-    ERROR_KEYS = ("error", "errors", "message", "detail", "fault")
+    # HTTP 200 CARRYING AN ERROR BODY. Nine separate times now, across five
+    # providers: apitcg answers auth failures with 200, Alpha Vantage answers
+    # a throttle with 200 and an "Information" key, and the rest is variations
+    # on the theme. It is the single most common failure shape in this project
+    # and the most dangerous, because the failure arrives wearing the costume
+    # of an empty result.
+    #
+    # These are SHARED. `EXTRA_ERROR_KEYS` is how a provider adds its own
+    # dialect; a subclass that set `ERROR_KEYS` would REPLACE this list, which
+    # is what the FX adapter did -- it gained Alpha Vantage's three keys and
+    # silently lost all five generic ones, while every other adapter never
+    # gained "Note" or "Information" at all.
+    ERROR_KEYS = ("error", "errors", "message", "detail", "fault",
+                  "error message", "note", "information", "warning",
+                  "exception", "status message")
+    EXTRA_ERROR_KEYS: tuple = ()
+
+    @classmethod
+    def error_keys(cls) -> tuple:
+        """Every key this adapter treats as an error marker: the shared set
+        plus its own, never one instead of the other."""
+        return tuple(dict.fromkeys(
+            [_norm_key(k) for k in cls.ERROR_KEYS]
+            + [_norm_key(k) for k in cls.EXTRA_ERROR_KEYS]))
+
+    def _error_entry(self, payload):
+        """(key, value) of the first error marker present, or None.
+
+        Matches on a NORMALISED key, because the same marker arrives as
+        `Error Message`, `error_message` and `errorMessage` from three
+        providers and a literal comparison catches one of the three.
+        """
+        if not isinstance(payload, dict):
+            return None
+        wanted = set(self.error_keys())
+        for key, value in payload.items():
+            if _norm_key(key) in wanted and value not in (None, "", [], {},
+                                                          False, 0):
+                return key, value
+        return None
 
     def is_error_body(self, payload) -> bool:
-        if not isinstance(payload, dict):
-            return False
-        for key in self.ERROR_KEYS:
-            value = payload.get(key)
-            if value not in (None, "", [], {}, False):
-                return True
-        return False
+        return self._error_entry(payload) is not None
 
     def error_text(self, payload) -> str:
-        for key in self.ERROR_KEYS:
-            if payload.get(key):
-                return str(payload[key])[:200]
-        return ""
+        entry = self._error_entry(payload)
+        return f"{entry[0]}: {entry[1]}"[:200] if entry else ""
+
+
+def _norm_key(key) -> str:
+    """`Error Message`, `error_message`, `errorMessage` -> `errormessage`."""
+    text = str(key)
+    out = []
+    for index, char in enumerate(text):
+        if char.isupper() and index and not text[index - 1].isupper():
+            out.append("")
+        out.append(char.lower())
+    return "".join(out).replace("_", "").replace("-", "").replace(" ", "")
 
 
 def find(payload, *names):

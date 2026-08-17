@@ -32,6 +32,7 @@ import collections
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .identity import NUMBERING_PARENT, RENUMBERED, renumbers
 from .resolver import Resolver, name_similarity, normalise_number
 
 # How many labelled cards each combination needs, and why it is not proportional
@@ -113,6 +114,47 @@ def generate(catalog, resolver=None, per_combo=None, seen=()):
                               f"{number} exists in {', '.join(sorted(languages))}. "
                               "A merge here is silent and total.",
                               siblings=others))
+
+    # 1b -- same art, DIFFERENT number. The renumbered case, and the one the
+    # rule above structurally cannot see.
+    #
+    # CN-T reuses the Japanese collector numbers, so a Traditional Chinese card
+    # and its Japanese parent land in the same `by_number` bucket and rule 1
+    # finds them. CN-S renumbers into combined sets, so the same art carries a
+    # different number and rule 1 finds NOTHING -- the hardest pair in the set
+    # is invisible to the mechanism built for it.
+    #
+    # There is no shared number to key on, so this keys on the illustrator,
+    # which does not change between printings. That is a weaker join and it is
+    # labelled as one: where several Japanese cards share an illustrator and a
+    # rarity band, the candidate is proposed WITHOUT a parent and says so. A
+    # human adjudicating a wrong pairing costs one rejection; a wrong pairing
+    # accepted silently costs the measurement.
+    for card in catalog:
+        if not renumbers(card["language"]) or card["card_uid"] in seen:
+            continue
+        artist = (card.get("artist") or "").strip().lower()
+        parents = [c for c in catalog
+                   if c["language"] == "JP" and c["game"] == card["game"]
+                   and artist and (c.get("artist") or "").strip().lower() == artist]
+        if len(parents) == 1:
+            ideas.append(Idea(
+                card, "same_art_across_languages",
+                f"{card['language']} RENUMBERS: this is likely the same art as "
+                f"{parents[0]['card_uid']} at a DIFFERENT number "
+                f"({card['number']} vs {parents[0]['number']}). Matched on "
+                "illustrator, not number -- verify the art before confirming.",
+                siblings=[parents[0]["card_uid"]]))
+        else:
+            ideas.append(Idea(
+                card, "same_art_across_languages",
+                f"{card['language']} RENUMBERS, so no shared number links this "
+                "to a Japanese parent, and the illustrator join was "
+                + ("ambiguous across "
+                   f"{len(parents)} Japanese cards" if parents
+                   else "empty -- no illustrator on either side")
+                + ". Proposed WITHOUT a parent: the pairing is the open "
+                  "question, not the identity."))
 
     # 2 -- same name and language, different set codes.
     for (game, language, name), group in by_name.items():

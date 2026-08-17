@@ -1299,3 +1299,128 @@ environment happened to have it — was verified in a clean venv **once, by
 hand**, and never made permanent. It is now a workflow step: every adapter
 module must import from `requirements.txt` alone, and a broken one is reported
 with its traceback. A one-off verification is a verification of one commit.
+
+---
+
+## ADR-0021 — Run #5 was green with no prices in it
+
+**2026-08-17.** 8,313 rows ingested, seal intact, exit 0 — and tcgapi, PPT and
+apitcg each reported *"0 calls made this run"*. `ingest/targets.json` was still
+the hand-authored stub with an empty card list for every price source, so each
+adapter looped over nothing and returned nothing.
+
+Two independent faults, and the second is the one worth the ADR.
+
+**The ordering.** `python -m ingest.catalog --write` was never run in the
+workflow. The catalog step now runs *before* the ingest step in the same job,
+and the targets it wrote are summarised so a zero is visible at a glance.
+
+**The status.** A source handed nothing returned nothing, which read as
+`empty` — "reached the source, it had nothing to say" — and `empty` does not
+fail a run. Meanwhile tcgdex had ingested thousands of catalog rows, so
+`decide_exit` found a source that ingested and returned 0.
+
+But those adapters were never *asked*. Never-asked and asked-and-empty are
+different facts, and one of them means the day has no prices. `no_targets` is a
+failure, and a price adapter now declares `requires_targets` so the runner can
+tell. The ordering fix is the guard; this is the backstop, and the backstop is
+the part that cannot be un-fixed by a future workflow edit.
+
+`test_the_old_behaviour_would_have_passed` pins the bug: same two sources with
+`empty` instead of `no_targets`, and the run goes green.
+
+---
+
+## ADR-0022 — HTTP 200 with an error body, for the ninth time
+
+**2026-08-17.** Alpha Vantage rate-limited on run #5 against a free tier of 25
+a day and **5 a minute**. The daily cap was never in play. Three things
+conspired: five pairs where three are needed, `max_attempts = 4` behind each so
+up to twenty requests in a couple of seconds, and — worst — a *retry on a
+throttle*, the one error where retrying immediately is guaranteed to fail and
+to deepen the hole.
+
+Fixed with a 13-second floor between calls (5/min = one per 12s, plus a second
+of headroom), `max_attempts = 1`, three pairs instead of five, and a same-day
+rate cache so a run that loses the last pair does not also lose the ones it
+already had. Losing a whole day to one throttle puts a gap in every converted
+figure, and the engine refuses to convert without a rate.
+
+Rate limiting is deliberately **separate from quota**. Quota is "how many are
+left today"; rate is "how fast may I go right now", and a provider can refuse
+you on the second while the first still says you have plenty.
+
+### The part that generalises
+
+The throttle arrived as **HTTP 200 with an `Information` key**. That is the
+ninth time this project has met a 2xx carrying an error, across five providers.
+
+The detection existed — and it was *worse than absent* where it looked
+strongest. `FxAlphaVantageAdapter` declared:
+
+```python
+ERROR_KEYS = ("Error Message", "Note", "Information")
+```
+
+which **replaced** the base class list rather than extending it. So the FX
+adapter gained Alpha Vantage's three markers and silently lost all five generic
+ones, while every other adapter never learned that `Note` or `Information`
+means "you are being throttled". A shared guarantee that a subclass can
+overwrite by assignment is not shared.
+
+Now: `ERROR_KEYS` is the shared vocabulary and `EXTRA_ERROR_KEYS` is how a
+provider adds its dialect, with `error_keys()` merging both. Matching is on a
+normalised key, because `Error Message`, `error_message` and `errorMessage` are
+one marker arriving from three providers and a literal comparison catches one
+of the three. A test asserts every registered adapter knows every shared
+marker — the property, not the instance.
+
+---
+
+## ADR-0023 — tcgdex verified; cryst superseded; the Chinese combos automatable
+
+**2026-08-17.** Run #5 measured what ADR-0017 could only guess at: **tcgdex
+covers `pkmn:CN-S` (877 cards) and `pkmn:CN-T` (7,436).** `optcg:CN-S` remains
+uncovered and stays manual.
+
+**tcgdex loses its `unverified` flag.** It is now a hard dependency, which is
+the correct state for the only catalog source either Chinese Pokémon printing
+has: a failure there should fail the run.
+
+**cryst is superseded, not deleted.** Its endpoint guess was wrong
+(`tcg.mik.moe/api/sets` returned non-JSON) and tcgdex covers everything it was
+for. Left in the rotation it would spend a request every run proving a
+known-wrong URL is still wrong, and file the answer as a gap that reads like
+missing data. It stays in `sources.yml` with `superseded_by` and a note,
+because *"we tried this and it was superseded"* is a different fact from *"we
+never considered it"* — the next session should not rediscover tcg.mik.moe from
+scratch.
+
+**wiki52poke stops counting as a gap.** Enrichment-only is a capability
+statement, not a defect to fix. A run with nothing to enrich is
+`enrichment_idle`. Filing it as a gap every day devalues the gap rows that mean
+something.
+
+### The 55 cards no longer have to be typed
+
+`label_cli propose --source tcgdex` pulls both Chinese Pokémon combos live,
+with the **Japanese** printing alongside — not as a target, but because the
+sharpest test in the set is a Chinese card against its Japanese parent and you
+cannot build that pair from one side of it.
+
+This does not weaken ADR-0016, and the distinction matters: ADR-0016 refuses
+*generating labels* from the catalog the resolver reads. This generates
+*proposals* from it. The human verdict that breaks the circle is unchanged;
+what changed is that the proposal no longer comes from memory.
+
+**The two pairings need two mechanisms, because CN-T and CN-S are opposites.**
+CN-T reuses the Japanese numbers, so parent and child land in the same bucket
+and the existing number-keyed rule finds them — the *merge* case. CN-S
+renumbers, so there is no shared number and that rule finds **nothing** — the
+hardest pair in the set was invisible to the mechanism built for it. The new
+rule keys on the illustrator, which does not change between printings.
+
+That is a weaker join and it is labelled as one. Where several Japanese cards
+share an illustrator, the candidate is proposed **without** a parent and says
+the pairing is the open question. A wrong pairing rejected by a human costs one
+click; a wrong pairing accepted silently costs the measurement.

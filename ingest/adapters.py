@@ -13,10 +13,12 @@ adapter for those is a person typing. See contracts/SOURCE_MAP.md.
 from __future__ import annotations
 
 import datetime as _dt
+import json
+import os
 from decimal import Decimal
 from typing import Optional
 
-from .base import Adapter, Record, find
+from .base import Adapter, AdapterGaveUp, Record, find
 
 # Grades we accept from a provider. Anything else is reported as a gap rather
 # than coerced -- 'MINT 9' and '9' may or may not be the same claim.
@@ -52,6 +54,7 @@ class TcgApiAdapter(Adapter):
     """
 
     name = "tcgapi"
+    requires_targets = True
     key_env = "TCGAPI_KEY"
     api_key_header = "X-API-Key"
     host = "api.tcgapi.dev"
@@ -134,6 +137,7 @@ class PokemonPriceTrackerAdapter(Adapter):
     """
 
     name = "pokemonpricetracker"
+    requires_targets = True
     key_env = "PPT_KEY"
     api_key_header = "Authorization"
     host = "www.pokemonpricetracker.com"
@@ -233,6 +237,7 @@ class ApiTcgAdapter(Adapter):
     """
 
     name = "apitcg"
+    requires_targets = True
     key_env = "APITCG_KEY"
     api_key_header = "x-api-key"
     host = "apitcg.com"
@@ -270,6 +275,7 @@ class PriceChartingAdapter(Adapter):
     """
 
     name = "pricecharting"
+    requires_targets = True
     key_env = "PRICECHARTING_TOKEN"
     host = "www.pricecharting.com"
 
@@ -318,6 +324,24 @@ class FxAlphaVantageAdapter(Adapter):
     Every cross-currency figure in the app rests on this one source, so a gap
     here is not cosmetic: the engine refuses to convert without a rate rather
     than assuming parity.
+
+    WHAT RUN #5 GOT WRONG. Rate limited, on five pairs, against a free tier of
+    25 requests a day and **5 a minute**. The daily cap was never the problem;
+    the per-minute one was, and three things conspired:
+
+    * five pairs, not the three the day actually needs
+    * `max_attempts = 4` behind each, so up to twenty requests in a couple of
+      seconds against a 5/min ceiling
+    * a retry on a throttle response, which is the one error where retrying
+      immediately is guaranteed to fail and to deepen the hole
+
+    So: an explicit 13-second floor between calls, at most ONE request per pair
+    per run, no retry on a throttle, and a same-day cache so that a run which
+    loses the last pair does not also lose the four it already had.
+
+    The throttle arrives as **HTTP 200 with an `Information` key**. That is now
+    detected in the base class for every adapter rather than here for one --
+    it is the ninth time this project has met that shape.
     """
 
     name = "fx_alphavantage"
@@ -325,31 +349,101 @@ class FxAlphaVantageAdapter(Adapter):
     host = "www.alphavantage.co"
     daily_free_calls = 25
 
+    # 5 requests/minute = one per 12s. 13 buys a second of headroom against
+    # clock skew, which costs 39 seconds a run and is worth it.
+    min_interval_seconds = 13.0
+    # One attempt per pair. A throttle is not a transient network error; the
+    # correct response is to stop asking, not to ask harder.
+    max_attempts = 1
+
     SERIES = ("https://www.alphavantage.co/query?function=FX_DAILY"
               "&from_symbol={base}&to_symbol={quote}&apikey={key}")
 
-    PAIRS = (("GBP", "USD"), ("USD", "JPY"), ("USD", "CNY"),
-             ("EUR", "USD"), ("USD", "HKD"))
+    # The pairs the engine actually converts through. GBP/USD because I buy in
+    # USD and live in GBP; USD/JPY for the Japanese market; USD/CNY for the
+    # Chinese printings. EUR and HKD were speculative and cost two of the five
+    # per-minute slots for rates nothing reads.
+    PAIRS = (("GBP", "USD"), ("USD", "JPY"), ("USD", "CNY"))
 
-    ERROR_KEYS = ("Error Message", "Note", "Information")
+    # Alpha Vantage's own dialect, ADDED to the shared set rather than
+    # replacing it. `Information` is what a throttle looks like.
+    EXTRA_ERROR_KEYS = ("Error Message", "Note", "Information")
+
+    def cache_path(self, day: str) -> str:
+        return os.path.join(self.raw_root, self.name, f"rates-{day}.json")
+
+    def load_cached(self, day: str) -> dict:
+        """Rates already fetched today. A run that dies on pair three keeps
+        pairs one and two -- losing the whole day to one throttle is how a
+        single 200-with-an-error-body becomes a gap in every converted
+        figure."""
+        try:
+            with open(self.cache_path(day), encoding="utf-8") as handle:
+                return json.load(handle)
+        except (OSError, ValueError):
+            return {}
+
+    def save_cached(self, day: str, rates: dict):
+        path = self.cache_path(day)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(rates, handle, indent=2)
+        except OSError as exc:                              # noqa: BLE001
+            # A cache that cannot be written is a slower run, not a failed one.
+            self.log.append(f"{self.name} could not write rate cache: {exc}")
 
     def fetch(self, since=None, pairs=None) -> list[Record]:
         observed = self._now()
-        records = []
+        day = observed.date().isoformat()
+        cached = self.load_cached(day)
+        records, fresh, failures = [], dict(cached), []
+
         for base, quote in (pairs or self.PAIRS):
-            payload = self.get(
-                self.SERIES.format(base=base, quote=quote, key=self.key or ""),
-                label=f"fx-{base}{quote}")
+            pair = f"{base}/{quote}"
+            hit = cached.get(pair)
+            if hit:
+                # Already have today's. Not re-requested: one call per pair per
+                # run is the cap, and a cached rate is the same rate.
+                self.log.append(f"{self.name} {pair} from today's cache")
+                records.append(Record(
+                    kind="fx", source=self.name, as_of=_date(hit["as_of"]),
+                    observed_at=observed,
+                    payload={"pair": pair, "rate": Decimal(str(hit["rate"]))}))
+                continue
+
+            try:
+                payload = self.get(
+                    self.SERIES.format(base=base, quote=quote,
+                                       key=self.key or ""),
+                    label=f"fx-{base}{quote}")
+            except AdapterGaveUp as exc:
+                # Keep going. The remaining pairs are independent, and a run
+                # that abandons them turns one throttled pair into no FX at all.
+                failures.append(f"{pair}: {str(exc)[:120]}")
+                continue
+
             series = find(payload, "Time Series FX (Daily)") or {}
-            for day, values in sorted(series.items(), reverse=True)[:1]:
-                as_of = _date(day)
+            for stamp, values in sorted(series.items(), reverse=True)[:1]:
+                as_of = _date(stamp)
                 if as_of is None:
                     continue
+                rate = Decimal(str(values["4. close"]))
+                fresh[pair] = {"rate": str(rate), "as_of": as_of.isoformat()}
                 records.append(Record(
                     kind="fx", source=self.name, as_of=as_of,
                     observed_at=observed,
-                    payload={"pair": f"{base}/{quote}",
-                             "rate": Decimal(str(values["4. close"]))}))
+                    payload={"pair": pair, "rate": rate}))
+
+        if fresh != cached:
+            self.save_cached(day, fresh)
+        if failures:
+            self.log.append(f"{self.name} pairs that did not answer: "
+                            + "; ".join(failures))
+            if not records:
+                # Nothing at all, cache included. That IS a failed source.
+                raise AdapterGaveUp(
+                    f"{self.name}: no pair returned a rate. " + "; ".join(failures))
         return records
 
 

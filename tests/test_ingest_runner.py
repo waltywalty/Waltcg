@@ -535,7 +535,10 @@ class TheRunCoversEverySourceEvenTheBrokenOnes(unittest.TestCase):
         by_source = {r["source"]: r for r in results}
         self.assertEqual(set(by_source), set(mod.ALL_SOURCE_NAMES),
                          "a source dropped out of the run entirely")
-        self.assertEqual(by_source["tcgdex"]["status"], "unverified_failed")
+        # tcgdex was promoted to a hard dependency once run #5 verified it
+        # (877 CN-S, 7,436 CN-T), so its breakage now fails the run -- it is
+        # the only catalog source either Chinese Pokemon printing has.
+        self.assertEqual(by_source["tcgdex"]["status"], "failed")
         self.assertIn("SyntaxError", by_source["tcgdex"]["traceback"])
 
     def test_the_database_and_results_survive_a_broken_module(self):
@@ -562,3 +565,297 @@ class TheRunCoversEverySourceEvenTheBrokenOnes(unittest.TestCase):
             summary = handle.read()
         self.assertIn("did not import", summary)
         self.assertTrue(summary.strip(), "the summary came back empty again")
+
+
+# ---------------------------------------------------------------------------
+# Run #5: green with 8,313 identities and zero prices
+# ---------------------------------------------------------------------------
+
+
+class ASourceThatWasNeverAskedIsNotASourceWithNothingToSay(unittest.TestCase):
+    """Run #5 ingested 8,313 card identities and no prices, and passed.
+
+    tcgapi, PPT and apitcg each reported "0 calls made this run". targets.json
+    was still the hand-authored stub with an empty card list for every price
+    source, so each adapter iterated over nothing and returned nothing -- which
+    reads as `empty`, and `empty` does not fail a run. Meanwhile tcgdex had
+    ingested thousands of rows, so `decide_exit` saw a source that ingested and
+    returned 0.
+
+    Identities without prices is not a snapshot. The distinction that was
+    missing: asked-and-got-nothing versus never-asked.
+    """
+
+    class NeedsCards(Adapter):
+        name = "needscards"
+        key_env = None
+        requires_targets = True
+
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            self.calls = 0
+
+        def fetch(self, since=None, cards=()):
+            self.calls += 1
+            return []
+
+    def test_a_price_source_with_no_targets_fails_the_run(self):
+        store = seeded_store()
+        adapter = self.NeedsCards()
+        result = run_source(store, "needscards", adapter, {}, {})
+        self.assertEqual(result["status"], "no_targets")
+        self.assertTrue(STATUS["no_targets"]["failure"])
+        self.assertEqual(decide_exit([result])[0], 1)
+
+    def test_it_does_not_even_call_the_adapter(self):
+        """Nothing to ask about. Calling anyway spends quota to confirm it."""
+        store = seeded_store()
+        adapter = self.NeedsCards()
+        run_source(store, "needscards", adapter, {}, {})
+        self.assertEqual(adapter.calls, 0)
+
+    def test_the_run_fails_even_when_another_source_ingested_plenty(self):
+        """The exact shape of run #5: a catalog source succeeds loudly and
+        carries a run with no prices in it over the line."""
+        code, reason = decide_exit([
+            {"source": "tcgdex", "status": "ok", "rows": 8313, "gaps": 0},
+            {"source": "tcgapi", "status": "no_targets", "rows": 0, "gaps": 1},
+        ])
+        self.assertEqual(code, 1)
+        self.assertIn("tcgapi", reason)
+
+    def test_the_old_behaviour_would_have_passed(self):
+        """Pins the bug so the fix cannot be quietly undone: with the same two
+        sources but `empty` instead of `no_targets`, the run goes green."""
+        code, _reason = decide_exit([
+            {"source": "tcgdex", "status": "ok", "rows": 8313, "gaps": 0},
+            {"source": "tcgapi", "status": "empty", "rows": 0, "gaps": 1},
+        ])
+        self.assertEqual(code, 0, "the old shape should still read as green")
+
+    def test_targets_present_for_another_source_do_not_count(self):
+        """`targets.get(name, {})` is per-source. A source is asked only if
+        ITS list has entries."""
+        from ingest.runner import _has_targets
+        self.assertFalse(_has_targets({}))
+        self.assertFalse(_has_targets({"cards": []}))
+        self.assertTrue(_has_targets({"cards": [{"card_uid": "x"}]}))
+
+    def test_a_source_that_needs_nothing_is_unaffected(self):
+        """The FX and catalog adapters supply their own work list."""
+        from ingest.registry import ADAPTERS
+        self.assertFalse(ADAPTERS["fx_alphavantage"].requires_targets)
+        self.assertFalse(ADAPTERS["tcgdex"].requires_targets)
+        for name in ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting"):
+            self.assertTrue(ADAPTERS[name].requires_targets,
+                            f"{name} prices a card list and must say so")
+
+
+class SupersededAndIdleAreNotGaps(unittest.TestCase):
+
+    def test_a_superseded_source_is_not_called_and_writes_no_gap(self):
+        class Loud(Adapter):
+            name, key_env = "loud", None
+
+            def fetch(self, since=None, **kw):
+                raise AssertionError("a superseded source was called")
+
+        store = seeded_store()
+        result = run_source(store, "cryst", Loud(), {},
+                            {"superseded_by": "tcgdex",
+                             "superseded_note": "tcgdex covers it"})
+        self.assertEqual(result["status"], "superseded")
+        self.assertEqual(result["gaps"], 0)
+        self.assertFalse(STATUS["superseded"]["failure"])
+        self.assertIn("tcgdex", result["detail"])
+        rows = store.con.execute(
+            "SELECT count(*) FROM ingest_gap WHERE source = 'cryst'").fetchone()
+        self.assertEqual(rows[0], 0, "a superseded source wrote a gap row")
+
+    def test_an_idle_enrichment_source_writes_no_gap(self):
+        """Filing an idle enrichment source as a gap every single day devalues
+        the gap rows that mean something."""
+        store = seeded_store()
+        result = run_source(store, "wiki52poke", Silent(), {"cards": [1]},
+                            {"enrichment": True})
+        self.assertEqual(result["status"], "enrichment_idle")
+        self.assertEqual(result["gaps"], 0)
+        self.assertFalse(STATUS["enrichment_idle"]["failure"])
+        rows = store.con.execute(
+            "SELECT count(*) FROM ingest_gap "
+            "WHERE source = 'wiki52poke'").fetchone()
+        self.assertEqual(rows[0], 0)
+
+    def test_a_normal_source_returning_nothing_still_writes_a_gap(self):
+        """The exemption is narrow. An ordinary source that reached its
+        provider and got nothing is still a gap -- that is data we expected
+        and did not get."""
+        store = seeded_store()
+        result = run_source(store, "silent", Silent(), {"cards": [1]}, {})
+        self.assertEqual(result["status"], "empty")
+        self.assertEqual(result["gaps"], 1)
+
+
+class TheErrorBodyDetectionIsShared(unittest.TestCase):
+    """HTTP 200 carrying an error body: nine times now, across five providers.
+
+    The FX adapter had Alpha Vantage's three keys and, by declaring
+    `ERROR_KEYS`, REPLACED the five generic ones -- so it gained a dialect and
+    lost the shared vocabulary, while every other adapter never learned that
+    `Information` means "you are being throttled".
+    """
+
+    def test_every_adapter_knows_the_shared_markers(self):
+        from ingest.registry import ADAPTERS
+        for name, cls in ADAPTERS.items():
+            keys = set(cls.error_keys())
+            for marker in ("error", "message", "note", "information"):
+                self.assertIn(marker, keys,
+                              f"{name} does not treat {marker!r} as an error")
+
+    def test_a_provider_dialect_adds_rather_than_replaces(self):
+        from ingest.adapters import FxAlphaVantageAdapter
+        keys = set(FxAlphaVantageAdapter.error_keys())
+        self.assertIn("errormessage", keys)     # Alpha Vantage's own
+        self.assertIn("information", keys)      # its throttle marker
+        self.assertIn("fault", keys)            # and the shared set, kept
+
+    def test_the_throttle_shape_is_detected(self):
+        """The actual run #5 payload shape: 200 OK, and a body that says no."""
+        from ingest.adapters import FxAlphaVantageAdapter
+        adapter = FxAlphaVantageAdapter()
+        self.assertTrue(adapter.is_error_body(
+            {"Information": "Thank you for using Alpha Vantage! Our standard "
+                            "API rate limit is 25 requests per day."}))
+        self.assertIn("Information", adapter.error_text(
+            {"Information": "rate limit"}))
+
+    def test_the_same_marker_is_caught_in_any_casing(self):
+        """`Error Message`, `error_message` and `errorMessage` are one marker
+        arriving from three providers, and a literal comparison catches one."""
+        adapter = Working()
+        for spelling in ("Error Message", "error_message", "errorMessage",
+                         "ERROR-MESSAGE"):
+            self.assertTrue(adapter.is_error_body({spelling: "nope"}),
+                            f"{spelling!r} was not recognised")
+
+    def test_a_healthy_payload_is_not_an_error(self):
+        adapter = Working()
+        self.assertFalse(adapter.is_error_body({"data": [1, 2, 3]}))
+        self.assertFalse(adapter.is_error_body({"error": None}))
+        self.assertFalse(adapter.is_error_body({"errors": []}))
+        self.assertFalse(adapter.is_error_body([1, 2, 3]))
+
+
+class TheFxAdapterRespectsAStatedRateLimit(unittest.TestCase):
+    """Run #5 rate-limited Alpha Vantage on five FX pairs against a free tier
+    of 25/day and 5/MINUTE. The daily cap was never the problem.
+
+    Three things conspired: five pairs where three are needed, `max_attempts=4`
+    behind each so up to twenty requests in a couple of seconds, and a retry on
+    a throttle -- the one error where retrying immediately is guaranteed to
+    fail and to deepen the hole.
+    """
+
+    def _adapter(self, routes, day="2026-08-17"):
+        import tempfile
+        from ingest.adapters import FxAlphaVantageAdapter
+
+        clock = {"t": 0.0}
+
+        def sleep(seconds):
+            clock["t"] += seconds
+
+        def transport(url, headers):
+            import json as _json
+            for fragment, payload in routes.items():
+                if fragment in url:
+                    return 200, _json.dumps(payload).encode("utf-8")
+            return 200, _json.dumps({"Information": "rate limit"}).encode("utf-8")
+
+        adapter = FxAlphaVantageAdapter(
+            raw_root=tempfile.mkdtemp(), sleep=sleep, transport=transport,
+            monotonic=lambda: clock["t"],
+            now=lambda: _dt.datetime(2026, 8, 17, 6, 15))
+        adapter.calls = []
+        original = adapter._send
+
+        def counted(url, hdrs):
+            adapter.calls.append(url)
+            return original(url, hdrs)
+
+        adapter._send = counted
+        adapter.clock = clock
+        return adapter
+
+    def _series(self, close="1.2700"):
+        return {"Time Series FX (Daily)": {"2026-08-17": {"4. close": close}}}
+
+    def test_only_three_pairs_are_requested(self):
+        """EUR and HKD were speculative and cost two of the five per-minute
+        slots for rates nothing reads."""
+        from ingest.adapters import FxAlphaVantageAdapter
+        self.assertEqual(len(FxAlphaVantageAdapter.PAIRS), 3)
+        self.assertNotIn(("EUR", "USD"), FxAlphaVantageAdapter.PAIRS)
+
+    def test_one_request_per_pair_per_run(self):
+        adapter = self._adapter({"from_symbol=GBP": self._series(),
+                                 "from_symbol=USD": self._series("150.0")})
+        adapter.fetch()
+        self.assertEqual(len(adapter.calls), 3,
+                         f"expected one call per pair, got {adapter.calls}")
+
+    def test_it_waits_between_calls(self):
+        """5/minute is one per 12s. Without a floor, three pairs go out in
+        milliseconds and the fourth request of the day is refused."""
+        from ingest.adapters import FxAlphaVantageAdapter
+        self.assertGreaterEqual(FxAlphaVantageAdapter.min_interval_seconds, 12)
+        adapter = self._adapter({"from_symbol=GBP": self._series(),
+                                 "from_symbol=USD": self._series("150.0")})
+        adapter.fetch()
+        # Two gaps between three calls.
+        self.assertGreaterEqual(adapter.clock["t"], 24)
+
+    def test_a_throttle_is_not_retried(self):
+        """A 200-with-an-error-body saying 'rate limit' is not a transient
+        network error. Retrying it is asking harder."""
+        from ingest.adapters import FxAlphaVantageAdapter
+        self.assertEqual(FxAlphaVantageAdapter.max_attempts, 1)
+        adapter = self._adapter({})          # everything throttles
+        with self.assertRaises(AdapterGaveUp):
+            adapter.fetch()
+        self.assertEqual(len(adapter.calls), 3,
+                         "a throttled pair was retried")
+
+    def test_one_throttled_pair_does_not_lose_the_others(self):
+        adapter = self._adapter({"from_symbol=GBP": self._series()})
+        records = adapter.fetch()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].payload["pair"], "GBP/USD")
+
+    def test_todays_rate_is_cached_so_a_later_failure_does_not_lose_it(self):
+        """A run that dies on pair three must not also lose pairs one and two.
+        Losing the whole day to one throttle puts a gap in every converted
+        figure, and the engine refuses to convert without a rate."""
+        routes = {"from_symbol=GBP": self._series("1.2700")}
+        first = self._adapter(routes)
+        first.fetch()
+
+        second = self._adapter({})           # everything throttles now
+        second.raw_root = first.raw_root     # same day, same cache
+        records = second.fetch()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(str(records[0].payload["rate"]), "1.2700")
+        self.assertEqual(len(second.calls), 2,
+                         "a cached pair was requested again")
+
+    def test_the_cached_rate_keeps_its_own_as_of(self):
+        """A cached rate is the rate it was, not the rate as of now. Restamping
+        it would be a look-ahead violation dressed as a convenience."""
+        adapter = self._adapter({"from_symbol=GBP": self._series()})
+        adapter.fetch()
+        again = self._adapter({})
+        again.raw_root = adapter.raw_root
+        record = again.fetch()[0]
+        self.assertEqual(record.as_of.date().isoformat(), "2026-08-17")
+        self.assertGreaterEqual(record.observed_at, record.as_of)

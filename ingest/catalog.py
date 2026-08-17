@@ -35,6 +35,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ingest.adapters import ApiTcgAdapter, TcgApiAdapter          # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited, find          # noqa: E402
 from ingest.registry import ADAPTERS, CN_SOURCE_PRIORITY          # noqa: E402
+from ingest.runner import load_expectations                       # noqa: E402
 from resolve.identity import (TCGAPI_GAME_ID, card_uid,           # noqa: E402
                               variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402
@@ -160,6 +161,18 @@ class CatalogBuilder:
             self._cn[name] = ADAPTERS[name]()
         return self._cn[name]
 
+    def live_cn_sources(self):
+        """The priority order, minus anything sources.yml has superseded.
+
+        Read from sources.yml rather than hardcoded here so there is one place
+        that says a source is retired. A superseded source left in the rotation
+        spends a request every run proving a known-wrong endpoint is still
+        wrong, and files the answer as a gap that reads like missing data.
+        """
+        expectations = load_expectations()
+        return [name for name in CN_SOURCE_PRIORITY
+                if not expectations.get(name, {}).get("superseded_by")]
+
     def chinese_fallback(self, game, language):
         """First open source that lists cards for this combo, in priority order.
 
@@ -169,7 +182,7 @@ class CatalogBuilder:
         would manufacture cards neither of them lists.
         """
         rows, used, failed = [], [], []
-        for name in CN_SOURCE_PRIORITY:
+        for name in self.live_cn_sources():
             adapter = self.cn_source(name)
             if not adapter.can_enumerate:
                 failed.append((name, adapter.cannot_enumerate_because))
