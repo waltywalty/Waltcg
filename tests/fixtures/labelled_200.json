@@ -1,25 +1,27 @@
 {
   "_schema": "waltcg labelled resolver set v1",
   "_gate": {
-    "required_cards": 200,
-    "required_combos": [
-      "optcg:EN",
-      "optcg:JP",
-      "optcg:CN-S",
-      "pkmn:EN",
-      "pkmn:JP",
-      "pkmn:CN-S",
-      "pkmn:CN-T",
-      "riftbound:EN"
-    ],
-    "required_hard_cases": 20,
+    "required_cards": 250,
+    "required_per_combo": {
+      "pkmn:EN": 40,
+      "pkmn:JP": 35,
+      "optcg:EN": 35,
+      "optcg:JP": 35,
+      "optcg:CN-S": 30,
+      "pkmn:CN-S": 30,
+      "pkmn:CN-T": 25,
+      "riftbound:EN": 20
+    },
+    "min_per_combo": 20,
+    "required_hard_cases": 60,
     "precision_threshold": 0.98,
-    "recall_threshold": 0.9
+    "recall_threshold": 0.9,
+    "sizing_note": "250, not 200. At n=200 a ZERO-error sweep gives a 95% lower bound of 0.9851 -- it clears 0.98, but a single wrong match drops it to 0.9765 and the claim fails. 250 survives one error (0.9812). The binding constraint is the error budget, not the sample size. See docs/decisions.md ADR-0015."
   },
   "_status": "INCOMPLETE -- seeded only, see _needed",
   "_needed": {
     "have": 12,
-    "short_by": 188,
+    "short_by": 238,
     "why": "Every row above is a card whose identity is established somewhere in this repository. I could not source the remaining 188 without inventing set codes, collector numbers and names -- which would make the resolver's precision score a measurement of my own fabrications rather than of the resolver. CLAUDE.md: when a source cannot supply a field, delete it rather than stub it. The same applies to a test set.",
     "combos_with_zero_cards": [
       "pkmn:CN-S",

@@ -968,3 +968,144 @@ pages disagree ($149/$199 against $99). A conflict between two primary sources
 is not settled by picking one, so the entry stays flagged
 `needs_primary_verification` with a CONFLICT note until it is confirmed at
 checkout.
+
+---
+
+## ADR-0015 — 250 labelled cards, and why the split is not proportional
+
+- **Status:** Accepted
+- **Date:** 2026-08-17
+- **Scope:** `tests/fixtures/labelled_200.json`, `resolve/candidates.py`
+
+### The number
+
+200 was picked arbitrarily and is very nearly right, but for a reason worth
+being explicit about: **the binding constraint is the error budget, not the
+sample size.**
+
+One-sided 95% Clopper-Pearson lower bounds on precision:
+
+| n | 0 errors | 1 error | 2 errors |
+|---|---|---|---|
+| 150 | 0.9802 | 0.9688 | 0.9586 |
+| **200** | **0.9851** | **0.9765** | 0.9689 |
+| **250** | **0.9881** | **0.9812** | 0.9750 |
+| 300 | 0.9901 | 0.9843 | 0.9792 |
+
+At n=200 a *perfect* sweep clears 0.98. **One wrong match drops it to 0.9765
+and the gate fails.** So 200 is a zero-error budget dressed as a sample size:
+the first genuine mistake invalidates the claim and there is nothing to do but
+label fifty more cards.
+
+**250 survives exactly one error.** That is the whole argument for the change.
+The smallest n clearing 0.98 with zero errors is 149; with one error, 236; with
+two, 313. Going beyond 250 buys a second error's headroom for another 63 cards
+of hand review, which is not worth it — if the resolver is making two mistakes
+in 250 it should fail.
+
+### The split, and why it is not proportional to the universe
+
+| Combo | n | Exact match available? |
+|---|---|---|
+| `pkmn:EN` | 40 | yes (tcgapi 55) |
+| `pkmn:JP` | 35 | yes (tcgapi 19) |
+| `optcg:EN` | 35 | yes (tcgapi 11) |
+| `optcg:JP` | 35 | apitcg only — tcgapi has no entry |
+| `optcg:CN-S` | 30 | **no** |
+| `pkmn:CN-S` | 30 | **no** |
+| `pkmn:CN-T` | 25 | **no** |
+| `riftbound:EN` | 20 | yes (tcgapi 5) |
+
+The driver is not how many cards exist. It is **which combos can resolve
+exactly.**
+
+An exact match on a provider id cannot be wrong about identity — it is wrong
+only if the xref itself is wrong, which is a different failure with a different
+fix. A combo with no provider id resolves **fuzzily every single time**, so the
+fuzzy path — the only path that can produce a confident wrong answer — carries
+100% of that combo's load rather than a fraction of it.
+
+The three Chinese printings are a rounding error in the card universe and get
+**34% of the labelled set**, because they are the only combos where every
+single resolution runs through the code that can fail.
+
+`riftbound:EN` sits at the floor for the opposite reason: English only, so the
+most dangerous failure mode — one art merging across languages — cannot occur
+there at all.
+
+### The floor: 20
+
+Below this a combo can be meaningfully broken and still show a clean sweep. If
+a combo's true precision is 0.80, the chance of seeing no errors is:
+
+| n | P(clean sweep at 80% true precision) |
+|---|---|
+| 10 | 11% |
+| 14 | 4% |
+| **20** | **1.2%** |
+| 29 | 0.2% (this is the n for detecting 90%) |
+
+At n=14 a one-in-five failure rate hides 4% of the time. At 20 it hides 1.2%.
+**A combo below 20 is untested, not lightly tested**, and the gate now says so
+separately from the total.
+
+### What this does NOT claim
+
+Per-combo precision is not gateable at 0.98 at any realistic n — a 40-card
+combo with zero errors supports only ≥0.93. The per-combo counts exist to
+**detect a broken combo**, not to certify each one. The 0.98 claim is global
+and stays global.
+
+---
+
+## ADR-0016 — The labelled set is adjudicated, never generated
+
+- **Status:** Accepted
+- **Date:** 2026-08-17
+- **Scope:** `resolve/candidates.py`, `resolve/label_cli.py`
+
+### Context
+
+The labelled set must not be generated from the catalogs the resolver reads.
+If it were, scoring the resolver against it would measure **agreement with its
+own inputs**, not correctness: a card the catalog got wrong would be labelled
+wrong and scored right, and the precision number would be highest exactly when
+the catalog was worst.
+
+But hand-authoring 250 cards from nothing is its own failure — slow enough that
+it does not happen, and biased toward whatever the author happens to remember.
+
+### Decision
+
+Split the work at the point where the circularity actually lives.
+
+**The generator proposes. The resolver states its own answer. The human
+adjudicates.** `resolve/candidates.py` produces candidates with the resolver's
+proposed identity attached; `resolve/label_cli.py` presents each one for
+confirm / correct / reject. The human verdict is what breaks the circle, and it
+is the only part that cannot be automated without reintroducing the problem.
+
+Candidates are weighted toward five failure modes, most dangerous first:
+
+1. `same_art_across_languages` — one number in two or more markets. The failure
+   is silent and total: three assets merge and every downstream number inherits
+   the blend.
+2. `reprint_across_sets` — distinguished only by a field providers disagree on.
+3. `alt_art_vs_base` — one number, two variants, very different prices.
+4. `promo_vs_set` — shares a name, different asset.
+5. `lowest_confidence` — wherever the resolver is least sure. Not a known trap,
+   which is exactly the point: it is the only priority that can surface a
+   failure mode nobody enumerated.
+
+A random sample would be overwhelmingly cards that resolve trivially, and 250
+easy cards measure nothing.
+
+### Two things the tooling refuses to hide
+
+**A correction records what the resolver said.** The disagreement is the most
+valuable row in the set and overwriting it would discard the finding.
+
+**`status` warns when every adjudication agreed.** A set with zero corrections
+means either the candidates were too easy or the review was not real — and a
+set with no corrections cannot distinguish those two. The warning fires above
+20 confirmations with no corrections.

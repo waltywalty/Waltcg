@@ -168,8 +168,30 @@ class TheLabelledSetIsComplete(unittest.TestCase):
 
     def test_all_eight_combinations_are_represented(self):
         present = {f"{c['game']}:{c['language']}" for c in self.cards}
-        missing = sorted(set(self.gate["required_combos"]) - present)
+        missing = sorted(set(self.gate["required_per_combo"]) - present)
         self.assertFalse(missing, f"no labelled cards for: {missing}")
+
+    def test_no_combo_is_below_the_detection_floor(self):
+        """Below 20 a combo running at 80% precision goes undetected 4% of the
+        time. A per-combo count under the floor means that combo is untested,
+        not lightly tested."""
+        import collections
+        have = collections.Counter(f"{c['game']}:{c['language']}"
+                                   for c in self.cards)
+        floor = self.gate["min_per_combo"]
+        below = {combo: have.get(combo, 0)
+                 for combo in self.gate["required_per_combo"]
+                 if have.get(combo, 0) < floor}
+        self.assertFalse(below, f"below the {floor}-card detection floor: {below}")
+
+    def test_each_combo_meets_its_own_target(self):
+        import collections
+        have = collections.Counter(f"{c['game']}:{c['language']}"
+                                   for c in self.cards)
+        short = {combo: (have.get(combo, 0), want)
+                 for combo, want in self.gate["required_per_combo"].items()
+                 if have.get(combo, 0) < want}
+        self.assertFalse(short, f"(have, want) per combo: {short}")
 
     def test_twenty_hard_cases(self):
         hard = [c for c in self.cards if c.get("hard_case")]
