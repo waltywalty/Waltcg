@@ -247,18 +247,11 @@ class EveryObservedRarityMapsToANamedBand(unittest.TestCase):
                          "rarity strings that no table classifies: "
                          f"{problems}")
 
-    def test_riftbounds_chase_treatments_are_not_dropped(self):
-        """Named explicitly because this is the one that was already broken.
-        Epic, Showcase and Overnumbered all scored `base` under the regex, and
-        Overnumbered is Riftbound's chase treatment."""
-        for rarity in ("Epic", "Showcase", "Alternate Art", "Overnumbered"):
-            self.assertIn(band_of(rarity, game="riftbound"), TRACKED_BANDS,
-                          f"{rarity} would never be fetched")
-
     def test_riftbound_commons_are_still_dropped(self):
-        for rarity in ("Common", "Uncommon", "Rare"):
-            self.assertNotIn(band_of(rarity, game="riftbound"), TRACKED_BANDS,
-                             rarity)
+        for rarity in ("Common", "Uncommon", "Rare", "Epic"):
+            self.assertNotIn(
+                band_of(rarity, game="riftbound", number="010/298"),
+                TRACKED_BANDS, rarity)
 
     def test_one_piece_secret_and_treasure_rares_are_chase(self):
         for rarity in ("SEC", "TR", "SP CARD"):
@@ -269,7 +262,8 @@ class EveryObservedRarityMapsToANamedBand(unittest.TestCase):
         in both but `LR` is Gundam's chase and means nothing elsewhere. One
         shared table would have to pick, and picking is guessing."""
         self.assertEqual(band_of("LR", game="gundam"), "chase")
-        self.assertEqual(band_of("LR", game="riftbound"), UNKNOWN)
+        self.assertEqual(band_of("LR", game="riftbound", number="010/298"),
+                         UNKNOWN)
         self.assertEqual(band_of("Epic", game="optcg"), UNKNOWN)
 
     def test_gold_star_is_chase_not_rare(self):
@@ -297,7 +291,9 @@ class EveryObservedRarityMapsToANamedBand(unittest.TestCase):
         from ingest.rarity import unmapped
         self.assertEqual(unmapped(["Common", "Mythic Prismatic"],
                                   game="riftbound"), ["Mythic Prismatic"])
-        self.assertEqual(band_of("Mythic Prismatic", game="riftbound"), UNKNOWN)
+        self.assertEqual(
+            band_of("Mythic Prismatic", game="riftbound", number="010/298"),
+            UNKNOWN)
         self.assertIn(UNKNOWN, TRACKED_BANDS)
 
 
@@ -322,3 +318,193 @@ class ParallelMarkersAreMovedNotLost(unittest.TestCase):
         from resolve.identity import variant_from_rarity
         self.assertNotEqual(variant_from_rarity("LR"), "parallel")
         self.assertNotEqual(variant_from_rarity("SR"), "parallel")
+
+
+class BandIsAFunctionOfTheCollectorNumber(unittest.TestCase):
+    """Riftbound's `Showcase` is an umbrella covering three treatments at
+    wildly different values, ALL printing the same rarity string:
+
+        227*/221   asterisk            Signature       $300-3,090
+        227/221    above the set size  Overnumbered    $75-660
+        119a/298   `a` suffix          Alternate Art   $40-90
+
+    A $3,000 card and a $50 card, indistinguishable by rarity. Checked against
+    market data 2026-08-17: of the top 16 most valuable singles, every one is
+    Metal, Signature, Ultimate or an event promo. No plain Overnumbered until
+    #17, and zero Epics or plain Alt-Art anywhere in it.
+    """
+
+    def band(self, rarity, number, **kw):
+        return band_of(rarity, game="riftbound", number=number, **kw)
+
+    def test_the_asterisk_is_the_chase(self):
+        self.assertEqual(self.band("Showcase", "227*/221"), "chase")
+
+    def test_above_the_set_size_without_an_asterisk_is_premium(self):
+        self.assertEqual(self.band("Showcase", "227/221"), "premium")
+
+    def test_the_a_suffix_is_ordinary_alt_art(self):
+        self.assertEqual(self.band("Showcase", "119a/298"), "rare")
+        self.assertNotIn(self.band("Showcase", "119a/298"), TRACKED_BANDS)
+
+    def test_one_string_three_bands(self):
+        """The whole point, in one assertion."""
+        bands = {self.band("Showcase", n)
+                 for n in ("227*/221", "227/221", "119a/298")}
+        self.assertEqual(len(bands), 3, f"the umbrella collapsed: {bands}")
+
+    def test_the_number_outranks_a_wrong_rarity_string(self):
+        """apitcg labels `299*/298` as `Alternate Art`. It is a Signature, and
+        the number says so. The string is unreliable in BOTH directions."""
+        self.assertEqual(self.band("Alternate Art", "299*/298"), "chase")
+
+    def test_epic_dropped_from_premium_to_rare(self):
+        """Riot's designer puts Epic at roughly one in four packs, about six a
+        box, singles $5-55. My premium call was wrong."""
+        self.assertEqual(self.band("Epic", "050/298"), "rare")
+        self.assertNotIn(self.band("Epic", "050/298"), TRACKED_BANDS)
+
+    def test_the_new_chase_rarities_are_chase(self):
+        for rarity in ("Signature", "Metal", "Prize Wall", "Ultimate Rare"):
+            self.assertEqual(self.band(rarity, "010/298"), "chase", rarity)
+
+    def test_a_promo_is_unknown_because_the_range_spans_bands(self):
+        """The `b` suffix says it is a promo and says nothing about which. A
+        few dollars to $1,300 spans three bands, so it is tracked and named
+        rather than banded on a coin flip."""
+        self.assertEqual(self.band("Showcase", "119b/298"), UNKNOWN)
+        self.assertIn(UNKNOWN, TRACKED_BANDS)
+        # And the number OUTRANKS a string that would otherwise settle it: a
+        # `b`-suffix Epic is a promo whose tier is unknown, not an Epic.
+        self.assertEqual(self.band("Epic", "119b/298"), UNKNOWN)
+        self.assertEqual(self.band("Epic", "119/298"), "rare")
+
+    def test_tokens_and_plain_runes_are_base(self):
+        self.assertEqual(self.band("Common", "T02"), "base")
+        self.assertEqual(self.band("Common", "R04"), "base")
+
+    def test_a_showcase_rune_is_not_bulk(self):
+        self.assertEqual(self.band("Showcase", "R01a"), "rare")
+
+    def test_a_bare_number_uses_the_declared_set_size(self):
+        """`OGN-301` carries no denominator, so the ceiling comes from the set
+        table. Origins has 298 base cards."""
+        from resolve.identity import RIFTBOUND_SETS
+        self.assertEqual(
+            self.band("Showcase", "OGN-301",
+                      set_size=RIFTBOUND_SETS["OGN"]["base"]), "premium")
+
+    def test_without_a_set_size_a_bare_number_cannot_be_placed(self):
+        """`None` is not `False`. An unknown ceiling must not file a card as
+        ordinary -- it falls through to the string, which for `Showcase`
+        correctly answers UNKNOWN."""
+        self.assertEqual(self.band("Showcase", "OGN-301"), UNKNOWN)
+
+
+class TheParserAnswersUnknowableWithNone(unittest.TestCase):
+    """`above_set_size` returns None, not False, when the ceiling is unknown.
+
+    The distinction is not currently observable through banding -- both fall
+    through to the string -- so it is asserted where it IS observable. It
+    matters because the next caller to ask the question will get a real answer
+    or an honest None, rather than a False that means "we did not know"."""
+
+    def parsed(self, number):
+        from resolve.identity import parse_collector_number
+        return parse_collector_number(number)
+
+    def test_no_denominator_and_no_set_size_is_none(self):
+        self.assertIsNone(self.parsed("OGN-301").above_set_size())
+
+    def test_a_denominator_answers_it(self):
+        self.assertIs(self.parsed("299/298").above_set_size(), True)
+        self.assertIs(self.parsed("119/298").above_set_size(), False)
+
+    def test_a_supplied_set_size_answers_it(self):
+        self.assertIs(self.parsed("OGN-301").above_set_size(298), True)
+        self.assertIs(self.parsed("OGN-119").above_set_size(298), False)
+
+    def test_the_denominator_wins_over_a_supplied_size(self):
+        """The number carries its own ceiling; a table is the fallback."""
+        self.assertIs(self.parsed("299/298").above_set_size(9999), True)
+
+    def test_an_unreadable_number_is_none_everywhere(self):
+        parsed = self.parsed("not a number at all")
+        self.assertEqual(parsed.kind, "unreadable")
+        self.assertIsNone(parsed.index)
+        self.assertIsNone(parsed.above_set_size(298))
+
+
+class ANumberDependentGameRefusesToGuess(unittest.TestCase):
+    """Declaring it in one set is the point: the next game that bands on its
+    number gets added there, and every call site is already correct."""
+
+    def test_riftbound_is_declared(self):
+        from ingest.rarity import NUMBER_DEPENDENT_GAMES
+        self.assertIn("riftbound", NUMBER_DEPENDENT_GAMES)
+
+    def test_calling_without_a_number_raises(self):
+        from ingest.rarity import NumberRequired
+        with self.assertRaises(NumberRequired) as caught:
+            band_of("Showcase", game="riftbound")
+        self.assertIn("collector number", str(caught.exception))
+
+    def test_an_empty_number_is_not_a_number(self):
+        from ingest.rarity import NumberRequired
+        for empty in ("", None):
+            with self.assertRaises(NumberRequired):
+                band_of("Showcase", game="riftbound", number=empty)
+
+    def test_a_string_only_game_is_unaffected(self):
+        """Pokemon and One Piece band on the string, and requiring a number
+        there would be ceremony."""
+        from ingest.rarity import NUMBER_DEPENDENT_GAMES
+        self.assertNotIn("pkmn", NUMBER_DEPENDENT_GAMES)
+        self.assertEqual(band_of("SEC", game="optcg"), "chase")
+
+    def test_the_string_question_is_still_answerable_without_a_number(self):
+        """`unmapped()` asks "does any table know this word", which is a
+        different question and must not raise."""
+        from ingest.rarity import string_band, unmapped
+        self.assertEqual(string_band("Epic", "riftbound"), "rare")
+        self.assertEqual(unmapped(["Epic", "Nonsense"], game="riftbound"),
+                         ["Nonsense"])
+
+    def test_a_deliberately_unknown_string_is_not_reported_as_unmapped(self):
+        """`Showcase` and `Promo` map to UNKNOWN on purpose -- they are
+        classified, and what they classify as is 'the string cannot say'."""
+        from ingest.rarity import unmapped
+        self.assertEqual(unmapped(["Showcase", "Promo"], game="riftbound"), [])
+
+
+class TheRiftboundSetTableIsRecorded(unittest.TestCase):
+    """Two main sets sat between Origins and Vendetta and neither was in our
+    list. The apitcg data repository stops at Spiritforged, so the catalog
+    source is two sets behind the game."""
+
+    def test_all_five_sets_are_present(self):
+        from resolve.identity import RIFTBOUND_SETS
+        self.assertEqual(sorted(RIFTBOUND_SETS),
+                         ["OGN", "RAD", "SFD", "UNL", "VEN"])
+
+    def test_the_base_counts_are_recorded(self):
+        from resolve.identity import RIFTBOUND_SETS
+        self.assertEqual(RIFTBOUND_SETS["OGN"]["base"], 298)
+        self.assertEqual(RIFTBOUND_SETS["SFD"]["base"], 221)
+        self.assertEqual(RIFTBOUND_SETS["UNL"]["base"], 219)
+        self.assertEqual(RIFTBOUND_SETS["VEN"]["base"], 166)
+
+    def test_an_unreleased_set_has_no_invented_count(self):
+        """Radiance is announced, not out. `None` rather than a guess, and
+        `above_set_size` returns None rather than False when the ceiling is
+        unknown."""
+        from resolve.identity import RIFTBOUND_SETS
+        self.assertIsNone(RIFTBOUND_SETS["RAD"]["base"])
+
+    def test_the_chinese_first_launch_is_recorded_not_modelled(self):
+        """Simplified Chinese led Origins by two months. Recorded as a fact;
+        NOT added to GAME_LANGUAGES, because a ninth game/language combination
+        changes the labelled-set targets and that is a scope decision."""
+        from resolve.identity import (GAME_LANGUAGES, RIFTBOUND_CHINESE_LED)
+        self.assertIn("OGN", RIFTBOUND_CHINESE_LED)
+        self.assertEqual(GAME_LANGUAGES["riftbound"], ("EN",))

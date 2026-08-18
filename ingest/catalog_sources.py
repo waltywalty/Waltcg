@@ -501,7 +501,8 @@ def _catalog_row(game, language, set_code, hit, source) -> Optional[dict]:
     cannot have a `card_uid`, and inventing one to keep the count up is the
     failure mode the whole labelled set exists to measure.
     """
-    from resolve.identity import card_uid as _uid, variant_from_rarity
+    from resolve.identity import (card_uid as _uid, variant_from_number,
+                                  variant_from_rarity)
 
     number = str(find(hit, "localId", "number", "collector_number",
                       "code") or "").strip()
@@ -511,7 +512,10 @@ def _catalog_row(game, language, set_code, hit, source) -> Optional[dict]:
     if rarity in (None, ""):
         rarity = find(hit, "rarity")
     name = find(hit, "name") or ""
-    variant = variant_from_rarity(rarity, name, language)
+    # Number first: it is the reliable signal. See
+    # resolve.identity.variant_from_number.
+    variant = (variant_from_number(number, None, game)
+               or variant_from_rarity(rarity, name, language))
     try:
         uid = _uid(game, set_code, number, variant, language)
     except (ValueError, KeyError):

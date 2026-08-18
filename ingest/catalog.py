@@ -36,8 +36,9 @@ from ingest.adapters import ApiTcgAdapter, TcgApiAdapter          # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited, find          # noqa: E402
 from ingest.registry import ADAPTERS, CN_SOURCE_PRIORITY          # noqa: E402
 from ingest.runner import load_expectations                       # noqa: E402
-from resolve.identity import (TCGAPI_GAME_ID, TCGAPI_GAME_SLUG,   # noqa: E402
-                              TCGAPI_KNOWN_SLUGS, card_uid,
+from resolve.identity import (RIFTBOUND_SETS, TCGAPI_GAME_ID,     # noqa: E402
+                              TCGAPI_GAME_SLUG, TCGAPI_KNOWN_SLUGS,
+                              card_uid, variant_from_number,
                               variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402
 
@@ -55,7 +56,8 @@ COMBOS = [("optcg", "EN"), ("optcg", "JP"), ("optcg", "CN-S"),
 # `unknown` IS kept, and that is the run #7 lesson: an absent rarity is not a
 # common. Imported rather than redeclared so the catalog filter and the
 # classifier cannot drift -- which is how the tcgdex zero survived a session.
-from ingest.rarity import TRACKED_BANDS, UNKNOWN, band_of  # noqa: E402
+from ingest.rarity import (TRACKED_BANDS, UNKNOWN,  # noqa: E402
+                           band_of, string_band)
 
 # apitcg has no language dimension, so it can only fill a combo whose language
 # it actually serves. One Piece JP is its one genuine addition over tcgapi.
@@ -294,7 +296,10 @@ class CatalogBuilder:
         is the substitution that produced 8,313 cards and zero matches.
         """
         self.note_rarity(game, language, hit.get("rarity"))
-        if band_of(hit.get("rarity"), game=game) not in TRACKED_BANDS:
+        number = hit.get("number")
+        size = self.set_size(game, hit.get("set_code"))
+        if band_of(hit.get("rarity"), game=game, number=number,
+                   set_size=size) not in TRACKED_BANDS:
             return None
         return {"card_uid": hit["card_uid"], "game": game, "language": language,
                 "set_code": hit["set_code"], "number": hit["number"],
@@ -413,24 +418,45 @@ class CatalogBuilder:
         return catalog
 
     def note_rarity(self, game, language, rarity):
-        if rarity not in (None, "") and band_of(rarity, game=game) == UNKNOWN:
+        # The STRING question -- "does any table know this word?" -- which is
+        # different from what band a given card is in. For a number-dependent
+        # game the string alone genuinely cannot answer the second.
+        if rarity not in (None, "") and string_band(rarity, game) == UNKNOWN:
             self.unmapped_rarities.setdefault(
                 f"{game}:{language}", set()).add(str(rarity))
 
+    def set_size(self, game, set_code):
+        """Base card count, for deciding whether a number is above the set.
+
+        Only Riftbound needs it, and only because a bare number like `OGN-301`
+        carries no denominator to compare against. `None` is a real answer --
+        `above_set_size` returns None rather than False, so an unknown ceiling
+        cannot file a Signature as an ordinary card.
+        """
+        if game != "riftbound":
+            return None
+        return (RIFTBOUND_SETS.get(str(set_code).upper()) or {}).get("base")
+
     def _row(self, game, language, set_code, hit, source):
         rarity = find(hit, "rarity")
-        self.note_rarity(game, language, rarity)
-        # provider_native: tcgapi and apitcg return each game's own vocabulary
-        # (One Piece `R`/`SR`/`SEC`/`TR`), not tcgdex's normalised English.
-        # `game=` first: `R`, `P` and `L` mean different things per game, so
-        # one shared table would have to pick, and picking is guessing.
-        if band_of(rarity, game=game) not in TRACKED_BANDS:
-            return None
         number = str(find(hit, "number", "collector_number", "code") or "").strip()
+        self.note_rarity(game, language, rarity)
         if not number or not set_code:
             return None
+        size = self.set_size(game, set_code)
+        # `game=` first: `R`, `P` and `L` mean different things per game, so
+        # one shared table would have to pick, and picking is guessing. And
+        # `number=` because for Riftbound the band IS the number -- `Showcase`
+        # alone spans $40 to $3,090.
+        if band_of(rarity, game=game, number=number,
+                   set_size=size) not in TRACKED_BANDS:
+            return None
         name = find(hit, "name") or ""
-        variant = _variant_of(rarity, name)
+        # NUMBER FIRST. The number is the reliable signal and the string is the
+        # unreliable one -- `299*/298` is a Signature and apitcg calls it
+        # `Alternate Art`. One parser feeds both the variant and the band.
+        variant = (variant_from_number(number, size, game)
+                   or _variant_of(rarity, name, language))
         try:
             uid = card_uid(game, set_code, number, variant, language)
         except (ValueError, KeyError):

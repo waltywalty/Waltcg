@@ -1018,7 +1018,8 @@ class TheGameReachesTheBandLookup(unittest.TestCase):
     def test_one_piece_L_and_riftbound_have_different_answers(self):
         from ingest.rarity import band_of
         self.assertEqual(band_of("L", game="optcg"), "rare")
-        self.assertEqual(band_of("L", game="riftbound"), "unknown")
+        self.assertEqual(band_of("L", game="riftbound", number="010/298"),
+                         "unknown")
 
     def test_an_unmapped_string_is_recorded_for_the_summary(self):
         builder = self._builder()

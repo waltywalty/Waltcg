@@ -127,15 +127,32 @@ GAME_BANDS = {
     # exploratory status -- the game launched late 2025 and there is not enough
     # history for a statistical claim -- so all four special tiers are tracked
     # and none is assumed cheap.
+    # RIFTBOUND. Band is a function of the COLLECTOR NUMBER here, not the
+    # rarity string -- see NUMBER_DEPENDENT_GAMES and `_riftbound_band`. This
+    # table is only the fallback for cards whose number says nothing.
+    #
+    # Checked against market data 2026-08-17: of the top 16 most valuable
+    # singles, every one is Metal, Signature, Ultimate or an event promo. No
+    # plain Overnumbered until #17. Zero Epics and zero plain Alt-Art appear at
+    # all, which is why Epic moved premium -> rare: Riot's designer puts it at
+    # roughly one in four packs, about six a box, singles $5-55.
     "riftbound": {
-        "Common": "base", "Uncommon": "base", "Rare": "rare",
-        "Epic": "premium",
-        "Showcase": "premium",
-        "Alternate Art": "premium",
-        # Numbered beyond the set size. The chase treatment, and `overnumbered`
-        # was already a variant token in resolve/identity.py while the band
-        # table was scoring it `base`.
-        "Overnumbered": "chase",
+        "Common": "base", "Uncommon": "base",
+        "Rare": "rare",
+        "Epic": "rare",
+        # The umbrella. On its own it means nothing -- three treatments at
+        # $40 to $3,090 all print this string -- so a Showcase whose number
+        # cannot be read is UNKNOWN rather than banded on the word.
+        "Showcase": UNKNOWN,
+        "Alternate Art": "rare",
+        "Overnumbered": "premium",
+        # Added this session; absent from the observed apitcg data because that
+        # repository stops at Spiritforged and these arrive later.
+        "Signature": "chase",
+        "Metal": "chase",
+        "Prize Wall": "chase",
+        "Ultimate Rare": "chase",      # Unleashed onward, Baron Nashor first
+        "Promo": UNKNOWN,              # a few dollars to $1,300; see below
     },
     # One Piece, via apitcg's `attributes.Rarity`.
     "optcg": {
@@ -222,21 +239,40 @@ _BY_GAME = {game: {normalise(k): v for k, v in table.items()}
             for game, table in GAME_BANDS.items()}
 
 
-def band_of(rarity, *, game=None, provider_native: bool = False) -> str:
-    """Rarity string -> band. Absent or unrecognised -> `unknown`.
+# ---------------------------------------------------------------------------
+# Games where the band cannot be read off the rarity string
+# ---------------------------------------------------------------------------
+#
+# Riftbound's `Showcase` covers Signature ($300-3,090), Overnumbered ($75-660)
+# and Alternate Art ($40-90). One string, a seventy-fold spread. The collector
+# number is what separates them, so for these games the number is REQUIRED and
+# calling without one raises rather than quietly banding on the word.
+#
+# Declaring it here rather than checking `if game == "riftbound"` at each call
+# site is the point: the next game that does this gets added to one set, and
+# every caller is already correct.
+NUMBER_DEPENDENT_GAMES = frozenset({"riftbound"})
 
-    NEVER returns `base` for an absent or unrecognised value. That substitution
-    is the bug this module was written for, three times over: it turns "we do
-    not know what this card is" into "this card is not worth tracking", and the
-    two are not the same sentence.
 
-    Lookup order, most specific first:
+class NumberRequired(ValueError):
+    """A band was asked for without the collector number that determines it."""
 
-    1. the game's own table, because `R`, `P` and `L` mean different things in
-       different games
-    2. the shared tcgdex enum, which several games' strings normalise onto
-    3. `unknown` -- and `provider_native` opts into the legacy regex only for
-       callers that want a best guess rather than an honest absence
+
+# Core champions whose Alternate Art sits at premium rather than rare. EMPTY,
+# and deliberately so: the distinction is real -- the market separates a core
+# champion's alt-art from an ordinary one -- but no champion list has been
+# verified, and inventing one would be the guessing this module exists to stop.
+# Until it is populated every Alt-Art bands `rare`.
+RIFTBOUND_CORE_CHAMPIONS: frozenset = frozenset()
+
+
+def string_band(rarity, game=None) -> str:
+    """Table lookup only. No number, no inference.
+
+    This is the question `unmapped()` asks -- "does any table know this
+    string?" -- and it is a DIFFERENT question from what band a given card is
+    in. For a number-dependent game the string alone genuinely cannot answer
+    the second one.
     """
     if rarity is None or str(rarity).strip() == "":
         return UNKNOWN
@@ -246,13 +282,77 @@ def band_of(rarity, *, game=None, provider_native: bool = False) -> str:
         if hit is not None:
             return hit
     hit = _BY_NORM.get(key)
-    if hit is not None:
+    return UNKNOWN if hit is None else hit
+
+
+def _riftbound_band(rarity, number, set_size=None) -> str:
+    """Number first, string second. Never the other way round.
+
+    Order matters and follows the market: an asterisk outranks everything, a
+    suffix outranks position, and position outranks the printed rarity.
+    """
+    from resolve.identity import parse_collector_number
+
+    parsed = parse_collector_number(number)
+
+    if parsed.starred:
+        return "chase"                      # Signature -- the booster chase
+    if parsed.kind == "token":
+        return "base"
+    if parsed.kind == "rune":
+        # A plain rune is bulk; a Showcase rune is not, but it is not a chase
+        # either.
+        return "rare" if parsed.suffix else "base"
+    if parsed.suffix == "b":
+        # Promo. The number says it is one and says nothing about which: the
+        # range runs from a few dollars to $1,300, spanning three bands. So it
+        # is UNKNOWN -- tracked and named -- rather than banded on a coin flip.
+        return UNKNOWN
+    if parsed.suffix == "a":
+        return "premium" if _is_core_champion(rarity) else "rare"
+    if parsed.above_set_size(set_size):
+        return "premium"                    # Overnumbered, no asterisk
+
+    # The number said nothing distinguishing. Fall back to the string, which
+    # for `Showcase` and `Promo` correctly answers UNKNOWN.
+    return string_band(rarity, "riftbound")
+
+
+def _is_core_champion(_rarity) -> bool:
+    # Placeholder for the unresolved distinction above. Always False while
+    # RIFTBOUND_CORE_CHAMPIONS is empty; kept as a named function so the
+    # question is findable rather than buried in a conditional.
+    return False
+
+
+def band_of(rarity, *, game=None, number=None, set_size=None,
+            provider_native: bool = False) -> str:
+    """Rarity -> band. Absent or unrecognised -> `unknown`, never `base`.
+
+    For a game in `NUMBER_DEPENDENT_GAMES` the collector number is REQUIRED and
+    its absence raises `NumberRequired`. That is deliberately noisy: banding a
+    Riftbound card on its rarity string alone cannot distinguish a $3,000
+    Signature from a $50 Alternate Art, and a wrong answer there is worth more
+    than a crash.
+    """
+    if game in NUMBER_DEPENDENT_GAMES:
+        if number in (None, ""):
+            raise NumberRequired(
+                f"{game} bands on the collector number, not the rarity string "
+                f"-- `Showcase` alone covers Signature, Overnumbered and "
+                f"Alternate Art at $40 to $3,090. band_of(rarity={rarity!r}, "
+                f"game={game!r}) needs number=.")
+        if game == "riftbound":
+            return _riftbound_band(rarity, number, set_size)
+
+    hit = string_band(rarity, game)
+    if hit != UNKNOWN:
         return hit
-    if provider_native:
+    if provider_native and rarity not in (None, "") and str(rarity).strip():
         # The legacy regex. Kept for `store.cross_grader` bucketing, where a
-        # coarse guess is better than dropping a sale from a ratio -- but it
-        # answers `base` for anything it does not know, so the catalog filter
-        # must NOT use it.
+        # coarse guess beats dropping a sale from a ratio -- but it answers
+        # `base` for anything it does not know, so the catalog filter must NOT
+        # use it.
         return rarity_band(rarity)
     return UNKNOWN
 
@@ -265,7 +365,8 @@ def unmapped(strings, game=None) -> list:
     and a finding that is not named is a finding that is lost.
     """
     return sorted({str(s) for s in strings
-                   if s not in (None, "") and band_of(s, game=game) == UNKNOWN})
+                   if s not in (None, "") and string_band(s, game) == UNKNOWN
+                   and _BY_GAME.get(game, {}).get(normalise(s)) != UNKNOWN})
 
 
 def every_known_string():

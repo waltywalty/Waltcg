@@ -4,7 +4,7 @@
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
   "warnings": [
-    "2 assumptions feed no figure on any screen: empirical_bayes_min_card_pop, relief_scenario"
+    "4 assumptions feed no figure on any screen: empirical_bayes_min_card_pop, relief_scenario, riftbound_band_thresholds, riftbound_core_champion_alt_art"
   ],
   "assumptions": [
     {
@@ -440,6 +440,34 @@
       "source": null,
       "last_reviewed": "2026-08-14",
       "calibration_plan": "Ask a customs broker, or run one low-value submission and read the C88 on the return leg. Until then relief_none is the assumption because it is the realistic outcome for an unprepared private sender -- and because being wrong in that direction costs nothing, while assuming relief and not getting it costs 22.4% of the card.",
+      "ui_chip_required": true,
+      "editable": true,
+      "used_by": [],
+      "used_by_count": 0
+    },
+    {
+      "id": "riftbound_band_thresholds",
+      "description": "Which Riftbound collector-number treatments count as chase, premium or rare. Signature (asterisk) chase, Overnumbered (above set size, no asterisk) premium, Alternate Art (`a` suffix) rare, Epic rare, Promo (`b` suffix) UNKNOWN. Banded from market data on 2026-08-17: of the top 16 most valuable singles every one is Metal, Signature, Ultimate or an event promo, with no plain Overnumbered until #17 and no Epic or plain Alt-Art anywhere in it.",
+      "current_value": "{\"signature\": \"chase\", \"overnumbered\": \"premium\", \"alternate_art\": \"rare\", \"epic\": \"rare\", \"promo\": \"unknown\", \"ultimate_rare\": \"chase\", \"metal_prize_wall\": \"chase\"}",
+      "unit": "map of treatment -> band",
+      "confidence": "low",
+      "source": "market observation, 2026-08-17",
+      "last_reviewed": "2026-08-17",
+      "calibration_plan": "THE ORDERING IS THE CLAIM, NOT THE PRICES. This is a sub-one-year market: Riftbound launched October 2025, prices are volatile, and the Alt-Art figures behind this are mostly ASKING prices rather than confirmed sales. The bands say which cards are worth spending price quota on; they are not evidence about magnitudes and must never be cited as such. Revisit after Radiance, when there are five sets of history rather than four.",
+      "ui_chip_required": true,
+      "editable": true,
+      "used_by": [],
+      "used_by_count": 0
+    },
+    {
+      "id": "riftbound_core_champion_alt_art",
+      "description": "Alt-Art of a CORE CHAMPION bands premium; ordinary Alt-Art bands rare. The distinction is real and the champion list is EMPTY -- no verified list exists, so every Alt-Art currently bands rare and is not tracked.",
+      "current_value": "[]",
+      "unit": "list of champion names",
+      "confidence": "unvalidated",
+      "source": null,
+      "last_reviewed": "2026-08-17",
+      "calibration_plan": "Populate RIFTBOUND_CORE_CHAMPIONS in ingest/rarity.py from a verified champion list. Until then this UNDER-tracks: a core champion's alt-art at $40-90 is dropped. That is the deliberate direction of the error -- over-tracking every Alt-Art would spend quota on the whole tier -- but it is an error, and it is here so it is visible rather than assumed away.",
       "ui_chip_required": true,
       "editable": true,
       "used_by": [],

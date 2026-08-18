@@ -93,6 +93,160 @@ def renumbers(language: str) -> bool:
     return language in RENUMBERED
 
 
+# -- the collector number, parsed once ------------------------------------
+#
+# BAND IS A FUNCTION OF THE COLLECTOR NUMBER, NOT THE RARITY STRING, and
+# Riftbound is where that stops being a subtlety. `Showcase` is an umbrella
+# covering three treatments at wildly different values, all printing the same
+# rarity string:
+#
+#     227*/221   asterisk            Signature       $300-3,090
+#     227/221    above the set size  Overnumbered    $75-660
+#     119a/298   `a` suffix          Alternate Art   $40-90
+#
+# A $3,000 card and a $50 card, indistinguishable by rarity. The number is what
+# separates them.
+#
+# The observed apitcg data makes the point twice over: `299*/298` -- asterisked
+# AND above the set size, so a Signature by the rule above -- is labelled
+# `Alternate Art` there, while `Showcase` appears on runes. The string is
+# unreliable in BOTH directions, which is why nothing downstream may trust it
+# alone.
+#
+# This parser is the single place the number is read. `variant_from_number`
+# and `ingest.rarity` both consume it, rather than each growing their own
+# half-correct copy -- which is how the variant token knew about
+# `overnumbered` for three sessions while the band table scored it `base`.
+
+# Riftbound base set sizes, needed because a bare number like `OGN-301` carries
+# no denominator to compare against. Dated: sizes and release months as of
+# 2026-08-17.
+RIFTBOUND_SETS = {
+    "OGN": {"name": "Origins",      "released": "2025-10", "base": 298},
+    "SFD": {"name": "Spiritforged", "released": "2026-02", "base": 221},
+    "UNL": {"name": "Unleashed",    "released": "2026-05", "base": 219},
+    "VEN": {"name": "Vendetta",     "released": "2026-07", "base": 166},
+    # Announced, not yet released; base count unknown rather than guessed.
+    "RAD": {"name": "Radiance",     "released": "2026-10", "base": None},
+}
+
+# Simplified Chinese launched FIRST for Origins -- August 2025 against October
+# 2025 for English -- with parity from Vendetta. RECORDED, NOT MODELLED:
+# `GAME_LANGUAGES` still says Riftbound is English-only, sourced from
+# probe/COVERAGE.md. Adding CN-S would create a ninth game/language combination
+# and change the labelled-set targets, which is a scope decision rather than a
+# correction. See docs/OPEN_QUESTIONS in decisions.md ADR-0028.
+RIFTBOUND_CHINESE_LED = ("OGN",)
+
+
+class CollectorNumber:
+    """A parsed collector number. Every field is `None` when unreadable."""
+
+    __slots__ = ("raw", "index", "total", "suffix", "starred", "kind")
+
+    def __init__(self, raw, index=None, total=None, suffix="", starred=False,
+                 kind="card"):
+        self.raw, self.index, self.total = raw, index, total
+        self.suffix, self.starred, self.kind = suffix, starred, kind
+
+    def above_set_size(self, set_size=None):
+        """Is this numbered beyond the base set? None when unknowable.
+
+        None is not False. A number with no denominator and no known set size
+        cannot answer the question, and answering `False` would file a
+        Signature as an ordinary card.
+        """
+        ceiling = self.total if self.total is not None else set_size
+        if self.index is None or ceiling is None:
+            return None
+        return self.index > ceiling
+
+    def __repr__(self):
+        return (f"CollectorNumber({self.raw!r}, index={self.index}, "
+                f"total={self.total}, suffix={self.suffix!r}, "
+                f"starred={self.starred}, kind={self.kind})")
+
+
+_NUM_CARD = re.compile(r"^(\d+)([a-z]?)(\*?)\s*/\s*(\d+)$", re.I)
+_NUM_RUNE = re.compile(r"^R(\d+)([a-z]?)(\*?)$", re.I)
+_NUM_TOKEN = re.compile(r"^T(\d+)([a-z]?)$", re.I)
+_NUM_PREFIXED = re.compile(r"^[A-Z]{2,4}-(\d+)([a-z]?)(\*?)$", re.I)
+_NUM_BARE = re.compile(r"^(\d+)([a-z]?)(\*?)$", re.I)
+
+
+def parse_collector_number(number) -> CollectorNumber:
+    """`227*/221`, `119a/298`, `OGN-301`, `R01a`, `T02` -> structure.
+
+    Unreadable input returns a CollectorNumber with everything `None` rather
+    than raising: a number we cannot parse is a card we cannot classify, and
+    `unknown` is a real answer.
+    """
+    raw = str(number or "").strip()
+    if not raw:
+        return CollectorNumber(raw, kind="unreadable")
+
+    hit = _NUM_CARD.match(raw)
+    if hit:
+        return CollectorNumber(raw, int(hit.group(1)), int(hit.group(4)),
+                               hit.group(2).lower(), bool(hit.group(3)))
+    hit = _NUM_RUNE.match(raw)
+    if hit:
+        return CollectorNumber(raw, int(hit.group(1)), None,
+                               hit.group(2).lower(), bool(hit.group(3)),
+                               kind="rune")
+    hit = _NUM_TOKEN.match(raw)
+    if hit:
+        return CollectorNumber(raw, int(hit.group(1)), None,
+                               hit.group(2).lower(), False, kind="token")
+    hit = _NUM_PREFIXED.match(raw)
+    if hit:
+        return CollectorNumber(raw, int(hit.group(1)), None,
+                               hit.group(2).lower(), bool(hit.group(3)))
+    hit = _NUM_BARE.match(raw)
+    if hit:
+        return CollectorNumber(raw, int(hit.group(1)), None,
+                               hit.group(2).lower(), bool(hit.group(3)),
+                               kind="bare")
+    return CollectorNumber(raw, kind="unreadable")
+
+
+# What each number feature means as a printing treatment. Riftbound-specific
+# today; the mechanism is general because the next game will differ again.
+NUMBER_VARIANTS = {
+    "starred": "signature",
+    "a": "alt_art",
+    "b": "promo",
+    "above": "overnumbered",
+}
+
+
+# Games whose collector number encodes the PRINTING TREATMENT. Riftbound only,
+# and the restriction is load-bearing rather than cautious: in Pokemon a number
+# above the set size is ORDINARY -- every secret rare is numbered that way, and
+# `170/151` is an Art Rare, not an overnumbered chase card. Applying Riftbound's
+# rule to Pokemon relabels the entire secret-rare tier.
+NUMBER_VARIANT_GAMES = frozenset({"riftbound"})
+
+
+def variant_from_number(number, set_size=None, game=None):
+    """Variant implied by the number alone, or None if it implies nothing.
+
+    Checked BEFORE the rarity string for the games in `NUMBER_VARIANT_GAMES`,
+    because there the string is the unreliable one. Returns None for every
+    other game rather than exporting one game's conventions to the rest.
+    """
+    if game is not None and game not in NUMBER_VARIANT_GAMES:
+        return None
+    parsed = parse_collector_number(number)
+    if parsed.starred:
+        return NUMBER_VARIANTS["starred"]
+    if parsed.suffix in NUMBER_VARIANTS:
+        return NUMBER_VARIANTS[parsed.suffix]
+    if parsed.above_set_size(set_size):
+        return NUMBER_VARIANTS["above"]
+    return None
+
+
 # -- variant, derived from what the provider calls the rarity ---------------
 #
 # Providers state a rarity ("TR", "Special Illustration Rare"), never our

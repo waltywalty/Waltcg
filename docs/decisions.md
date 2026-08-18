@@ -1674,3 +1674,94 @@ parallel and its base card become one card.
 both are coverage facts, and they are recorded so the next session does not
 re-derive them. Every Digimon card classifies `unknown`, which is tracked,
 which is correct.
+
+---
+
+## ADR-0028 — Band is a function of the collector number, not the rarity string
+
+**2026-08-17.** Checked against market data. My `Epic` call was right and the
+`premium` instinct wrong — Riot's designer puts Epic at roughly one in four
+packs, six a box, singles $5–55. But the ordering was the smaller half of it.
+
+**Riftbound's `Showcase` is an umbrella covering three treatments at wildly
+different values, all printing the same rarity string:**
+
+| number | treatment | value |
+|---|---|---|
+| `227*/221` asterisk | Signature | $300–3,090 |
+| `227/221` above the set size, no asterisk | Overnumbered | $75–660 |
+| `119a/298` `a` suffix | Alternate Art | $40–90 |
+
+A $3,000 card and a $50 card, indistinguishable by rarity. **Parse the number.**
+
+The evidence: of the top 16 most valuable singles, every one is Metal,
+Signature, Ultimate or an event promo. No plain Overnumbered until #17. Zero
+Epics and zero plain Alt-Art anywhere in it.
+
+The observed apitcg data makes the same point from the other side —
+`299*/298`, a Signature by the rule above, is labelled **`Alternate Art`**
+there, while `Showcase` appears on runes. The string is unreliable in *both*
+directions.
+
+### Generalised, not special-cased
+
+`NUMBER_DEPENDENT_GAMES` declares which games band on the number, and
+`band_of` **raises `NumberRequired`** when called for one without it. Noisy on
+purpose: banding a Riftbound card on its string cannot separate a $3,000
+Signature from a $50 Alt-Art, and a wrong answer there is worth more than a
+crash. The next game that does this gets added to one frozenset and every call
+site is already correct.
+
+`resolve/identity.py` gained `parse_collector_number`, and it is now the single
+place the number is read — `variant_from_number` and the banding both consume
+it. That closes the split that let the variant token know about `overnumbered`
+for three sessions while the band table scored it `base`.
+
+**One restriction is load-bearing.** `NUMBER_VARIANT_GAMES` is Riftbound only,
+because in Pokémon a number above the set size is *ordinary* — every secret
+rare is numbered that way, and `170/151` is an Art Rare. Applying Riftbound's
+rule game-wide relabelled the entire Pokémon secret-rare tier, which is how the
+test suite caught it.
+
+### Two answers that are deliberately not answers
+
+**Promo (`b` suffix) bands `unknown`.** The number says it is a promo and says
+nothing about which; the range runs from a few dollars to $1,300, spanning
+three bands. `unknown` is tracked and named, which is the honest output when
+the evidence identifies the treatment but not the tier.
+
+**Core-champion Alt-Art is unresolved.** The market separates a core champion's
+alt-art from an ordinary one; no verified champion list exists, so
+`RIFTBOUND_CORE_CHAMPIONS` is empty and every Alt-Art bands `rare`. This
+UNDER-tracks — a $40–90 card is dropped — and that direction is deliberate, but
+it is an error and it is registered rather than assumed away.
+
+### Sets, and one thing recorded rather than fixed
+
+Two main sets sat between Origins and Vendetta and neither was in our list.
+`RIFTBOUND_SETS` now carries all five with base counts, which is what lets a
+bare `OGN-301` be placed at all. Radiance has `base: None` — announced, not
+released, and `above_set_size` answers `None` rather than `False` when the
+ceiling is unknown.
+
+**The apitcg data repository stops at Spiritforged**, so our catalog source is
+two sets behind the game. `Signature`, `Metal`, `Prize Wall` and `Ultimate
+Rare` are therefore in the band table but absent from the observed vocabulary —
+which is why the coverage test asserts observed ⊆ mapped rather than equality.
+
+**OPEN QUESTION, recorded and NOT acted on.** Simplified Chinese launched
+*first* for Origins — August 2025 against October 2025 — with parity from
+Vendetta. `GAME_LANGUAGES` still says Riftbound is English-only. Adding CN-S
+creates a ninth game/language combination and changes the labelled-set targets
+and the 250-card gate; that is a scope decision, not a correction, and it is
+yours to make.
+
+### Caveats recorded, not resolved
+
+Registered as `riftbound_band_thresholds` (confidence `low`) and
+`riftbound_core_champion_alt_art` (`unvalidated`), both with UI chips. The
+calibration note is blunt about it: **the ordering is the claim, not the
+prices.** Sub-one-year market, volatile, and the Alt-Art figures are mostly
+asking prices rather than confirmed sales. The bands say which cards are worth
+spending price quota on. They are not evidence about magnitudes and must never
+be cited as such.
