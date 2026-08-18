@@ -2094,3 +2094,84 @@ One Piece EN, measured on apitcg's full data: 451 → **737** distinct cards,
 the beginning. It exists now.
 
 All 22 new guards are mutation-tested and all 22 are caught.
+
+---
+
+## ADR-0032 — Run #12: the cache was empty because it had never been written
+
+**2026-08-18.** Rate limiting behaved as designed: two 429s, breaker tripped,
+`rate_limited` rather than `source_unreachable`, and apitcg confirmed to send
+no `Retry-After` at all. That question is closed and the answer is in
+`config/rate_limits.yaml`.
+
+The cache did not serve, and it was **chicken-and-egg, not a bug**. Run #12
+checked out `b6ad779`, where `ingest/targets.json` was still the hand-authored
+stub — no `_catalog_cache`, no `_counts`, zero cards in every source list. The
+cache was genuinely empty, every combination was correctly re-enumerated, and
+the persist step then committed `cbdaae6`: 2,673 cards across three stamped
+combinations. Run #13 is the first run that can serve from it.
+
+Worth stating plainly because the same evidence would have looked identical if
+the token scope had been wrong: **the commit-back ran and pushed**, on a run
+that exited 1.
+
+### An empty age column meant three things
+
+`--` rendered identically for "no entry", "an entry with no date", and "an
+entry that was re-enumerated anyway", and only the third is a fault. That is
+the same silent collapse the verdict taxonomy exists to prevent, one column
+over.
+
+Six states now, recorded at the moment the decision to call a provider was
+taken: `absent`, `empty`, `undated`, `stale`, `forced`, `fresh`. The seventh
+case — `fresh` and enumerated anyway — is the bug, and it gets its own section
+headed **BUG** rather than being left to be inferred from a blank cell.
+`--force` reports as `forced` and is explicitly not the fault; there is a test
+for that, because a fault report that fires on a deliberate action is a fault
+report nobody reads.
+
+The threshold boundary falls toward re-asking: seven days old against a
+seven-day threshold is `stale`.
+
+### Preservation and freshness are different questions
+
+The real trap. The persist step is not gated on the run's exit code — correct,
+and run #12 proved it — but the file it commits is written from **this** run's
+catalog, and a combination that failed contributes zero cards to it. Committing
+that zero erases yesterday's good answer for that combination, the next run
+re-enumerates it, and a provider having a bad morning costs the catalog
+permanently. A throttled provider was supposed to cost nothing; that path made
+it cost everything.
+
+`build()` already falls back to the cache when a refresh fails, but only when
+it was *given* a cache — and `--no-cache` gives it none. So the same rule now
+also applies at the file boundary, where it holds regardless:
+
+- `previous` is loaded **unconditionally**. Nothing justifies erasing a
+  combination that worked yesterday.
+- `cache` is what freshness decisions may consult, and that is the only thing
+  `--no-cache` suppresses.
+
+`preserve_from_cache` puts back any combination that came back empty and had
+cards before, as `catalog_from_cache_preserved`, carrying its original `as_of`
+and recording `preserved_over` — the status it was rescued from. That last
+field matters: `rate_limited` preserved is a provider having a bad day;
+`source_unreachable` preserved is a bug the cache is now hiding, and the two
+have to stay tellable apart.
+
+**Zero is the failure signature, and only zero.** A combination that comes back
+smaller has genuinely shrunk — a set delisted, a rarity reclassified — and that
+lands. Otherwise the catalog could never get smaller.
+
+Verified end to end against the real committed file under the harshest
+conditions available: `--no-cache` with every provider unreachable. All 2,673
+cards kept, all three stamps carried forward, all three statuses distinct from
+`ok`.
+
+### Also
+
+`docs/OPEN_ISSUES.md` was added last session without a row in
+`docs/PROVENANCE.md`, and `no_pdf_provenance` hard-failed on it — the
+undeclared-document gate doing exactly its job, on a file I wrote. Declared now.
+
+All 14 new guards are mutation-tested and all 14 are caught.

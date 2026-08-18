@@ -31,6 +31,7 @@ documents arrive as pasted text.
 | `docs/CLAUDE_DESIGN_PROMPT.md` | pdf-extraction | `03b_CLAUDE_DESIGN_PROMPT_v2.pdf`, 82,428 bytes | 2026-08-13 | pdfminer.six 20260107, `extract_text` | Both sides normalised to one token stream (Markdown syntax stripped, whitespace collapsed, code-span padding removed symmetrically) and compared with `cmp`: 9,306 bytes of prose identical in order; the coverage table identical as a word multiset, compared that way alone because the PDF lays it out column-major and Markdown row-major. Method and its limits in ADR-0004. |
 | `docs/DATA_SOURCES.md` | verbatim-text | uploaded `05_DATA_SOURCES.md` | — | — | added byte-identical, then amended by reconciliation decision 1 (repo-visibility rescope): 4 lines changed, in git history |
 | `docs/GOAL.md` | verbatim-text | uploaded `01_GOAL.md` | — | — | added byte-identical, then amended by reconciliation decisions 1, 2 and 4 (visibility rescope, language enum, name): 10 lines changed, in git history |
+| `docs/OPEN_ISSUES.md` | authored | — | — | — | — |
 | `docs/PROVENANCE.md` | authored | — | — | — | — |
 | `docs/decisions.md` | authored | — | — | — | — |
 

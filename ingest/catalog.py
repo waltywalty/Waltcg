@@ -153,6 +153,42 @@ def cache_age_days(entry, now=None):
     return max((( now or _now()) - when).total_seconds() / 86400.0, 0.0)
 
 
+# What the cache had to say about a combination, at the moment the decision to
+# call a provider was taken. SIX answers, because "--" in an age column was
+# collapsing them into one and only one of them is a fault:
+#
+#   absent      no entry at all. First run, or a combination that has never
+#               produced a card. Correct to enumerate.
+#   empty       an entry with no cards. Same verdict, different history: we
+#               have asked before and got nothing.
+#   undated     cards, but no as_of. A cache of UNKNOWN age, which can never
+#               satisfy a freshness test -- correct to enumerate, and worth
+#               naming, because it means something wrote a stamp-less entry.
+#   stale       cards and a date, past the threshold. Correct to enumerate.
+#               This is the ordinary weekly refresh.
+#   forced      cards and a date, INSIDE the threshold, re-enumerated because
+#               --force was passed. Correct, and deliberate.
+#   fresh       cards and a date, inside the threshold. Served from cache.
+#
+# A combination that reports `fresh` and was enumerated anyway is the seventh
+# case and it is the bug -- `refreshed_despite_fresh`, raised in the summary
+# rather than left to be inferred from a blank column.
+CACHE_STATES = ("absent", "empty", "undated", "stale", "forced", "fresh")
+
+
+def cache_state(cached, age, max_age_days, force=False) -> str:
+    """Which of the six the cache was in for this combination."""
+    if not cached:
+        return "absent"
+    if not cached.get("cards"):
+        return "empty"
+    if age is None:
+        return "undated"
+    if age >= max_age_days:
+        return "stale"
+    return "forced" if force else "fresh"
+
+
 def primary_source(game, language) -> str:
     """Which source is SUPPOSED to serve this combination.
 
@@ -508,8 +544,9 @@ class CatalogBuilder:
             primary = primary_source(game, language)
             cached = cache.get(combo) or {}
             age = cache_age_days(cached, now)
-            fresh = (cached.get("cards") and age is not None
-                     and age < max_age_days)
+            fresh = bool(cached.get("cards")) and age is not None \
+                and age < max_age_days
+            state = cache_state(cached, age, max_age_days, force)
 
             # SERVED FROM YESTERDAY, AND NO PROVIDER IS CALLED AT ALL. This is
             # the point of the cache: a throttled provider costs nothing,
@@ -526,6 +563,7 @@ class CatalogBuilder:
                     "asked": [], "reasons": [],
                     "primary": primary, "age_days": round(age, 2),
                     "cache_max_age_days": max_age_days,
+                    "cache_state": state,
                 }
                 self.log.append(
                     f"{combo}: served from cache, {age:.1f}d old "
@@ -608,6 +646,7 @@ class CatalogBuilder:
                     "primary": primary,
                     "age_days": None if age is None else round(age, 2),
                     "cache_max_age_days": max_age_days,
+                    "cache_state": state,
                     "refresh_failed": True,
                 }
                 catalog[combo] = {
@@ -647,6 +686,12 @@ class CatalogBuilder:
                 "asked": asked, "reasons": sorted(set(reasons)),
                 "primary": primary,
                 "as_of": now.isoformat() + "Z",
+                # WHY THIS COMBINATION WAS RE-ENUMERATED. An empty age column
+                # collapsed three different answers into one dash, and only
+                # one of the three is a fault -- see `cache_state`.
+                "cache_state": state,
+                "age_days": None if age is None else round(age, 2),
+                "cache_max_age_days": max_age_days,
             }
             catalog[combo] = {
                 "sources": sources,
@@ -993,6 +1038,16 @@ def render_rarity_report(report) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _refreshed_despite_fresh(entry) -> bool:
+    """A combination the cache could have served, enumerated anyway.
+
+    The only cache state that is a FAULT rather than a fact. `--force` is
+    reported as `forced` and is not this.
+    """
+    return (entry.get("cache_state") == "fresh"
+            and not str(entry.get("status", "")).startswith("catalog_from_cache"))
+
+
 def render_catalog_summary(targets, builder=None) -> str:
     """The catalog step's own report: what it asked, and what it got.
 
@@ -1022,9 +1077,9 @@ def render_catalog_summary(targets, builder=None) -> str:
                   "`no_targets` and the run will fail. The per-combo status "
                   "below is the diagnosis.", ""]
 
-    lines += ["| Combo | Cards | Status | Age | Expected | Served by "
+    lines += ["| Combo | Cards | Status | Cache | Age | Expected | Served by "
               "| Prices routed to |",
-              "|---|---:|---|---:|---|---|---|"]
+              "|---|---:|---|---|---:|---|---|---|"]
     for combo in sorted(set(counts) | set(statuses) | set(routes)):
         entry = statuses.get(combo, {})
         status = entry.get("status", "not attempted")
@@ -1038,12 +1093,58 @@ def render_catalog_summary(targets, builder=None) -> str:
         else:
             served_cell = ", ".join(served) or "--"
         age = entry.get("age_days")
-        age_cell = "--" if age is None else f"{age:.1f}d"
+        # AN EMPTY AGE MEANT THREE DIFFERENT THINGS and rendered as one dash:
+        # no entry, an entry with no date, and an entry that was re-enumerated
+        # anyway. Only the last is a fault. The cache column is the answer and
+        # the age column is now only ever a number or a genuine "no date".
+        age_cell = "no date" if age is None else f"{age:.1f}d"
+        state = entry.get("cache_state")
+        if state is None:
+            cache_cell = "--"
+            age_cell = "--"
+        elif state in ("absent", "empty"):
+            cache_cell = state
+            age_cell = "--"
+        else:
+            cache_cell = state
+        if _refreshed_despite_fresh(entry):
+            cache_cell = "**fresh, REFRESHED ANYWAY**"
         routed = ", ".join(f"{name} ({n})"
                            for name, n in sorted(routes.get(combo, {}).items())) or "--"
         lines.append(f"| `{combo}` | {counts.get(combo, 0)} | {status} | "
-                     f"{age_cell} | {primary or '--'} | {served_cell} "
-                     f"| {routed} |")
+                     f"{cache_cell} | {age_cell} | {primary or '--'} "
+                     f"| {served_cell} | {routed} |")
+
+    lines += ["", "`Cache` is what the persisted catalog had to say when the "
+              "decision to call a provider was taken. `absent` no entry; "
+              "`empty` an entry with no cards; `no date` cards with no "
+              "`as_of`, which can never be fresh; `stale` past the threshold; "
+              "`forced` inside it but `--force` was passed; `fresh` served "
+              "without calling anything. Only a `fresh` combination that was "
+              "enumerated anyway is a fault."]
+
+    wrong = [c for c, e in sorted(statuses.items())
+             if _refreshed_despite_fresh(e)]
+    if wrong:
+        lines += ["", "**BUG: enumerated a combination the cache could have "
+                  "served.** The entry was present, dated, and inside the "
+                  "threshold, and a provider was called anyway. That is the "
+                  "one cache state that should be impossible, and it is spelt "
+                  "out here rather than left to be inferred from a blank "
+                  "column:", ""]
+        lines += [f"- `{c}` -- {statuses[c].get('age_days')}d old against a "
+                  f"{statuses[c].get('cache_max_age_days')}d threshold"
+                  for c in wrong]
+
+    undated = [c for c, e in sorted(statuses.items())
+               if e.get("cache_state") == "undated"]
+    if undated:
+        lines += ["", "**Cached with no date.** These carry cards and no "
+                  "`as_of`, so their age is unknowable and they are "
+                  "re-enumerated every run -- correctly, because unknown age "
+                  "must never satisfy a freshness test. It also means "
+                  "something wrote a stamp-less entry, which is worth "
+                  "finding: " + ", ".join(f"`{c}`" for c in undated)]
 
     fallbacks = [c for c, e in sorted(statuses.items())
                  if e.get("status") == "ok_via_fallback"]
@@ -1072,10 +1173,16 @@ def render_catalog_summary(targets, builder=None) -> str:
                   "", "| Combo | Age | Threshold | Why |", "|---|---:|---:|---|"]
         for combo, entry in cached.items():
             age = entry.get("age_days")
-            why = ("REFRESH FAILED -- this is past its threshold and is being "
-                   "served anyway, which is what the cache is for"
-                   if entry.get("refresh_failed")
-                   else "within threshold; no provider called")
+            if entry.get("preserved"):
+                why = ("PRODUCED NOTHING THIS RUN (`"
+                       + str(entry.get("preserved_over") or "unknown")
+                       + "`) -- yesterday's cards were kept rather than "
+                         "committing the zero over them")
+            elif entry.get("refresh_failed"):
+                why = ("REFRESH FAILED -- this is past its threshold and is "
+                       "being served anyway, which is what the cache is for")
+            else:
+                why = "within threshold; no provider called"
             lines.append(
                 f"| `{combo}` | "
                 + ("unknown" if age is None else f"{age:.1f}d")
@@ -1201,6 +1308,52 @@ def render_catalog_summary(targets, builder=None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def preserve_from_cache(catalog, combo_status, previous) -> list:
+    """Put back any combination that came back EMPTY and had cards before.
+
+    THE TRAP THIS CLOSES. The persist step is not gated on the run's exit code
+    -- run #12 failed on a throttled apitcg and still committed the 2,673 cards
+    the other three combinations produced, which is correct. But the file it
+    commits is written from THIS run's catalog, and a combination that failed
+    contributes zero cards to it. Committing that zero would erase yesterday's
+    good answer for that combination, and the next run would re-enumerate it,
+    and a provider having a bad morning would cost the catalog permanently.
+
+    `build()` already falls back to the cache when a refresh fails -- but only
+    when it was GIVEN a cache. This is the same rule applied at the file
+    boundary, where it holds regardless: PRESERVATION and FRESHNESS are
+    different questions, and `--no-cache` answers only the second.
+
+    Zero is the failure signature, and only zero. A combination that comes back
+    smaller has genuinely shrunk -- a set delisted, a rarity reclassified --
+    and that must land.
+    """
+    restored = []
+    for combo, entry in sorted((previous or {}).items()):
+        cards = entry.get("cards") or []
+        if not cards:
+            continue
+        if (catalog.get(combo) or {}).get("cards"):
+            continue
+        catalog[combo] = {"sources": list(entry.get("served_by") or []),
+                          "cards": list(cards)}
+        status = dict(combo_status.get(combo) or {})
+        status.update({
+            "status": "catalog_from_cache_preserved",
+            "cards": len(cards),
+            "sources": list(entry.get("served_by") or []),
+            "preserved": True,
+            # The reason it produced nothing is the interesting part and it is
+            # kept: `rate_limited` preserved is a provider having a bad day,
+            # `source_unreachable` preserved is a bug that has not surfaced yet
+            # because the cache is hiding it.
+            "preserved_over": (combo_status.get(combo) or {}).get("status"),
+        })
+        combo_status[combo] = status
+        restored.append(combo)
+    return restored
+
+
 def persistable(path=TARGETS):
     """Is this targets file safe to commit as next run's catalog cache?
 
@@ -1317,15 +1470,25 @@ def main(argv=None):
     # THE CATALOG IS READ BEFORE IT IS REBUILT. Sets release monthly; run #11
     # spent its entire apitcg budget re-deriving a catalog that had not changed
     # and ended with nothing when the provider started refusing.
-    cache = {} if args.no_cache else load_cached_catalog(args.out)
+    # TWO DIFFERENT QUESTIONS, and `--no-cache` only answers one of them.
+    # `previous` is read unconditionally, because nothing justifies erasing a
+    # combination that worked yesterday; `cache` is what freshness decisions
+    # are allowed to consult, and that is what --no-cache suppresses.
+    previous = load_cached_catalog(args.out)
+    cache = {} if args.no_cache else previous
     catalog = builder.build(combos, cache=cache,
                             max_age_days=args.max_age_days, force=args.force)
+    restored = preserve_from_cache(catalog, builder.combo_status, previous)
+    for combo in restored:
+        print(f"  PRESERVED {combo:14} produced nothing this run; kept "
+              f"{len(catalog[combo]['cards'])} cards from the persisted "
+              "catalog rather than committing the zero")
     targets = to_targets(catalog, builder.gaps, builder.combo_status,
                          builder.endpoints_used,
                          {k: sorted(v)
                           for k, v in builder.unmapped_rarities.items()},
                          builder.unbandable_numbers, builder.stages,
-                         builder.not_a_card, cache=cache)
+                         builder.not_a_card, cache=previous)
 
     total = sum(targets["_counts"].values())
     for combo, count in sorted(targets["_counts"].items()):

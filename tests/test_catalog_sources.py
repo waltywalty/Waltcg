@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import datetime
 import email.utils
+import inspect
 import json
 import os
 import sys
@@ -2240,3 +2241,285 @@ class WhichSourceActuallyServedThisCombo(unittest.TestCase):
         self.assertIn("catalog_from_cache", text)
         self.assertIn("2.0d", text)
         self.assertIn("--force", text)
+
+
+class AnEmptyAgeMeantThreeDifferentThings(unittest.TestCase):
+    """Run #12 rendered every combination's age as `--`, and three separate
+    answers rendered identically: no cache entry, an entry with no date, and an
+    entry that was re-enumerated anyway. Only the last is a fault.
+
+    Same silent collapse the verdict taxonomy exists to prevent, one column
+    over."""
+
+    def test_the_six_states_are_distinguished(self):
+        from ingest.catalog import cache_state
+        self.assertEqual(cache_state({}, None, 7), "absent")
+        self.assertEqual(cache_state(None, None, 7), "absent")
+        self.assertEqual(cache_state({"as_of": "2026-08-01"}, 17.0, 7), "empty")
+        self.assertEqual(cache_state({"cards": [1]}, None, 7), "undated")
+        self.assertEqual(cache_state({"cards": [1]}, 17.0, 7), "stale")
+        self.assertEqual(cache_state({"cards": [1]}, 2.0, 7), "fresh")
+        self.assertEqual(cache_state({"cards": [1]}, 2.0, 7, force=True),
+                         "forced")
+
+    def test_exactly_at_the_threshold_is_stale(self):
+        """Seven days old against a seven-day threshold refreshes. The
+        boundary has to fall one way and the safe way is to re-ask."""
+        from ingest.catalog import cache_state
+        self.assertEqual(cache_state({"cards": [1]}, 7.0, 7), "stale")
+        self.assertEqual(cache_state({"cards": [1]}, 6.99, 7), "fresh")
+
+    def test_every_state_is_declared(self):
+        from ingest.catalog import CACHE_STATES, cache_state
+        for cached, age, force in (({}, None, False),
+                                   ({"cards": []}, None, False),
+                                   ({"cards": [1]}, None, False),
+                                   ({"cards": [1]}, 9.0, False),
+                                   ({"cards": [1]}, 1.0, False),
+                                   ({"cards": [1]}, 1.0, True)):
+            self.assertIn(cache_state(cached, age, 7, force), CACHE_STATES)
+
+    def test_a_re_enumerated_combo_records_why(self):
+        from ingest.catalog import CatalogBuilder
+
+        class Refusing:
+            def __getattr__(self, _name):
+                raise RateLimited("429")
+
+        builder = CatalogBuilder(tcgapi=Refusing(), apitcg=Refusing())
+        builder.live_open_sources = lambda: []
+        builder.build([("riftbound", "EN")], cache={},
+                      now=datetime.datetime(2026, 8, 18, 12, 0, 0))
+        self.assertEqual(builder.combo_status["riftbound:EN"]["cache_state"],
+                         "absent")
+
+    def test_the_summary_shows_the_state_not_a_dash(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"a:EN": 1, "b:EN": 1, "c:EN": 1},
+            "_combo_status": {
+                "a:EN": {"status": "ok", "cache_state": "absent"},
+                "b:EN": {"status": "ok", "cache_state": "undated",
+                         "age_days": None},
+                "c:EN": {"status": "ok", "cache_state": "stale",
+                         "age_days": 9.0}}})
+        row = {line.split("|")[1].strip(): line
+               for line in text.splitlines() if line.startswith("| `")}
+        self.assertIn("absent", row["`a:EN`"])
+        self.assertIn("undated", row["`b:EN`"])
+        self.assertIn("no date", row["`b:EN`"])
+        self.assertIn("stale", row["`c:EN`"])
+        self.assertIn("9.0d", row["`c:EN`"])
+
+    def test_the_one_fault_is_named_as_a_bug(self):
+        """`fresh` and enumerated anyway is the only state that should be
+        impossible, so it is spelt out rather than left to be inferred."""
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:EN": 2012},
+            "_combo_status": {"pkmn:EN": {
+                "status": "ok", "cache_state": "fresh", "age_days": 2.0,
+                "cache_max_age_days": 7}}})
+        self.assertIn("BUG", text)
+        self.assertIn("could have served", text)
+        self.assertIn("REFRESHED ANYWAY", text)
+
+    def test_force_is_not_reported_as_a_bug(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:EN": 2012},
+            "_combo_status": {"pkmn:EN": {
+                "status": "ok", "cache_state": "forced", "age_days": 2.0,
+                "cache_max_age_days": 7}}})
+        self.assertNotIn("BUG", text)
+        self.assertIn("forced", text)
+
+    def test_serving_from_a_fresh_cache_is_not_a_bug(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:EN": 2012},
+            "_combo_status": {"pkmn:EN": {
+                "status": "catalog_from_cache", "cache_state": "fresh",
+                "age_days": 2.0, "cache_max_age_days": 7}}})
+        self.assertNotIn("BUG", text)
+
+    def test_an_undated_entry_is_called_out(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:EN": 1},
+            "_combo_status": {"pkmn:EN": {"status": "ok",
+                                          "cache_state": "undated"}}})
+        self.assertIn("Cached with no date", text)
+
+
+class AThrottledProviderMustNotCostTheCatalog(unittest.TestCase):
+    """Run #12 failed on a throttled apitcg and still committed the 2,673 cards
+    the other three combinations produced -- the persist step is not gated on
+    the run's exit code, and that is right.
+
+    But the file it commits is written from THIS run's catalog, and a
+    combination that failed contributes zero cards to it. Committing that zero
+    erases yesterday's good answer, and a provider having a bad morning costs
+    the catalog permanently."""
+
+    CARD = {"card_uid": "optcg:op01:OP01-001:base:EN", "game": "optcg",
+            "language": "EN", "name": "Zoro", "number": "OP01-001",
+            "set_code": "op01", "external_id": ""}
+
+    def _previous(self):
+        return {"optcg:EN": {"cards": [self.CARD],
+                             "as_of": "2026-08-18T06:00:00Z",
+                             "served_by": ["apitcg"], "primary": "apitcg"}}
+
+    def test_an_empty_combo_keeps_yesterdays_cards(self):
+        from ingest.catalog import preserve_from_cache
+        catalog = {"optcg:EN": {"sources": [], "cards": []}}
+        status = {"optcg:EN": {"status": "rate_limited", "cards": 0}}
+        restored = preserve_from_cache(catalog, status, self._previous())
+        self.assertEqual(restored, ["optcg:EN"])
+        self.assertEqual(len(catalog["optcg:EN"]["cards"]), 1)
+
+    def test_it_says_what_it_preserved_over(self):
+        """`rate_limited` preserved is a provider having a bad day.
+        `source_unreachable` preserved is a bug the cache is now hiding, and
+        the two must stay tellable apart."""
+        from ingest.catalog import preserve_from_cache
+        catalog = {"optcg:EN": {"sources": [], "cards": []}}
+        status = {"optcg:EN": {"status": "rate_limited", "cards": 0}}
+        preserve_from_cache(catalog, status, self._previous())
+        self.assertEqual(status["optcg:EN"]["status"],
+                         "catalog_from_cache_preserved")
+        self.assertEqual(status["optcg:EN"]["preserved_over"], "rate_limited")
+        self.assertTrue(status["optcg:EN"]["preserved"])
+
+    def test_a_combo_that_produced_cards_is_untouched(self):
+        from ingest.catalog import preserve_from_cache
+        fresh = dict(self.CARD, card_uid="optcg:op02:OP02-001:base:EN")
+        catalog = {"optcg:EN": {"sources": ["apitcg"], "cards": [fresh]}}
+        status = {"optcg:EN": {"status": "ok", "cards": 1}}
+        self.assertEqual(preserve_from_cache(catalog, status,
+                                             self._previous()), [])
+        self.assertEqual(catalog["optcg:EN"]["cards"], [fresh])
+        self.assertEqual(status["optcg:EN"]["status"], "ok")
+
+    def test_a_combo_that_genuinely_shrank_is_allowed_to_shrink(self):
+        """Zero is the failure signature, and ONLY zero. A set delisted or a
+        rarity reclassified must land, or the catalog can never get smaller."""
+        from ingest.catalog import preserve_from_cache
+        previous = {"optcg:EN": {"cards": [self.CARD, dict(self.CARD,
+                                 card_uid="optcg:op01:OP01-002:base:EN")],
+                                 "as_of": "2026-08-18T06:00:00Z",
+                                 "served_by": ["apitcg"]}}
+        catalog = {"optcg:EN": {"sources": ["apitcg"], "cards": [self.CARD]}}
+        status = {"optcg:EN": {"status": "ok", "cards": 1}}
+        self.assertEqual(preserve_from_cache(catalog, status, previous), [])
+        self.assertEqual(len(catalog["optcg:EN"]["cards"]), 1)
+
+    def test_nothing_to_preserve_when_there_was_nothing_before(self):
+        from ingest.catalog import preserve_from_cache
+        catalog = {"optcg:EN": {"sources": [], "cards": []}}
+        status = {"optcg:EN": {"status": "rate_limited", "cards": 0}}
+        self.assertEqual(preserve_from_cache(catalog, status, {}), [])
+        self.assertEqual(catalog["optcg:EN"]["cards"], [])
+
+    def test_a_preserved_combo_keeps_its_original_stamp(self):
+        from ingest.catalog import preserve_from_cache, to_targets
+        previous = self._previous()
+        catalog = {"optcg:EN": {"sources": [], "cards": []}}
+        status = {"optcg:EN": {"status": "rate_limited", "cards": 0,
+                               "as_of": "2026-08-19T06:00:00Z"}}
+        preserve_from_cache(catalog, status, previous)
+        targets = to_targets(catalog, [], status, cache=previous)
+        self.assertEqual(targets["_catalog_cache"]["optcg:EN"]["as_of"],
+                         "2026-08-18T06:00:00Z",
+                         "a preserved combo was restamped with today")
+
+    def test_the_preserved_cards_reach_the_price_routing(self):
+        """Preserving them in the catalog and not routing them would keep the
+        count up and price nothing -- the run #5 failure in miniature."""
+        from ingest.catalog import preserve_from_cache, to_targets
+        catalog = {"optcg:EN": {"sources": [], "cards": []}}
+        status = {"optcg:EN": {"status": "rate_limited", "cards": 0}}
+        preserve_from_cache(catalog, status, self._previous())
+        targets = to_targets(catalog, [], status, cache=self._previous())
+        self.assertEqual(targets["_counts"]["optcg:EN"], 1)
+        self.assertEqual(len(targets["apitcg"]["cards"]), 1)
+
+    def test_the_summary_says_the_zero_was_not_committed(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"optcg:EN": 737},
+            "_combo_status": {"optcg:EN": {
+                "status": "catalog_from_cache_preserved", "cards": 737,
+                "sources": ["apitcg"], "primary": "apitcg", "preserved": True,
+                "preserved_over": "rate_limited", "cache_state": "stale",
+                "age_days": 1.0, "cache_max_age_days": 7}}})
+        self.assertIn("PRODUCED NOTHING THIS RUN", text)
+        self.assertIn("rate_limited", text)
+        self.assertIn("committing the zero", text)
+
+
+class PreservationAndFreshnessAreDifferentQuestions(unittest.TestCase):
+    """`--no-cache` says "do not let the cache decide whether to call a
+    provider". It does not say "throw away what worked yesterday", and reading
+    it that way would make one flag destroy the catalog."""
+
+    def test_no_cache_still_preserves(self):
+        import ingest.catalog as catalog_module
+        card = {"card_uid": "optcg:op01:OP01-001:base:EN", "game": "optcg",
+                "language": "EN", "name": "Zoro", "number": "OP01-001",
+                "set_code": "op01", "external_id": ""}
+        previous = {"optcg:EN": {"cards": [card],
+                                 "as_of": "2026-08-18T06:00:00Z",
+                                 "served_by": ["apitcg"], "primary": "apitcg"}}
+        source = inspect.getsource(catalog_module.main)
+        # The two lookups must come from DIFFERENT variables. One variable
+        # feeding both is the bug: --no-cache would silently erase.
+        self.assertIn("previous = load_cached_catalog", source)
+        self.assertIn("cache = {} if args.no_cache else previous", source)
+        self.assertIn("preserve_from_cache(catalog, builder.combo_status, "
+                      "previous)", source)
+        self.assertIn("cache=previous)", source,
+                      "to_targets stamps from the freshness cache, so "
+                      "--no-cache would write preserved combos undated")
+        # And the mechanism itself does not care which flag was passed.
+        cat = {"optcg:EN": {"sources": [], "cards": []}}
+        status = {"optcg:EN": {"status": "rate_limited"}}
+        self.assertEqual(
+            catalog_module.preserve_from_cache(cat, status, previous),
+            ["optcg:EN"])
+
+
+class ThePersistStepIsNotGatedOnTheRunSucceeding(unittest.TestCase):
+    """A partial failure must still bank the combinations that worked. Run #12
+    proved it does -- apitcg was throttled, the job exited 1, and 2,673 cards
+    from three combinations were committed anyway."""
+
+    def _steps(self):
+        import yaml
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), ".github", "workflows", "ingest.yml")
+        with open(path, encoding="utf-8") as handle:
+            return yaml.safe_load(handle)["jobs"]["snapshot"]["steps"]
+
+    def _persist(self):
+        return next(s for s in self._steps()
+                    if s.get("name", "").startswith("Persist the catalog"))
+
+    def test_it_runs_always(self):
+        self.assertIn("always()", self._persist()["if"])
+
+    def test_it_does_not_depend_on_the_ingest_step(self):
+        """The one condition that would undo all of it. A price source failing
+        has nothing to do with whether the catalog is worth keeping."""
+        condition = self._persist()["if"]
+        self.assertNotIn("steps.ingest", condition)
+        self.assertNotIn("success()", condition)
+
+    def test_the_check_step_also_runs_always(self):
+        check = next(s for s in self._steps()
+                     if s.get("name", "").startswith("Is the catalog safe"))
+        self.assertIn("always()", check["if"])
+        self.assertTrue(check.get("continue-on-error"),
+                        "a failing check would fail the job instead of "
+                        "declining to persist")
