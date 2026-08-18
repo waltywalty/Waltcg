@@ -1765,3 +1765,87 @@ prices.** Sub-one-year market, volatile, and the Alt-Art figures are mostly
 asking prices rather than confirmed sales. The bands say which cards are worth
 spending price quota on. They are not evidence about magnitudes and must never
 be cited as such.
+
+---
+
+## ADR-0029 — Run #9: 5,582 cards, and three of them were routing
+
+**2026-08-17.** First real target list. Four changes.
+
+### The four named strings
+
+`Rainbow Rare` and `Shiny Holo Rare` chase — the second is Shiny Vault / Gold
+Star territory and reads like an ordinary holo, which is exactly the trap.
+`Prism Rare` premium. `Unconfirmed` maps to **UNKNOWN deliberately**: it is a
+placeholder the source writes when it does not know, so it *is* classified —
+as "the source is not telling us" — and stops being reported as unmapped every
+run while staying tracked.
+
+One Piece `PR` is Parallel Rare: premium, and **also `variant=parallel`**,
+since it is a foil treatment of a card that also exists plain — the same thing
+the Gundam `+` and Union Arena `★` markers mean.
+
+That needed a per-game variant rule, because **`PR` is Dragon Ball Fusion's
+PROMO**. Two letters, two games, two meanings, which is the same argument that
+put the band tables per-game in the first place. Vocabulary re-run afterwards:
+nothing else moved.
+
+### tcgapi demoted to price-only
+
+apitcg made 250 calls and supplied every combination it serves; tcgapi made 1
+and hit 0/100. It contributed nothing to the catalog and was the only thing
+failing the run — and the 100 calls it burned there were 100 it did not spend
+on prices, which is the one job it is still good at.
+
+`role: price` in `sources.yml`, and the catalog builder never touches it. The
+test is blunt about it: a tcgapi that raises on *every* attribute access must
+not affect a catalog build.
+
+### pkmn:JP was a routing bug with three causes
+
+You asked whether tcgdex was unregistered for JP or apitcg's slug was
+English-only. **Both, plus a third:**
+
+1. `TcgdexAdapter.serves` listed only the two Chinese printings — while `LANG`
+   mapped `JP → ja` and the rarities report showed 17 distinct Japanese
+   rarities including Character Rare. The data was reachable; the registration
+   was not there.
+2. `APITCG_LANGUAGES["pkmn"] = ("EN",)`.
+3. The fallback that would have caught it was **gated to CN-S and CN-T**.
+
+Three things all pointing the same way, which is why the output looked
+consistent. tcgdex now declares all four Pokémon printings, and the fallback
+fires for any combination the commercial sources leave empty.
+
+Splitting the fallback's failure reasons fell out of it. `{src}_no_cards`
+covered four different outcomes and the status classifier read all of them as
+unreachable, so "we asked and it had nothing" was reported as a broken
+endpoint. Now `_unreachable` / `_empty` / `_does_not_serve` /
+`_does_not_enumerate`, and only the first is unreachability.
+
+### The English fallback was never wired up
+
+CN-S carries 5 distinct rarities and CN-T 6, against English's 40, and between
+them they produced one tracked card. Thin, not absent — so borrowing English's
+rarity by id is how a Chinese card gets classified at all, not an occasional
+patch. Promoted, and registered as `chinese_rarity_from_english` with a UI
+chip.
+
+**And it had never run.** `english_index()` existed and nothing called it, so
+`resolve_rarity` was always handed `None` and every Chinese card without its
+own rarity stayed unknown. Given how thin those datasets are, that was most of
+them.
+
+Writing the test for it surfaced a second bug: GraphQL returns `set` as an
+object with an `id` while REST returns `set_id` as a string, and the code
+stringified the object — producing `{'id': '151C'}` as a set code, which
+`card_uid` rejected. **Every GraphQL row was being silently dropped**, so that
+whole strategy looked like it returned nothing.
+
+The assumption's calibration note records what it rests on: that tcgdex ids are
+stable across languages, and that rarity is a plain enum rather than a
+localised type so the English value is the *same* value rather than a
+translation. The second is schema-derived and still unconfirmed against an
+observed Chinese response body — re-check the `--rarities` diff each run, and
+if the Chinese lists start growing toward English's 40, the borrowing should
+stop and the printed value should win.

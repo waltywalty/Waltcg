@@ -508,3 +508,54 @@ class TheRiftboundSetTableIsRecorded(unittest.TestCase):
         from resolve.identity import (GAME_LANGUAGES, RIFTBOUND_CHINESE_LED)
         self.assertIn("OGN", RIFTBOUND_CHINESE_LED)
         self.assertEqual(GAME_LANGUAGES["riftbound"], ("EN",))
+
+
+class TheFourNamedStringsAreClassified(unittest.TestCase):
+    """Run #9's summary named four unmapped Pokemon strings and one One Piece
+    one. Three are real tiers, one is a placeholder, and telling them apart is
+    the difference between tracking a Gold Star and tracking nothing."""
+
+    def test_rainbow_and_shiny_holo_are_chase(self):
+        """`Shiny Holo Rare` is Shiny Vault / Gold Star territory. It reads
+        like an ordinary holo, which is exactly the trap."""
+        self.assertEqual(band_of("Rainbow Rare", game="pkmn"), "chase")
+        self.assertEqual(band_of("Shiny Holo Rare", game="pkmn"), "chase")
+
+    def test_prism_rare_is_premium(self):
+        self.assertEqual(band_of("Prism Rare", game="pkmn"), "premium")
+
+    def test_unconfirmed_is_a_placeholder_not_a_rarity(self):
+        """It classifies as UNKNOWN deliberately -- which is TRACKED, and no
+        longer reported as unmapped every run, because it IS classified: as
+        'the source is not telling us'."""
+        from ingest.rarity import unmapped
+        self.assertEqual(band_of("Unconfirmed", game="pkmn"), UNKNOWN)
+        self.assertIn(UNKNOWN, TRACKED_BANDS)
+        self.assertEqual(unmapped(["Unconfirmed"], game="pkmn"), [])
+
+    def test_one_piece_pr_is_a_premium_parallel(self):
+        self.assertEqual(band_of("PR", game="optcg"), "premium")
+
+    def test_pr_also_sets_the_parallel_variant(self):
+        """A foil treatment of a card that also exists plain -- the same thing
+        the Gundam `+` and Union Arena `★` markers mean."""
+        from resolve.identity import variant_from_rarity
+        self.assertEqual(variant_from_rarity("PR", None, "EN", "optcg"),
+                         "parallel")
+
+    def test_pr_means_something_else_in_dragon_ball(self):
+        """Promo there, Parallel Rare in One Piece. Two letters, two games,
+        two meanings -- the whole reason these tables are per-game."""
+        from resolve.identity import variant_from_rarity
+        self.assertNotEqual(
+            variant_from_rarity("PR", None, "EN", "dragon-ball-fusion"),
+            "parallel")
+
+    def test_nothing_else_moved(self):
+        """The vocabulary was re-run after the change. These are the strings
+        most likely to have been caught by a careless rule."""
+        self.assertEqual(band_of("Rare", game="pkmn"), "rare")
+        self.assertEqual(band_of("Rare Holo", game="pkmn"), "rare")
+        self.assertEqual(band_of("R", game="optcg"), "rare")
+        self.assertEqual(band_of("P", game="optcg"), "premium")
+        self.assertEqual(band_of("PR", game="dragon-ball-fusion"), "premium")

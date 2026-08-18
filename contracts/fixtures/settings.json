@@ -4,7 +4,7 @@
   "generated_at": "2026-08-13T09:00:00Z",
   "schema_version": 1,
   "warnings": [
-    "4 assumptions feed no figure on any screen: empirical_bayes_min_card_pop, relief_scenario, riftbound_band_thresholds, riftbound_core_champion_alt_art"
+    "5 assumptions feed no figure on any screen: empirical_bayes_min_card_pop, relief_scenario, riftbound_band_thresholds, riftbound_core_champion_alt_art, chinese_rarity_from_english"
   ],
   "assumptions": [
     {
@@ -468,6 +468,20 @@
       "source": null,
       "last_reviewed": "2026-08-17",
       "calibration_plan": "Populate RIFTBOUND_CORE_CHAMPIONS in ingest/rarity.py from a verified champion list. Until then this UNDER-tracks: a core champion's alt-art at $40-90 is dropped. That is the deliberate direction of the error -- over-tracking every Alt-Art would spend quota on the whole tier -- but it is an error, and it is here so it is visible rather than assumed away.",
+      "ui_chip_required": true,
+      "editable": true,
+      "used_by": [],
+      "used_by_count": 0
+    },
+    {
+      "id": "chinese_rarity_from_english",
+      "description": "Rarity for a Simplified or Traditional Chinese Pokemon card is taken from the ENGLISH card of the same tcgdex id when the Chinese record omits it. PROMOTED FROM BACKSTOP TO PRIMARY ROUTE on 2026-08-17: run #9 measured CN-S at 5 distinct rarities and CN-T at 6 against English's 40, producing one tracked card between them. The Chinese datasets are THIN, not absent, so this is how a Chinese card gets classified at all rather than an occasional patch. Every borrowed value is stamped `rarity_from: en_fallback` so a borrowed classification stays distinguishable from a printed one.",
+      "current_value": "en_fallback_primary",
+      "unit": "enum: self | en_fallback | absent",
+      "confidence": "low",
+      "source": "tcgdex /v2/{lang}/rarities, measured 2026-08-17",
+      "last_reviewed": "2026-08-17",
+      "calibration_plan": "Rests on two claims. First, tcgdex ids are stable across languages -- asserted by the id join itself, which produces nothing if it is false. Second, rarity is a plain string enum rather than a localised type, so the English value is the SAME value rather than a translation of it; that is derived from the schema and has not been confirmed against an observed Chinese response body. Re-check the `--rarities` diff each run: if the Chinese lists start growing toward English's 40, the borrowing should stop and the printed value should win.",
       "ui_chip_required": true,
       "editable": true,
       "used_by": [],

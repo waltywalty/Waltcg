@@ -157,6 +157,12 @@ GAME_BANDS = {
     # One Piece, via apitcg's `attributes.Rarity`.
     "optcg": {
         "C": "base", "UC": "base", "R": "rare",
+        # Parallel Rare -- a foil treatment of a card that also exists in a
+        # plain printing, so it is BOTH a band and a variant. Note that
+        # `PR` means Promo in Dragon Ball Fusion: the same two letters, two
+        # games, two meanings, which is the whole reason these tables are
+        # per-game rather than shared.
+        "PR": "premium",
         "L": "rare",            # Leader; the ordinary printing
         "SR": "premium",
         "P": "premium",         # Promo
@@ -183,6 +189,17 @@ GAME_BANDS = {
     # are served, so both are mapped; normalisation makes the overlapping ones
     # (`Illustration Rare` / `Illustration rare`) one entry.
     "pkmn": {
+        # Named by run #9's summary as unmapped. All real tiers except the last.
+        "Rainbow Rare": "chase",
+        # Shiny Vault / Gold Star territory. High value, and it reads like an
+        # ordinary holo, which is precisely the trap this table exists for.
+        "Shiny Holo Rare": "chase",
+        "Prism Rare": "premium",
+        # NOT a rarity. A placeholder the source writes when it does not know,
+        # so it maps to UNKNOWN deliberately -- tracked, and no longer reported
+        # as "nobody has classified this", because somebody has: it classifies
+        # as "the source is not telling us".
+        "Unconfirmed": UNKNOWN,
         "Rare Ultra": "chase", "Rare Secret": "chase",
         "Rare Rainbow": "chase", "Rare Shining": "chase",
         "Rare ACE": "chase",

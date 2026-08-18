@@ -291,8 +291,17 @@ _NAME_SAFE = frozenset({"treasure_rare", "manga_rare", "signature",
 # the only information that survives the normalisation.
 _SIR_BY_LANGUAGE = {"EN": "sir", "JP": "sar", "CN-S": "sar", "CN-T": "sar"}
 
+# Rarity strings whose variant meaning is GAME-SPECIFIC, checked before the
+# shared rules. `PR` is One Piece's Parallel Rare -- a foil treatment of a card
+# that also exists plain, so it is a parallel in exactly the sense the Gundam
+# `+` and Union Arena `★` markers are. It is also Dragon Ball Fusion's PROMO.
+# Two letters, two games, two meanings; a shared rule would have to pick.
+_VARIANT_BY_GAME = {
+    "optcg": {"pr": "parallel"},
+}
 
-def variant_from_rarity(rarity, name=None, language=None) -> str:
+
+def variant_from_rarity(rarity, name=None, language=None, game=None) -> str:
     """Rarity (and, failing that, name) -> a variant token. `base` if neither says.
 
     A guess, and treated as one downstream: the resolver scores a variant
@@ -309,6 +318,11 @@ def variant_from_rarity(rarity, name=None, language=None) -> str:
     # did not pick it up the parallel and its base card would become one card.
     if any(marker in str(rarity or "") for marker in ("+", "\u2605", "\u2606")):
         return "parallel"
+
+    game_rule = _VARIANT_BY_GAME.get(game, {}).get(
+        str(rarity or "").strip().lower())
+    if game_rule:
+        return game_rule
 
     def settle(token):
         if token == "sir" and language:

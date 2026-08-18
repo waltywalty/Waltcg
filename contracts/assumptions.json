@@ -260,5 +260,18 @@
     "ui_chip_required": true,
     "editable": true,
     "confidence_is_immutable": true
+  },
+  "chinese_rarity_from_english": {
+    "id": "chinese_rarity_from_english",
+    "description": "Rarity for a Simplified or Traditional Chinese Pokemon card is taken from the ENGLISH card of the same tcgdex id when the Chinese record omits it. PROMOTED FROM BACKSTOP TO PRIMARY ROUTE on 2026-08-17: run #9 measured CN-S at 5 distinct rarities and CN-T at 6 against English's 40, producing one tracked card between them. The Chinese datasets are THIN, not absent, so this is how a Chinese card gets classified at all rather than an occasional patch. Every borrowed value is stamped `rarity_from: en_fallback` so a borrowed classification stays distinguishable from a printed one.",
+    "current_value": "en_fallback_primary",
+    "unit": "enum: self | en_fallback | absent",
+    "confidence": "low",
+    "source": "tcgdex /v2/{lang}/rarities, measured 2026-08-17",
+    "last_reviewed": "2026-08-17",
+    "calibration_plan": "Rests on two claims. First, tcgdex ids are stable across languages -- asserted by the id join itself, which produces nothing if it is false. Second, rarity is a plain string enum rather than a localised type, so the English value is the SAME value rather than a translation of it; that is derived from the schema and has not been confirmed against an observed Chinese response body. Re-check the `--rarities` diff each run: if the Chinese lists start growing toward English's 40, the borrowing should stop and the printed value should win.",
+    "ui_chip_required": true,
+    "editable": true,
+    "confidence_is_immutable": false
   }
 }

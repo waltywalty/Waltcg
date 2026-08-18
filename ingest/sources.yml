@@ -15,9 +15,20 @@
 # you turn one on; you do not have to edit this file first.
 
 sources:
+  # DEMOTED to price-only on 2026-08-17. Run #9 settled it: apitcg made 250
+  # calls and supplied every combination it serves; tcgapi made 1 and hit
+  # 0/100. It contributed nothing to the catalog and was the only thing failing
+  # the run, and the 100 calls it spent there were 100 it did not spend on
+  # prices, which is the one job it is still good at.
   tcgapi:
     expected: true
-    note: "Catalog and raw prices. Free tier, 100/day."
+    role: price
+    demoted_on: "2026-08-17"
+    demoted_note: >-
+      Catalog duty moved to apitcg. Still in the price rotation, where its 100
+      free calls a day buy raw market prices nothing else supplies. A quota
+      exhaustion here is now a price gap rather than a catalog failure.
+    note: "Raw prices. Free tier, 100/day."
 
   pokemonpricetracker:
     expected: true

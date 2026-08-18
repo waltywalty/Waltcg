@@ -123,10 +123,27 @@ class TcgdexAdapter(CatalogSource):
     name = "tcgdex"
     key_env = None
     host = "api.tcgdex.net"
-    serves = (("pkmn", "CN-T"), ("pkmn", "CN-S"))
+    # ALL FOUR Pokemon printings, not just the Chinese ones. Declaring only
+    # CN-S and CN-T was a routing bug that cost pkmn:JP its entire catalog:
+    # `LANG` mapped JP to `ja` and the rarities report showed 17 distinct
+    # Japanese rarities, so the data was there -- but `serves` did not say so,
+    # apitcg's pokemon slug is English-only, and the fallback only fired for
+    # Chinese. The combo reported `no_catalog_source`, which was false.
+    serves = (("pkmn", "EN"), ("pkmn", "JP"),
+              ("pkmn", "CN-T"), ("pkmn", "CN-S"))
     verified = True
     # Which of the three strategies actually ran. Reported, not assumed.
     strategy = None
+
+    # Printings whose rarity comes from the ENGLISH card of the same id.
+    #
+    # PROMOTED FROM BACKSTOP TO PRIMARY ROUTE, 2026-08-17. Run #9 measured it:
+    # CN-S carries 5 distinct rarities and CN-T 6, against English's 40, and
+    # between them they produced ONE tracked card. The Chinese datasets are
+    # thin rather than absent, so borrowing English's rarity is not the rare
+    # exception it was written as -- it is how a Chinese card gets classified
+    # at all. Registered as `chinese_rarity_from_english`.
+    NEEDS_ENGLISH_RARITY = frozenset({"CN-S", "CN-T"})
 
     # The user gave `api.tcgdex.net/status`; the versioned form is the shape
     # every other endpoint takes. Both are tried rather than guessed between.
@@ -249,6 +266,16 @@ class TcgdexAdapter(CatalogSource):
         return payload if isinstance(payload, list) else (
             find(payload, "data", "sets") or [])
 
+    def english_index_cached(self) -> dict:
+        """Built once per adapter, reused for both Chinese printings.
+
+        Two Chinese combos borrowing from English would otherwise build the
+        same index twice, and it is the most expensive call in the run.
+        """
+        if getattr(self, "_english", None) is None:
+            self._english = self.english_index()
+        return self._english
+
     def enumerate_combo(self, game, language, english_by_id=None) -> list[dict]:
         """Every card in the combination, WITH its rarity.
 
@@ -274,6 +301,13 @@ class TcgdexAdapter(CatalogSource):
                 f"{self.name} is a Pokemon-only database; it cannot serve "
                 f"{game}. One Piece CN-S has no catalog source.")
 
+        # THE FALLBACK WAS NEVER WIRED UP. `english_index()` existed and
+        # nothing called it, so `resolve_rarity` was always handed None and
+        # every Chinese card with no rarity of its own stayed unknown. Given
+        # how thin the Chinese datasets turned out to be, that was most of them.
+        if english_by_id is None and language in self.NEEDS_ENGLISH_RARITY:
+            english_by_id = self.english_index_cached()
+
         if self.filter_is_honoured(language):
             hits = self._by_rarity(language)
             self.strategy = "server_side_filter"
@@ -284,9 +318,11 @@ class TcgdexAdapter(CatalogSource):
                 hits = self._per_card(language)
 
         rows = []
+        self.rarity_origins = {}
         for hit in hits:
             rarity, origin = resolve_rarity(hit, english_by_id)
-            row = _catalog_row(game, language, str(find(hit, "set_id", "set") or ""),
+            self.rarity_origins[origin] = self.rarity_origins.get(origin, 0) + 1
+            row = _catalog_row(game, language, _set_code_of(hit),
                                {**hit, "rarity": rarity}, self.name)
             if row:
                 # Where the classification came from, carried into the row. A
@@ -494,6 +530,22 @@ class Poke52Adapter(CatalogSource):
         return self.names_for(cards)
 
 
+def _set_code_of(hit) -> str:
+    """The set code, whatever shape the strategy returned it in.
+
+    REST gives `set_id` as a string; GraphQL gives `set` as an object with an
+    `id`. Stringifying the object produced `{'id': '151C'}` as a set code,
+    which `card_uid` rejected -- so every GraphQL row was silently dropped and
+    the strategy looked like it returned nothing.
+    """
+    found = find(hit, "set_id")
+    if found in (None, ""):
+        found = find(hit, "set")
+    if isinstance(found, dict):
+        found = found.get("id") or found.get("code") or ""
+    return str(found or "")
+
+
 def _catalog_row(game, language, set_code, hit, source) -> Optional[dict]:
     """Provider card object -> the identity columns, or None if it lacks them.
 
@@ -515,7 +567,7 @@ def _catalog_row(game, language, set_code, hit, source) -> Optional[dict]:
     # Number first: it is the reliable signal. See
     # resolve.identity.variant_from_number.
     variant = (variant_from_number(number, None, game)
-               or variant_from_rarity(rarity, name, language))
+               or variant_from_rarity(rarity, name, language, game))
     try:
         uid = _uid(game, set_code, number, variant, language)
     except (ValueError, KeyError):

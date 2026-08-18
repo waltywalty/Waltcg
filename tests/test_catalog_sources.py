@@ -297,7 +297,7 @@ class TheFallbackStopsAtTheFirstSourceThatDelivers(unittest.TestCase):
         builder = CatalogBuilder(tcgapi=object(), apitcg=object(),
                                  cn_sources={"tcgdex": first,
                                              "wiki52poke": second})
-        rows, tried = builder.chinese_fallback("pkmn", "CN-S")
+        rows, tried = builder.open_catalog_fallback("pkmn", "CN-S")
         self.assertEqual(len(rows), 1)
         self.assertEqual(tried["used"], ["tcgdex"])
         self.assertEqual(second.calls, 0)
@@ -308,18 +308,23 @@ class TheFallbackStopsAtTheFirstSourceThatDelivers(unittest.TestCase):
         builder = CatalogBuilder(tcgapi=object(), apitcg=object(),
                                  cn_sources={"tcgdex": first,
                                              "wiki52poke": second})
-        rows, tried = builder.chinese_fallback("pkmn", "CN-S")
+        rows, tried = builder.open_catalog_fallback("pkmn", "CN-S")
         self.assertEqual(tried["used"], ["wiki52poke"])
-        self.assertIn("tcgdex", [name for name, _why in tried["failed"]])
+        # The reason NAMES which of the four outcomes it was: unreachable,
+        # empty, does-not-serve or does-not-enumerate. They used to share one
+        # `_no_cards` label, which classified "asked and it had nothing" as a
+        # broken endpoint.
+        self.assertIn("tcgdex_unreachable",
+                      [name for name, _why in tried["failed"]])
         self.assertIn("404 everywhere",
-                      dict(tried["failed"])["tcgdex"])
+                      dict(tried["failed"])["tcgdex_unreachable"])
 
     def test_a_superseded_source_is_never_asked(self):
         """cryst probed a wrong URL every run and filed the answer as a gap
         that reads like missing data. tcgdex covers everything it was for, so
         sources.yml supersedes it and the rotation must honour that."""
         builder = CatalogBuilder(tcgapi=object(), apitcg=object())
-        live = builder.live_cn_sources()
+        live = builder.live_open_sources()
         self.assertNotIn("cryst", live)
         self.assertEqual(live[0], "tcgdex")
 
@@ -599,66 +604,49 @@ class TheCatalogStepReportsWhateverHappens(unittest.TestCase):
 
 
 class ZeroForACombinationHasFourMeanings(unittest.TestCase):
-    """Request #4: "catalog ran and found nothing for pkmn:EN" is a different
-    fact from "catalog never ran"."""
+    """Request #4 from run #7: "catalog ran and found nothing for pkmn:EN" is a
+    different fact from "catalog never ran"."""
 
     class Fake:
         can_enumerate = True
         cannot_enumerate_because = ""
 
-        def __init__(self, serves=()):
-            self.serves = set(serves)
+        def __init__(self, serves=(), boom=None):
+            self.serves, self._boom = set(serves), boom
 
-        def enumerate_combo(self, game, language):
+        def enumerate_combo(self, game, language, english_by_id=None):
+            if self._boom:
+                raise AdapterGaveUp(self._boom)
             return []
 
-    def _builder(self, serves=()):
-        from ingest.adapters import TcgApiAdapter
+    def _builder(self, serves=(), boom=None):
+        from ingest.adapters import ApiTcgAdapter
         from ingest.catalog import CatalogBuilder
-        return CatalogBuilder(tcgapi=build(TcgApiAdapter, {}), apitcg=object(),
-                              cn_sources={"tcgdex": self.Fake(serves),
-                                          "wiki52poke": self.Fake()})
+        builder = CatalogBuilder(tcgapi=object(),
+                                 apitcg=build(ApiTcgAdapter, {}),
+                                 cn_sources={"tcgdex": self.Fake(serves, boom),
+                                             "wiki52poke": self.Fake()})
+        builder.apitcg_cards = lambda g, l: []
+        return builder
 
     def test_nothing_serves_it_is_no_catalog_source(self):
         builder = self._builder()
-        builder.sets_for = lambda g, l: []
-        builder.apitcg_cards = lambda g, l: []
         builder.build([("optcg", "CN-S")])
         self.assertEqual(builder.combo_status["optcg:CN-S"]["status"],
                          "no_catalog_source")
 
     def test_asked_and_answered_with_nothing_trackable_is_catalog_ran_empty(self):
-        builder = self._builder()
-        builder.sets_for = lambda g, l: (builder.attempt((g, l), "tcgapi"), [])[1]
-        builder.apitcg_cards = lambda g, l: []
-        builder.build([("pkmn", "EN")])
-        self.assertEqual(builder.combo_status["pkmn:EN"]["status"],
+        builder = self._builder(serves={("pkmn", "JP")})
+        builder.build([("pkmn", "JP")])
+        self.assertEqual(builder.combo_status["pkmn:JP"]["status"],
                          "catalog_ran_empty")
 
     def test_asked_and_not_answered_is_source_unreachable(self):
-        builder = self._builder()
-
-        def boom(game, language):
-            builder.attempt((game, language), "tcgapi")
-            raise AdapterGaveUp("no tcgapi set endpoint answered")
-
-        builder.sets_for = boom
-        builder.apitcg_cards = lambda g, l: []
-        builder.build([("pkmn", "EN")])
-        self.assertEqual(builder.combo_status["pkmn:EN"]["status"],
+        builder = self._builder(serves={("pkmn", "JP")},
+                                boom="no endpoint answered")
+        builder.build([("pkmn", "JP")])
+        self.assertEqual(builder.combo_status["pkmn:JP"]["status"],
                          "source_unreachable")
-
-    def test_the_tcgapi_game_gap_is_not_the_combo_verdict(self):
-        """Naming tcgapi's missing game entry `no_catalog_source` made
-        pkmn:CN-S report 'nothing serves this' while tcgdex was serving it 877
-        cards. It is a fact about tcgapi, not about the combination."""
-        builder = self._builder(serves={("pkmn", "CN-T")})
-        builder.apitcg_cards = lambda g, l: []
-        builder.build([("pkmn", "CN-T")])
-        reasons = {g["reason"] for g in builder.gaps}
-        self.assertIn("tcgapi_no_game_entry", reasons)
-        self.assertNotEqual(builder.combo_status["pkmn:CN-T"]["status"],
-                            "no_catalog_source")
 
     def test_the_runner_distinguishes_never_ran_from_ran_and_found_nothing(self):
         from ingest.runner import describe_target_absence
@@ -1052,3 +1040,160 @@ class TheGameReachesTheBandLookup(unittest.TestCase):
         from ingest.catalog import render_catalog_summary
         text = render_catalog_summary({"_counts": {"riftbound:EN": 3}})
         self.assertNotIn("no table classifies", text)
+
+
+class TcgapiIsAPriceSourceNotACatalogSource(unittest.TestCase):
+    """Run #9 settled it: apitcg made 250 calls and supplied every combination
+    it serves; tcgapi made 1 and hit 0/100. A source contributing nothing to
+    the catalog should not be able to fail the run on catalog quota, and the
+    100 calls it burned there were 100 it did not spend on prices."""
+
+    def test_sources_yml_records_the_demotion(self):
+        from ingest.runner import load_expectations
+        entry = load_expectations()["tcgapi"]
+        self.assertEqual(entry["role"], "price")
+        self.assertTrue(entry.get("demoted_on"))
+        self.assertTrue(entry.get("demoted_note"))
+
+    def test_the_builder_never_calls_it(self):
+        """The decisive assertion: a tcgapi that raises on every request must
+        not affect a catalog build at all."""
+        from ingest.adapters import ApiTcgAdapter
+        from ingest.catalog import CatalogBuilder
+
+        class Exploding:
+            def __getattr__(self, _name):
+                raise AssertionError("the catalog called tcgapi")
+
+        builder = CatalogBuilder(tcgapi=Exploding(),
+                                 apitcg=build(ApiTcgAdapter, {}))
+        builder.build([("optcg", "EN")])
+        self.assertIn("optcg:EN", builder.combo_status)
+
+    def test_it_is_still_in_the_price_rotation(self):
+        """Demoted, not removed. Its 100 free calls a day buy raw market
+        prices nothing else supplies."""
+        from ingest.registry import ADAPTERS, ALL_SOURCE_NAMES
+        self.assertIn("tcgapi", ALL_SOURCE_NAMES)
+        self.assertTrue(ADAPTERS["tcgapi"].requires_targets)
+
+
+class PkmnJapaneseHasACatalogSource(unittest.TestCase):
+    """`pkmn:JP` reported `no_catalog_source` while tcgdex was serving Japanese
+    the whole time. 2,683 EN cards and 0 JP is not a coverage fact.
+
+    THREE causes, all pointing the same way, which is why the output looked
+    consistent:
+
+    1. tcgdex's `serves` listed only the two Chinese printings, though `LANG`
+       mapped JP to `ja` and the rarities report showed 17 distinct Japanese
+       rarities including Character Rare.
+    2. apitcg's `pokemon` slug is English-only.
+    3. The fallback that would have caught it was gated to CN-S and CN-T.
+    """
+
+    def test_tcgdex_declares_japanese(self):
+        self.assertIn(("pkmn", "JP"), TcgdexAdapter.serves)
+
+    def test_tcgdex_declares_every_pokemon_printing(self):
+        self.assertEqual(set(TcgdexAdapter.serves),
+                         {("pkmn", "EN"), ("pkmn", "JP"),
+                          ("pkmn", "CN-T"), ("pkmn", "CN-S")})
+
+    def test_the_language_map_always_knew(self):
+        """The data was reachable; the registration was not there. That is a
+        routing bug, not a coverage fact."""
+        self.assertEqual(TcgdexAdapter.LANG["JP"], "ja")
+
+    def test_apitcg_pokemon_is_english_only(self):
+        from ingest.catalog import APITCG_LANGUAGES
+        self.assertEqual(APITCG_LANGUAGES["pkmn"], ("EN",))
+
+    def test_the_fallback_is_no_longer_gated_to_chinese(self):
+        """The gate was the third cause. Any combination the commercial
+        sources leave empty now falls through."""
+        import inspect
+        from ingest.catalog import CatalogBuilder
+        source = inspect.getsource(CatalogBuilder.build)
+        self.assertIn("if not rows:", source)
+        self.assertNotIn('language in ("CN-S", "CN-T")', source)
+
+    def test_japanese_now_routes_to_tcgdex(self):
+        from ingest.adapters import ApiTcgAdapter
+        from ingest.catalog import CatalogBuilder
+
+        class Fake:
+            can_enumerate = True
+            serves = {("pkmn", "JP")}
+
+            def enumerate_combo(self, game, language, english_by_id=None):
+                return [{"card_uid": "pkmn:sv2a:198/165:sar:JP", "game": "pkmn",
+                         "set_code": "sv2a", "number": "198/165",
+                         "variant": "sar", "name_jp": "x",
+                         "rarity": "Special illustration rare"}]
+
+        builder = CatalogBuilder(tcgapi=object(),
+                                 apitcg=build(ApiTcgAdapter, {}),
+                                 cn_sources={"tcgdex": Fake(),
+                                             "wiki52poke": Fake()})
+        catalog = builder.build([("pkmn", "JP")])
+        self.assertEqual(builder.combo_status["pkmn:JP"]["status"], "ok")
+        self.assertEqual(len(catalog["pkmn:JP"]["cards"]), 1)
+        self.assertIn("tcgdex", builder.combo_status["pkmn:JP"]["sources"])
+
+
+class TheEnglishFallbackIsNowThePrimaryRoute(unittest.TestCase):
+    """CN-S carries 5 distinct rarities and CN-T 6, against English's 40, and
+    between them they produced ONE tracked card. Thin, not absent -- so
+    borrowing English's rarity is how a Chinese card gets classified at all.
+
+    And it had never run: `english_index()` existed and nothing called it, so
+    `resolve_rarity` was always handed None."""
+
+    def test_the_chinese_printings_are_declared_as_needing_it(self):
+        self.assertEqual(sorted(TcgdexAdapter.NEEDS_ENGLISH_RARITY),
+                         ["CN-S", "CN-T"])
+
+    def test_english_and_japanese_do_not_borrow(self):
+        for language in ("EN", "JP"):
+            self.assertNotIn(language, TcgdexAdapter.NEEDS_ENGLISH_RARITY)
+
+    def test_the_index_is_built_and_used(self):
+        """The regression: nothing called `english_index`, so every Chinese
+        card with no rarity of its own stayed unknown.
+
+        Routed through GraphQL rather than the `?rarity=` filter, because the
+        filter SUPPLIES the rarity -- it is the one strategy where the fallback
+        can never be needed. With no `/rarities` route, `filter_is_honoured`
+        answers False and the adapter drops to GraphQL, where the card object
+        omits `rarity` exactly as the real one does."""
+        adapter = build(TcgdexAdapter, {"/v2/graphql": {"data": {"cards": [
+            {"id": "151C-170", "localId": "170/151", "name": "皮卡丘",
+             "set": {"id": "151C"}}]}}})
+        calls = []
+        adapter.english_index = lambda: (
+            calls.append(1) or {"151C-170": {"rarity": "Illustration rare"}})
+        rows = adapter.enumerate_combo("pkmn", "CN-S")
+        self.assertEqual(calls, [1], "the English index was never built")
+        self.assertEqual(adapter.strategy, "graphql")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["rarity_from"], "en_fallback")
+        self.assertEqual(rows[0]["rarity"], "Illustration rare")
+
+    def test_it_is_built_once_and_reused(self):
+        adapter = build(TcgdexAdapter, tcgdex_routes("zh-cn", []))
+        calls = []
+        adapter.english_index = lambda: (calls.append(1) or {})
+        adapter.english_index_cached()
+        adapter.english_index_cached()
+        self.assertEqual(len(calls), 1)
+
+    def test_the_assumption_is_registered_as_primary(self):
+        import json
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "contracts", "assumptions.json")
+        with open(path, encoding="utf-8") as handle:
+            entry = json.load(handle)["chinese_rarity_from_english"]
+        self.assertEqual(entry["current_value"], "en_fallback_primary")
+        self.assertTrue(entry["ui_chip_required"])
+        self.assertIn("PRIMARY ROUTE", entry["description"])

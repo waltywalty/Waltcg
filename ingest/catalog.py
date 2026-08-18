@@ -244,7 +244,7 @@ class CatalogBuilder:
             self._cn[name] = ADAPTERS[name]()
         return self._cn[name]
 
-    def live_cn_sources(self):
+    def live_open_sources(self):
         """The priority order, minus anything sources.yml has superseded.
 
         Read from sources.yml rather than hardcoded here so there is one place
@@ -256,7 +256,7 @@ class CatalogBuilder:
         return [name for name in CN_SOURCE_PRIORITY
                 if not expectations.get(name, {}).get("superseded_by")]
 
-    def chinese_fallback(self, game, language):
+    def open_catalog_fallback(self, game, language):
         """First open source that lists cards for this combo, in priority order.
 
         Returns (rows, {"used": [...], "failed": [(source, why), ...]}).
@@ -265,27 +265,36 @@ class CatalogBuilder:
         would manufacture cards neither of them lists.
         """
         rows, used, failed = [], [], []
-        for name in self.live_cn_sources():
+        for name in self.live_open_sources():
             adapter = self.cn_source(name)
             if not adapter.can_enumerate:
-                failed.append((name, adapter.cannot_enumerate_because))
+                # Not asked. A capability statement, not a failure.
+                failed.append((f"{name}_does_not_enumerate",
+                               adapter.cannot_enumerate_because))
                 continue
             if (game, language) not in adapter.serves:
-                failed.append((name, f"{name} does not serve {game}:{language}"))
+                failed.append((f"{name}_does_not_serve",
+                               f"{name} does not serve {game}:{language}"))
                 continue
             self.attempt((game, language), name)
             try:
                 found = adapter.enumerate_combo(game, language)
             except (AdapterGaveUp, RateLimited) as exc:
-                failed.append((name, str(exc)[:200]))
+                # ASKED AND DID NOT ANSWER. The only one of the four that is
+                # genuinely `source_unreachable`; the others used to share the
+                # `_no_cards` reason and were all classified as unreachable,
+                # which made "we asked and it had nothing" look like a broken
+                # endpoint.
+                failed.append((f"{name}_unreachable", str(exc)[:200]))
                 continue
             kept = [r for r in (self._cn_row(game, language, hit)
                                 for hit in found) if r]
             if kept:
                 rows, used = kept, [name]
                 break
-            failed.append((name, "reachable, but no card in a tracked rarity "
-                                 "band for this combination"))
+            failed.append((f"{name}_empty",
+                           "reachable, but no card in a tracked rarity band "
+                           "for this combination"))
         return rows, {"used": used, "failed": failed}
 
     def _cn_row(self, game, language, hit):
@@ -330,23 +339,18 @@ class CatalogBuilder:
         return out
 
     def build(self, combos=COMBOS):
+        """Two catalog sources, in order: apitcg, then the open ones.
+
+        TCGAPI IS NOT ONE OF THEM ANY MORE. Run #9 settled it: apitcg made 250
+        calls and supplied every combination it serves, tcgapi made 1 and hit
+        0/100. A source that contributes nothing to the catalog should not be
+        able to fail the run on catalog quota, and burning its 100 daily calls
+        here left none for the price rotation, where they buy something.
+        See ingest/sources.yml -- tcgapi is `role: price` now.
+        """
         catalog = {}
         for game, language in combos:
             rows, sources = [], []
-            try:
-                for entry in self.sets_for(game, language):
-                    set_code = str(find(entry, "code", "set_code", "id") or "")
-                    if not set_code:
-                        continue
-                    for hit in self.cards_in_set(game, language, set_code):
-                        row = self._row(game, language, set_code, hit, "tcgapi")
-                        if row:
-                            rows.append(row)
-                if rows:
-                    sources.append("tcgapi")
-            except (AdapterGaveUp, RateLimited) as exc:
-                self.gap((game, language), "source_unreachable", str(exc)[:200])
-
             try:
                 extra = self.apitcg_cards(game, language)
                 for hit in extra:
@@ -371,13 +375,17 @@ class CatalogBuilder:
             except (AdapterGaveUp, RateLimited) as exc:
                 self.gap((game, language), "apitcg_unreachable", str(exc)[:200])
 
-            # The commercial providers cannot express the three Chinese
-            # printings at all, so anything still empty here falls through to
-            # the open sources, tried in priority order and stopping at the
-            # first that delivers. Each failure is recorded separately: the
-            # useful output of an empty combo is WHICH sources were asked.
-            if not rows and language in ("CN-S", "CN-T"):
-                rows, tried = self.chinese_fallback(game, language)
+            # ANY combination still empty falls through to the open sources.
+            #
+            # This used to be gated to CN-S and CN-T, and that gate was a bug
+            # with a name: pkmn:JP reported `no_catalog_source` while tcgdex
+            # was serving Japanese the whole time. apitcg's pokemon slug is
+            # English-only, tcgdex was not REGISTERED for Japanese, and the
+            # fallback that would have caught it only fired for Chinese. Three
+            # separate things, all pointing the same way, and the output said
+            # "nothing serves this" rather than "we did not look".
+            if not rows:
+                rows, tried = self.open_catalog_fallback(game, language)
                 sources.extend(tried["used"])
                 for src, why in tried["failed"]:
                     self.gap((game, language), f"{src}_no_cards", why)
@@ -386,8 +394,10 @@ class CatalogBuilder:
             combo = f"{game}:{language}"
             reasons = [g["reason"] for g in self.gaps if g["combo"] == combo]
             asked = sorted(self.attempted.get(combo, ()))
-            unreachable = [r for r in reasons
-                           if "unreachable" in r or "no_cards" in r]
+            # ONLY genuine unreachability. `_empty`, `_does_not_serve` and
+            # `_does_not_enumerate` are different answers and lumping them in
+            # here reported "we asked and it had nothing" as a broken endpoint.
+            unreachable = [r for r in reasons if "unreachable" in r]
             if deduped:
                 status = "ok"
             elif not asked:
@@ -456,7 +466,7 @@ class CatalogBuilder:
         # unreliable one -- `299*/298` is a Signature and apitcg calls it
         # `Alternate Art`. One parser feeds both the variant and the band.
         variant = (variant_from_number(number, size, game)
-                   or _variant_of(rarity, name, language))
+                   or _variant_of(rarity, name, language, game))
         try:
             uid = card_uid(game, set_code, number, variant, language)
         except (ValueError, KeyError):
