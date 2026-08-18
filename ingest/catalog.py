@@ -36,10 +36,11 @@ from ingest.adapters import ApiTcgAdapter, TcgApiAdapter          # noqa: E402
 from ingest.base import AdapterGaveUp, RateLimited, find          # noqa: E402
 from ingest.registry import ADAPTERS, CN_SOURCE_PRIORITY          # noqa: E402
 from ingest.runner import load_expectations                       # noqa: E402
-from resolve.identity import (RIFTBOUND_SETS, TCGAPI_GAME_ID,     # noqa: E402
+from resolve.identity import (RIFTBOUND_SET_ALIASES,              # noqa: E402
+                              RIFTBOUND_SETS, TCGAPI_GAME_ID,
                               TCGAPI_GAME_SLUG, TCGAPI_KNOWN_SLUGS,
-                              card_uid, variant_from_number,
-                              variant_from_rarity)
+                              card_uid, parse_collector_number,
+                              variant_from_number, variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -56,8 +57,9 @@ COMBOS = [("optcg", "EN"), ("optcg", "JP"), ("optcg", "CN-S"),
 # `unknown` IS kept, and that is the run #7 lesson: an absent rarity is not a
 # common. Imported rather than redeclared so the catalog filter and the
 # classifier cannot drift -- which is how the tcgdex zero survived a session.
-from ingest.rarity import (TRACKED_BANDS, UNKNOWN,  # noqa: E402
-                           band_of, string_band)
+from ingest.rarity import (NUMBER_DEPENDENT_GAMES,  # noqa: E402
+                           TRACKED_BANDS, UNKNOWN, band_of,
+                           deliberately_unknown, string_band)
 
 # apitcg has no language dimension, so it can only fill a combo whose language
 # it actually serves. One Piece JP is its one genuine addition over tcgapi.
@@ -97,6 +99,18 @@ class CatalogBuilder:
         # an unmapped rarity is tracked (it is `unknown`) but a finding that is
         # not named is a finding that is lost.
         self.unmapped_rarities = {}
+        # Rarity strings that ARE classified but whose card could not be
+        # banded because its collector number would not parse. A NUMBER
+        # problem, not a vocabulary problem, and reported separately -- a
+        # `Showcase` in the unclassified list reads as "nobody has decided
+        # what this word means", which is false and sends the reader to the
+        # wrong file.
+        self.unbandable_numbers = {}
+        self.not_a_card = {}
+        # Per combo, the count at every stage between fetch and target. Run #10
+        # asked three separate "where did the cards go" questions that the
+        # output could not answer; this is the answer.
+        self.stages = {}
 
     def attempt(self, combo, source):
         """Record that a request was actually ISSUED for this combination.
@@ -287,6 +301,17 @@ class CatalogBuilder:
                 # endpoint.
                 failed.append((f"{name}_unreachable", str(exc)[:200]))
                 continue
+            # What the adapter itself threw away, before we ever see a row.
+            # Without this the summary can only count survivors, and "fetched
+            # 7,436 and dropped 7,436 for want of a set code" is indis-
+            # tinguishable from "fetched nothing".
+            self.stage(game, language, "provider_hits",
+                       getattr(adapter, "hits_seen", 0))
+            self.stage(game, language, "dropped_no_identity",
+                       getattr(adapter, "dropped_no_identity", 0))
+            for origin, count in (getattr(adapter, "rarity_origins", None)
+                                  or {}).items():
+                self.stage(game, language, f"rarity_{origin}", count)
             kept = [r for r in (self._cn_row(game, language, hit)
                                 for hit in found) if r]
             if kept:
@@ -298,23 +323,41 @@ class CatalogBuilder:
         return rows, {"used": used, "failed": failed}
 
     def _cn_row(self, game, language, hit):
-        """A catalog source row -> a targets row, filtered to tracked bands.
+        """An open-source row -> a targets row, filtered to tracked bands.
 
         `band_of`, not `rarity_band`: an absent rarity must classify as
         `unknown` and stay tracked. `rarity_band(None)` returns `base`, which
         is the substitution that produced 8,313 cards and zero matches.
         """
+        self.stage(game, language, "fetched")
         self.note_rarity(game, language, hit.get("rarity"))
         number = hit.get("number")
-        size = self.set_size(game, hit.get("set_code"))
-        if band_of(hit.get("rarity"), game=game, number=number,
-                   set_size=size) not in TRACKED_BANDS:
+        set_code = hit.get("set_code")
+        if not number:
+            self.stage(game, language, "dropped_no_number")
             return None
+        if not set_code:
+            self.stage(game, language, "dropped_no_set_code")
+            return None
+        self.stage(game, language, "parsed")
+
+        size = self.set_size(game, set_code)
+        if (game in NUMBER_DEPENDENT_GAMES
+                and parse_collector_number(number).kind == "unreadable"):
+            self.stage(game, language, "unreadable_number")
+            self.note_unbandable(game, language, hit.get("rarity"), number)
+        band = band_of(hit.get("rarity"), game=game, number=number,
+                       set_size=size)
+        self.stage(game, language, f"band_{band}")
+        if band not in TRACKED_BANDS:
+            return None
+        self.stage(game, language, "tracked")
         return {"card_uid": hit["card_uid"], "game": game, "language": language,
                 "set_code": hit["set_code"], "number": hit["number"],
                 "variant": hit["variant"],
                 "name": hit.get("name_jp") or hit.get("name_en") or "",
                 "rarity": hit.get("rarity"),
+                "rarity_from": hit.get("rarity_from"),
                 "external_id": str(hit.get("external_id") or ""),
                 "source": hit.get("source", "")}
 
@@ -427,39 +470,104 @@ class CatalogBuilder:
             }
         return catalog
 
+    def stage(self, game, language, name, count=1):
+        self.stages.setdefault(f"{game}:{language}",
+                               {}).setdefault(name, 0)
+        self.stages[f"{game}:{language}"][name] += count
+
+    def note_not_a_card(self, game, language, number, name):
+        self.not_a_card.setdefault(f"{game}:{language}", []).append(
+            {"number": str(number), "name": str(name or "")})
+
+    def note_unbandable(self, game, language, rarity, number):
+        self.unbandable_numbers.setdefault(f"{game}:{language}", []).append(
+            {"rarity": str(rarity), "number": str(number)})
+
     def note_rarity(self, game, language, rarity):
         # The STRING question -- "does any table know this word?" -- which is
         # different from what band a given card is in. For a number-dependent
         # game the string alone genuinely cannot answer the second.
-        if rarity not in (None, "") and string_band(rarity, game) == UNKNOWN:
+        #
+        # A string the table maps to UNKNOWN ON PURPOSE is classified: it
+        # classifies as "the word cannot say". `Showcase` and `Promo` are both
+        # that, and reporting them as unclassified sent the reader to the
+        # vocabulary when the problem was the number.
+        if rarity in (None, "") or deliberately_unknown(rarity, game):
+            return
+        if string_band(rarity, game) == UNKNOWN:
             self.unmapped_rarities.setdefault(
                 f"{game}:{language}", set()).add(str(rarity))
 
     def set_size(self, game, set_code):
         """Base card count, for deciding whether a number is above the set.
 
-        Only Riftbound needs it, and only because a bare number like `OGN-301`
-        carries no denominator to compare against. `None` is a real answer --
-        `above_set_size` returns None rather than False, so an unknown ceiling
-        cannot file a Signature as an ordinary card.
+        The lookup was broken and silently so: `RIFTBOUND_SETS` is keyed by
+        printed set code (`OGN`, `SFD`) and apitcg returns SLUGS (`origins`,
+        `spiritforged`), so every riftbound card got `None` and no bare number
+        could ever be placed. `RIFTBOUND_SET_ALIASES` maps them.
+
+        `None` is still a real answer -- `above_set_size` returns None rather
+        than False when the ceiling is unknown, so an unknown ceiling cannot
+        file a Signature as an ordinary card.
         """
         if game != "riftbound":
             return None
-        return (RIFTBOUND_SETS.get(str(set_code).upper()) or {}).get("base")
+        key = str(set_code or "").strip()
+        code = RIFTBOUND_SET_ALIASES.get(key.lower(), key.upper())
+        return (RIFTBOUND_SETS.get(code) or {}).get("base")
 
     def _row(self, game, language, set_code, hit, source):
+        combo = (game, language)
+        self.stage(game, language, "fetched")
         rarity = find(hit, "rarity")
         number = str(find(hit, "number", "collector_number", "code") or "").strip()
         self.note_rarity(game, language, rarity)
-        if not number or not set_code:
+        if not number:
+            # No number means no card_uid -- identity, not banding. It has to
+            # be dropped and it has to be COUNTED, because "we could not
+            # identify it" and "it was not worth tracking" are different facts
+            # and only one of them is a decision.
+            self.stage(game, language, "dropped_no_number")
             return None
+        if not set_code:
+            self.stage(game, language, "dropped_no_set_code")
+            return None
+        if _is_sealed_product(hit):
+            # NOT A CARD PRINTING. `Origins - Booster Display Case` has a
+            # number, a set and no card_uid worth having, and it was becoming
+            # a price target on the strength of "absent rarity is unknown and
+            # unknown is tracked" -- a rule about CARDS, applied to a box.
+            #
+            # The test is narrow on purpose: the provider's own card-type field
+            # must be PRESENT AND NULL, alongside a null rarity. A payload that
+            # omits the field entirely says nothing, and reading silence as
+            # "not a card" would delete every tcgdex brief and every Chinese
+            # card waiting on the English fallback. Counted, never silent.
+            self.stage(game, language, "dropped_not_a_card")
+            self.note_not_a_card(game, language, number, find(hit, "name"))
+            return None
+        self.stage(game, language, "parsed")
+        # An absent rarity is UNKNOWN and TRACKED, never `base`. Counting it
+        # separately is how we can tell "this provider omits rarity" from
+        # "these cards are commons".
+        self.stage(game, language,
+                   "rarity_self" if rarity not in (None, "") else "rarity_absent")
+
         size = self.set_size(game, set_code)
+        if (game in NUMBER_DEPENDENT_GAMES
+                and parse_collector_number(number).kind == "unreadable"):
+            # Banded UNKNOWN by `band_of`, which is TRACKED -- never dropped.
+            # Counted and sampled so the summary can say what those numbers
+            # looked like rather than leaving it to be asked again.
+            self.stage(game, language, "unreadable_number")
+            self.note_unbandable(game, language, rarity, number)
         # `game=` first: `R`, `P` and `L` mean different things per game, so
         # one shared table would have to pick, and picking is guessing. And
         # `number=` because for Riftbound the band IS the number -- `Showcase`
         # alone spans $40 to $3,090.
-        if band_of(rarity, game=game, number=number,
-                   set_size=size) not in TRACKED_BANDS:
+        band = band_of(rarity, game=game, number=number, set_size=size)
+        self.stage(game, language, f"band_{band}")
+        if band not in TRACKED_BANDS:
             return None
         name = find(hit, "name") or ""
         # NUMBER FIRST. The number is the reliable signal and the string is the
@@ -470,7 +578,9 @@ class CatalogBuilder:
         try:
             uid = card_uid(game, set_code, number, variant, language)
         except (ValueError, KeyError):
+            self.stage(game, language, "dropped_bad_uid")
             return None
+        self.stage(game, language, "tracked")
         return {"card_uid": uid, "game": game, "language": language,
                 "set_code": set_code, "number": number, "variant": variant,
                 "name": name, "rarity": rarity,
@@ -478,8 +588,35 @@ class CatalogBuilder:
                 "source": source}
 
 
+# Card-type fields, in the spellings the providers actually use.
+_TYPE_KEYS = ("cardType", "card_type", "type")
+
+
+def _is_sealed_product(hit) -> bool:
+    """Sealed product masquerading as a card.
+
+    apitcg's Riftbound set lists carry booster packs, display cases, champion
+    decks and bulk rune bags alongside the cards, with a collector number and
+    a set like everything else. They are marked by the provider: `cardType`
+    is present and null, and so is `rarity`.
+
+    PRESENT AND NULL is the whole test. A payload that does not carry the
+    field at all -- every tcgdex brief, every Pokemon row in apitcg -- is
+    saying nothing about card-ness, and treating silence as a verdict would
+    delete the entire Pokemon catalog.
+    """
+    if not isinstance(hit, dict):
+        return False
+    present = [k for k in _TYPE_KEYS if k in hit]
+    if not present:
+        return False
+    return (all(hit[k] in (None, "") for k in present)
+            and hit.get("rarity") in (None, ""))
+
+
 def to_targets(catalog, gaps, combo_status=None, endpoints=None,
-               unmapped_rarities=None):
+               unmapped_rarities=None, unbandable=None,
+               stages=None, not_a_card=None):
     """The shape the daily runner reads. Card identities only -- no prices."""
     per_source = {name: {"cards": []} for name in
                   ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting",
@@ -540,6 +677,9 @@ def to_targets(catalog, gaps, combo_status=None, endpoints=None,
         "_routing": routing,
         "_endpoints_used": endpoints or {},
         "_unmapped_rarities": unmapped_rarities or {},
+        "_unbandable_numbers": unbandable or {},
+        "_not_a_card": not_a_card or {},
+        "_stages": stages or {},
         "_gaps": gaps,
         "fx_alphavantage": {},
         **per_source,
@@ -709,6 +849,64 @@ def render_catalog_summary(targets, builder=None) -> str:
                   "re-run `python tools/rarity_vocabulary.py` to refresh the "
                   "checked-in vocabulary."]
 
+    stages = targets.get("_stages") or {}
+    if stages:
+        # WHERE THE CARDS WENT, per combination. Run #10 asked three separate
+        # versions of that question and the output could not answer any of
+        # them: `no_tracked_cards` says a filter rejected everything, and says
+        # nothing about whether the filter was even reached.
+        order = ["provider_hits", "dropped_no_identity", "fetched",
+                 "dropped_no_number", "dropped_no_set_code",
+                 "dropped_not_a_card", "parsed", "unreadable_number",
+                 "dropped_bad_uid", "tracked"]
+        lines += ["", "**Where the cards went.** Counts at each stage between "
+                  "fetch and target:", "",
+                  "| Combo | " + " | ".join(order) + " | bands |",
+                  "|---" * (len(order) + 2) + "|"]
+        for combo, counts in sorted(stages.items()):
+            bands = ", ".join(f"{k[5:]}={v}" for k, v in sorted(counts.items())
+                              if k.startswith("band_")) or "--"
+            cells = " | ".join(str(counts.get(k, 0)) for k in order)
+            lines.append(f"| `{combo}` | {cells} | {bands} |")
+        borrowed = {c: counts["rarity_en_fallback"]
+                    for c, counts in stages.items()
+                    if counts.get("rarity_en_fallback")}
+        lines += ["", "**Rarity borrowed from the English card** "
+                  "(`rarity_from: en_fallback`): "
+                  + (", ".join(f"`{c}` {n}" for c, n in sorted(borrowed.items()))
+                     if borrowed else
+                     "NONE. Either no Chinese card needed it, or the English "
+                     "index did not run.")]
+
+    sealed = targets.get("_not_a_card") or {}
+    if sealed:
+        lines += ["", "**Not a card printing.** Booster packs, display cases "
+                  "and champion decks arrive in the same set list as the "
+                  "cards, with a collector number and no rarity. They were "
+                  "being tracked, because absent-rarity-is-unknown-is-tracked "
+                  "is a rule about CARDS and these are boxes. Dropped, and "
+                  "listed here because a silent drop is how a real card would "
+                  "one day leave by the same door:", ""]
+        for combo, entries in sorted(sealed.items()):
+            sample = ", ".join(f"`{e['name'] or e['number']}`"
+                               for e in entries[:4])
+            more = f" (+{len(entries) - 4} more)" if len(entries) > 4 else ""
+            lines.append(f"- `{combo}` -- {len(entries)}: {sample}{more}")
+
+    unbandable = targets.get("_unbandable_numbers") or {}
+    if unbandable:
+        lines += ["", "**Classified rarity, unreadable number.** These are a "
+                  "NUMBER problem, not a vocabulary one: the rarity is a known "
+                  "umbrella (`Showcase`, `Promo`) and the collector number "
+                  "could not place it, so the card is `unknown` and TRACKED. "
+                  "Listing them with the unclassified strings would send you "
+                  "to the wrong file:", ""]
+        for combo, entries in sorted(unbandable.items()):
+            sample = ", ".join(f"`{e['rarity']}` at `{e['number']}`"
+                               for e in entries[:5])
+            more = f" (+{len(entries) - 5} more)" if len(entries) > 5 else ""
+            lines.append(f"- `{combo}` -- {len(entries)}: {sample}{more}")
+
     gaps = targets.get("_gaps", [])
     if gaps:
         lines += ["", "**Gaps.** Each is a combination that produced nothing, "
@@ -774,7 +972,9 @@ def main(argv=None):
     targets = to_targets(catalog, builder.gaps, builder.combo_status,
                          builder.endpoints_used,
                          {k: sorted(v)
-                          for k, v in builder.unmapped_rarities.items()})
+                          for k, v in builder.unmapped_rarities.items()},
+                         builder.unbandable_numbers, builder.stages,
+                         builder.not_a_card)
 
     total = sum(targets["_counts"].values())
     for combo, count in sorted(targets["_counts"].items()):

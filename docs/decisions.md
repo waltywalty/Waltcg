@@ -1849,3 +1849,108 @@ translation. The second is schema-derived and still unconfirmed against an
 observed Chinese response body — re-check the `--rarities` diff each run, and
 if the Chinese lists start growing toward English's 40, the borrowing should
 stop and the printed value should win.
+
+---
+
+## ADR-0030 — Run #10: three regressions, one of them mine, and 24 boxes
+
+**2026-08-18.** Run #10 reported Riftbound halved, `pkmn:JP` / `CN-S` / `CN-T`
+at `no_tracked_cards`, and no sign of the English fallback. Three symptoms,
+two causes, and a fourth thing found on the way that nobody had asked about.
+
+### Riftbound 584 → 287 was not a bug
+
+The suspicion was `NumberRequired` raising on a card whose collector number
+would not parse, and it was wrong: measured against apitcg's full Riftbound
+data (699 cards, three sets), **zero cards have an unparseable number**. The
+drop is the reband from ADR-0028, working as instructed. In that sample:
+
+- `Epic` premium → rare removes **88** cards
+- `a`-suffix `Alternate Art` → rare removes **30**
+
+118 of 699, which is the same proportion as the live 584 → 287.
+
+The guard went in anyway, because "it does not happen yet" is not "it cannot
+happen": `_riftbound_band` now returns UNKNOWN — which is TRACKED — for a
+number it cannot read, whatever the rarity string says. The strings are chosen
+in the test so the string table *could* have answered (`Common` → base,
+`Overnumbered` → premium); banding on the word is precisely the failure for a
+game whose band IS the number. Each such card is counted and its number
+sampled into the summary, so the next time the answer is a measurement.
+
+The measurement also found a real bug of its own: `RIFTBOUND_SETS` is keyed by
+printed set code (`OGN`) and apitcg returns slugs (`origins`), so `set_size`
+was `None` for every Riftbound card and no bare number could ever be placed
+above the set. `RIFTBOUND_SET_ALIASES` maps them. Silent, because `None` is a
+legitimate answer meaning "ceiling unknown".
+
+### `no_tracked_cards` on three combos was one bug in three costumes
+
+`GET /v2/{lang}/cards?rarity=` returns **brief objects** — `id`, `localId`,
+`name`, `image`, and no set field of any kind. `_set_code_of` found no set,
+`_catalog_row` refuses a row without one, and every row from the server-side
+filter strategy was dropped. From outside that reads as "this combination has
+no cards in a tracked band", which is a coverage fact, and it was a routing
+fault. The set is recoverable: tcgdex ids are `{setId}-{localId}`.
+
+This is the same shape as ADR-0029's GraphQL `set`-object drop, one strategy
+over. That fix was real and did reach the Japanese path; it just was not the
+strategy JP took.
+
+**The test suite passed throughout, because the fixture invented a `set_id`
+key the endpoint does not send.** The fixtures now carry the real brief shape,
+and a test asserts the fixture has no set field — a guard on the guard.
+
+The English fallback did run. It could not show, because the rows it enriched
+were dropped afterwards for want of a set code.
+
+### A drop that nothing counts will happen again
+
+Both of the above were invisible for the same structural reason:
+`enumerate_combo` returns survivors, so an adapter that fetched 7,436 cards and
+dropped all 7,436 is indistinguishable from one that fetched nothing. The
+adapter now counts `hits_seen` and `dropped_no_identity`, the builder folds
+them into a per-combo stage table — provider_hits → dropped_no_identity →
+fetched → dropped_no_number → dropped_no_set_code → dropped_not_a_card →
+parsed → unreadable_number → dropped_bad_uid → tracked, plus the band split —
+and the summary prints it. The en_fallback count prints even when it is zero,
+with "NONE. Either no Chinese card needed it, or the English index did not
+run" — the two things run #10 could not tell apart.
+
+### `Showcase` and `Promo` are classified, not unclassified
+
+Both map to UNKNOWN **on purpose**: the word cannot say. `Showcase` spans
+Signature, Overnumbered and Alternate Art, $40 to $3,090. Listing them beside
+strings nobody has looked at sends the reader to `GAME_BANDS` when the problem,
+if there is one, is in the number parser. `deliberately_unknown()` separates
+them, and the summary gives them their own section — "Classified rarity,
+unreadable number" — with the offending numbers.
+
+### 24 boxes were queued for pricing
+
+Not asked for, found while measuring. apitcg's Riftbound set lists carry
+`Origins - Booster Pack`, `Champion Deck (Jinx) Display`, `Riftbound: Bulk
+Runes Case` and 21 others alongside the cards, each with a collector number and
+a set. They have no rarity, absent rarity is UNKNOWN, and UNKNOWN is TRACKED —
+so **24 of the 91 tracked Riftbound identities in the local sample were sealed
+product**, 26% of the target list.
+
+The rule that put them there is correct and stays. It is a rule about cards.
+
+The discriminator is the provider's own: `cardType` **present and null** *and*
+`rarity` null. Present-and-null is the entire test — a payload that omits the
+field says nothing about card-ness, and reading silence as a verdict would
+delete all 20,132 apitcg Pokémon rows and every tcgdex brief. Verified across
+23,320 rows: 24 hits in Riftbound, 0 in One Piece, and Pokémon carries no such
+field so the rule cannot reach it. Dropped, counted as `dropped_not_a_card`,
+and each one named in the summary — a silent drop here is how a real card
+leaves by the same door later.
+
+Riftbound tracked, local three-set sample: **91 → 67**.
+
+### The mutation harness sabotaged the repository
+
+It timed out mid-mutation and left `deliberately_unknown` returning a constant
+`False`, which the next test run reported as a regression in the code under
+test. It now restores in a `finally`. All eleven guards above are mutation-
+tested and all eleven are caught.

@@ -312,6 +312,14 @@ def _riftbound_band(rarity, number, set_size=None) -> str:
 
     parsed = parse_collector_number(number)
 
+    if parsed.kind == "unreadable":
+        # THE NUMBER IS THE BAND for this game, so a number we cannot read is
+        # a card we cannot band -- whatever the rarity string says. UNKNOWN,
+        # which is TRACKED. Falling through to the string would file a
+        # `Showcase` at whatever the umbrella happens to map to, and the
+        # umbrella spans $40 to $3,090.
+        return UNKNOWN
+
     if parsed.starred:
         return "chase"                      # Signature -- the booster chase
     if parsed.kind == "token":
@@ -374,6 +382,18 @@ def band_of(rarity, *, game=None, number=None, set_size=None,
     return UNKNOWN
 
 
+def deliberately_unknown(rarity, game=None) -> bool:
+    """Is this string mapped to UNKNOWN on purpose?
+
+    `Showcase` and `Promo` are CLASSIFIED -- as "the word cannot say" -- and
+    they are a different thing from a string nobody has looked at. Conflating
+    them puts a number problem in the vocabulary report.
+    """
+    if rarity in (None, ""):
+        return False
+    return _BY_GAME.get(game, {}).get(normalise(rarity)) == UNKNOWN
+
+
 def unmapped(strings, game=None) -> list:
     """Which of these strings no table covers. The summary names them.
 
@@ -383,7 +403,7 @@ def unmapped(strings, game=None) -> list:
     """
     return sorted({str(s) for s in strings
                    if s not in (None, "") and string_band(s, game) == UNKNOWN
-                   and _BY_GAME.get(game, {}).get(normalise(s)) != UNKNOWN})
+                   and not deliberately_unknown(s, game)})
 
 
 def every_known_string():

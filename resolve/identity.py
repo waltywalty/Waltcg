@@ -138,6 +138,19 @@ RIFTBOUND_SETS = {
 # correction. See docs/OPEN_QUESTIONS in decisions.md ADR-0028.
 RIFTBOUND_CHINESE_LED = ("OGN",)
 
+# apitcg returns set SLUGS, not printed set codes. `RIFTBOUND_SETS` is keyed by
+# the printed code, so without this every riftbound card looked up `ORIGINS`,
+# found nothing, and got `None` for its set size -- which meant no bare number
+# could ever be placed above the set.
+RIFTBOUND_SET_ALIASES = {
+    "origins": "OGN",
+    "origins-proving-grounds": "OGN",
+    "spiritforged": "SFD",
+    "unleashed": "UNL",
+    "vendetta": "VEN",
+    "radiance": "RAD",
+}
+
 
 class CollectorNumber:
     """A parsed collector number. Every field is `None` when unreadable."""

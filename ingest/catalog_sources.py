@@ -123,6 +123,10 @@ class TcgdexAdapter(CatalogSource):
     name = "tcgdex"
     key_env = None
     host = "api.tcgdex.net"
+    # Set by `enumerate_combo`; declared here so a caller that reads them
+    # after a combo that raised gets 0 rather than AttributeError.
+    hits_seen = 0
+    dropped_no_identity = 0
     # ALL FOUR Pokemon printings, not just the Chinese ones. Declaring only
     # CN-S and CN-T was a routing bug that cost pkmn:JP its entire catalog:
     # `LANG` mapped JP to `ja` and the rarities report showed 17 distinct
@@ -319,11 +323,20 @@ class TcgdexAdapter(CatalogSource):
 
         rows = []
         self.rarity_origins = {}
+        # COUNT WHAT NEVER LEAVES THIS METHOD. `_catalog_row` returns None for
+        # a card it cannot identify, and the caller sees only the survivors --
+        # so an adapter that dropped every row and one that fetched nothing
+        # looked identical from outside. That is precisely how the missing set
+        # field went unnoticed for a whole run.
+        self.hits_seen = len(hits)
+        self.dropped_no_identity = 0
         for hit in hits:
             rarity, origin = resolve_rarity(hit, english_by_id)
             self.rarity_origins[origin] = self.rarity_origins.get(origin, 0) + 1
             row = _catalog_row(game, language, _set_code_of(hit),
                                {**hit, "rarity": rarity}, self.name)
+            if row is None:
+                self.dropped_no_identity += 1
             if row:
                 # Where the classification came from, carried into the row. A
                 # borrowed rarity is a weaker claim than a printed one and the
@@ -533,17 +546,38 @@ class Poke52Adapter(CatalogSource):
 def _set_code_of(hit) -> str:
     """The set code, whatever shape the strategy returned it in.
 
-    REST gives `set_id` as a string; GraphQL gives `set` as an object with an
-    `id`. Stringifying the object produced `{'id': '151C'}` as a set code,
-    which `card_uid` rejected -- so every GraphQL row was silently dropped and
-    the strategy looked like it returned nothing.
+    THREE shapes, and getting this wrong drops every row silently:
+
+    * GraphQL returns `set` as an object with an `id`. Stringifying it produced
+      `{'id': '151C'}` as a set code, which `card_uid` rejected.
+    * `?rarity=` and `sets/{id}.cards[]` return BRIEF objects -- `id`,
+      `localId`, `name`, `image` and NOTHING ELSE. No set field at all, so the
+      code came out empty and every row was dropped. That is what run #10's
+      `no_tracked_cards` on pkmn:JP, CN-S and CN-T actually was.
+    * REST detail returns `set_id` as a plain string.
+
+    The brief object still carries the set: tcgdex ids are `{setId}-{localId}`,
+    so stripping the localId suffix recovers it. Derived rather than requested,
+    because requesting it would be a second call per card.
     """
     found = find(hit, "set_id")
     if found in (None, ""):
         found = find(hit, "set")
     if isinstance(found, dict):
         found = found.get("id") or found.get("code") or ""
-    return str(found or "")
+    if found not in (None, ""):
+        return str(found)
+
+    # Brief object: recover the set from the id.
+    ident = str(find(hit, "id") or "")
+    local = str(find(hit, "localId", "local_id") or "")
+    if ident and local and ident.endswith(f"-{local}"):
+        return ident[: -(len(local) + 1)]
+    if ident and "-" in ident:
+        # No localId to strip against. A set id may itself contain hyphens
+        # (`swshp-SWSH001`), so the LAST hyphen is the card boundary.
+        return ident.rsplit("-", 1)[0]
+    return ""
 
 
 def _catalog_row(game, language, set_code, hit, source) -> Optional[dict]:

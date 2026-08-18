@@ -150,8 +150,7 @@ class TcgdexDiscoversRatherThanAssumes(unittest.TestCase):
     def test_cards_come_back_with_a_whole_identity(self):
         adapter = build(TcgdexAdapter, tcgdex_routes("zh-tw", [
             {"id": "sv2aF-170", "localId": "170/165", "name": "皮卡丘",
-             "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
-             "set_id": "sv2aF"}]))
+             "rarity": "Illustration rare", "illustrator": "Oswaldo KATO"}]))
         rows = adapter.enumerate_combo("pkmn", "CN-T")
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["card_uid"], "pkmn:sv2aF:170/165:ar:CN-T")
@@ -402,25 +401,20 @@ class TheChineseCombosNoLongerHaveToBeTyped(unittest.TestCase):
     # SAR is `Special illustration rare`, AR is `Illustration rare`.
     JP = tcgdex_routes("ja", [
         {"id": "sv2a-170", "localId": "170/165", "name": "ピカチュウ",
-         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
-         "set_id": "sv2a"},
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO"},
         {"id": "sv2a-201", "localId": "201/165", "name": "リザードンex",
-         "rarity": "Special illustration rare", "illustrator": "Takumi Wada",
-         "set_id": "sv2a"}])
+         "rarity": "Special illustration rare", "illustrator": "Takumi Wada"}])
     CN_T = tcgdex_routes("zh-tw", [
         {"id": "sv2aF-170", "localId": "170/165", "name": "皮卡丘",
-         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
-         "set_id": "sv2aF"}])
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO"}])
     # 174/151 deliberately: 170-173/151 are already in the labelled set as
     # externally-researched seeds, and an already-labelled card is not
     # re-proposed. See test_an_already_labelled_card_is_not_proposed_again.
     CN_S = tcgdex_routes("zh-cn", [
         {"id": "151C-174", "localId": "174/151", "name": "皮卡丘",
-         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
-         "set_id": "151C"},
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO"},
         {"id": "151C-170", "localId": "170/151", "name": "皮卡丘",
-         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO",
-         "set_id": "151C"}])
+         "rarity": "Illustration rare", "illustrator": "Oswaldo KATO"}])
 
     def _catalog(self):
         from resolve.label_cli import _catalog_from_tcgdex
@@ -936,8 +930,8 @@ class TheSirSarCollapseIsResolvedByLanguage(unittest.TestCase):
 
     def _uid(self, code, language):
         adapter = build(TcgdexAdapter, tcgdex_routes(code, [
-            {"id": f"{code}-1", "localId": "198/165", "name": "x",
-             "rarity": "Special illustration rare", "set_id": "sv2a"}]))
+            {"id": "sv2a-198", "localId": "198/165", "name": "x",
+             "rarity": "Special illustration rare"}]))
         rows = adapter.enumerate_combo("pkmn", language)
         self.assertEqual(len(rows), 1)
         return rows[0]["card_uid"]
@@ -1197,3 +1191,417 @@ class TheEnglishFallbackIsNowThePrimaryRoute(unittest.TestCase):
         self.assertEqual(entry["current_value"], "en_fallback_primary")
         self.assertTrue(entry["ui_chip_required"])
         self.assertIn("PRIMARY ROUTE", entry["description"])
+
+
+class TheBriefObjectCarriesNoSetField(unittest.TestCase):
+    """Run #10's `no_tracked_cards` on pkmn:JP, CN-S and CN-T was one bug in
+    three costumes.
+
+    `GET /v2/{lang}/cards?rarity=` returns BRIEF objects -- `id`, `localId`,
+    `name`, `image` and nothing else. `_set_code_of` looked for a set and found
+    none, `_catalog_row` refuses a row with no set code, and every single row
+    was dropped without a count. From outside it read as "the combination has
+    no cards in a tracked band", which is a coverage fact, and it was a routing
+    fault.
+
+    The reason it survived a test suite: the fixture invented a `set_id` key
+    that the real endpoint does not send, so the tests exercised a shape the
+    provider never returns. These pin the real shape.
+    """
+
+    BRIEF = {"id": "sv2a-198", "localId": "198/165", "name": "リザードンex",
+             "image": "https://assets.tcgdex.net/ja/sv/sv2a/198"}
+
+    def test_the_fixture_shape_is_the_real_one(self):
+        """Guards the guard. If a future fixture reintroduces a set field the
+        adapter will pass for the wrong reason again."""
+        self.assertEqual(set(self.BRIEF), {"id", "localId", "name", "image"})
+        for key in ("set", "set_id", "setId"):
+            self.assertNotIn(key, self.BRIEF)
+
+    def test_the_set_code_is_recovered_from_the_id(self):
+        from ingest.catalog_sources import _set_code_of
+        self.assertEqual(_set_code_of(self.BRIEF), "sv2a")
+
+    def test_a_hyphenated_set_id_keeps_its_hyphens(self):
+        """A set id may itself contain a hyphen. Splitting on the FIRST one
+        files the row under a shorter set code that, for tcgdex, is usually
+        another real set -- so the row is not dropped, it is filed under the
+        WRONG set, which is worse than losing it."""
+        from ingest.catalog_sources import _set_code_of
+        self.assertEqual(_set_code_of(
+            {"id": "sv-p-001", "localId": "001"}), "sv-p")
+        # No localId to strip against: the LAST hyphen is the card boundary.
+        self.assertEqual(_set_code_of({"id": "sv-p-001"}), "sv-p")
+
+    def test_the_localid_is_stripped_rather_than_guessed_at(self):
+        """When the localId is known it decides where the card boundary is,
+        and it can itself contain hyphens. `swshp-SWSH-001` is set `swshp`,
+        card `SWSH-001`; taking the last hyphen instead would give `swshp-SWSH`,
+        a set that does not exist, and the row would be dropped."""
+        from ingest.catalog_sources import _set_code_of
+        self.assertEqual(_set_code_of(
+            {"id": "swshp-SWSH-001", "localId": "SWSH-001"}), "swshp")
+
+    def test_graphql_and_rest_shapes_still_work(self):
+        from ingest.catalog_sources import _set_code_of
+        self.assertEqual(_set_code_of({"id": "151C-170", "localId": "170",
+                                       "set": {"id": "151C"}}), "151C")
+        self.assertEqual(_set_code_of({"id": "151C-170", "set_id": "151C"}),
+                         "151C")
+
+    def test_an_id_with_no_hyphen_yields_nothing_rather_than_a_guess(self):
+        from ingest.catalog_sources import _set_code_of
+        self.assertEqual(_set_code_of({"id": "abc", "localId": "1"}), "")
+        self.assertEqual(_set_code_of({}), "")
+
+    def test_the_row_survives_the_whole_adapter(self):
+        """End to end through the `?rarity=` strategy -- the one that returns
+        briefs -- because that is the path that dropped everything."""
+        adapter = build(TcgdexAdapter, tcgdex_routes("ja", [
+            dict(self.BRIEF, rarity="Special illustration rare")]))
+        rows = adapter.enumerate_combo("pkmn", "JP")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["set_code"], "sv2a")
+        self.assertEqual(rows[0]["card_uid"], "pkmn:sv2a:198/165:sar:JP")
+
+
+class ADroppedRowIsCounted(unittest.TestCase):
+    """The second half of the same lesson. `enumerate_combo` returns only the
+    rows it could identify, so a run that fetched 7,436 cards and dropped all
+    7,436 was indistinguishable from one that fetched nothing -- and the
+    summary reported the second. Every drop is now counted on the adapter and
+    folded into the stage table."""
+
+    def test_the_adapter_counts_what_it_threw_away(self):
+        adapter = build(TcgdexAdapter, tcgdex_routes("ja", [
+            {"id": "sv2a-198", "localId": "198/165", "name": "ok",
+             "rarity": "Special illustration rare"},
+            # No localId: no collector number, so no identity.
+            {"id": "sv2a-199", "name": "nameless",
+             "rarity": "Special illustration rare"}]))
+        rows = adapter.enumerate_combo("pkmn", "JP")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(adapter.hits_seen, 2)
+        self.assertEqual(adapter.dropped_no_identity, 1)
+
+    def test_the_counters_exist_before_any_call(self):
+        adapter = build(TcgdexAdapter, {})
+        self.assertEqual(adapter.hits_seen, 0)
+        self.assertEqual(adapter.dropped_no_identity, 0)
+
+    def test_the_builder_folds_them_into_the_stage_table(self):
+        from ingest.catalog import CatalogBuilder
+
+        class Adapter:
+            name = "tcgdex"
+            can_enumerate = True
+            serves = (("pkmn", "JP"),)
+            hits_seen = 9
+            dropped_no_identity = 9
+            rarity_origins = {"en_fallback": 4, "self": 5}
+
+            def enumerate_combo(self, game, language):
+                return []
+
+        builder = CatalogBuilder(tcgapi=object(), apitcg=object())
+        builder.live_open_sources = lambda: ["tcgdex"]
+        builder.cn_source = lambda _name: Adapter()
+        rows, _detail = builder.open_catalog_fallback("pkmn", "JP")
+        self.assertEqual(rows, [])
+        stages = builder.stages["pkmn:JP"]
+        self.assertEqual(stages["provider_hits"], 9)
+        self.assertEqual(stages["dropped_no_identity"], 9)
+        self.assertEqual(stages["rarity_en_fallback"], 4)
+
+
+class AnUnreadableNumberIsTrackedNotDropped(unittest.TestCase):
+    """Riftbound bands on the collector number, so a number that will not parse
+    is a card we cannot band. `unknown`, which is TRACKED -- the alternative is
+    that the cards most likely to be interesting (the ones with unusual
+    numbers) are exactly the ones that vanish."""
+
+    def _builder(self):
+        from ingest.catalog import CatalogBuilder
+        return CatalogBuilder(tcgapi=object(), apitcg=object())
+
+    def test_it_is_banded_unknown_rather_than_raising(self):
+        """The rarity strings here are chosen so the STRING TABLE cannot
+        supply the answer: `Common` maps to base and `Overnumbered` to premium,
+        so if the unreadable-number guard were removed each would be banded on
+        its word. For a game that bands on the number, banding on the word is
+        the failure -- a `Common` at an unreadable number might be anything."""
+        from ingest.rarity import band_of
+        for rarity in ("Showcase", "Common", "Overnumbered", "Epic", None):
+            self.assertEqual(
+                band_of(rarity, game="riftbound", number="???", set_size=298),
+                "unknown", f"{rarity!r} was banded on its word")
+
+    def test_a_readable_number_still_reaches_the_string_table(self):
+        """The guard must not swallow the ordinary case."""
+        from ingest.rarity import band_of
+        self.assertEqual(band_of("Common", game="riftbound",
+                                 number="010/298", set_size=298), "base")
+
+    def test_the_row_survives(self):
+        builder = self._builder()
+        row = builder._row("riftbound", "EN", "OGN",
+                           {"number": "???", "name": "Jinx",
+                            "rarity": "Showcase"}, "apitcg")
+        self.assertIsNotNone(row, "an unreadable number dropped the card")
+        self.assertEqual(builder.stages["riftbound:EN"]["unreadable_number"], 1)
+        self.assertEqual(builder.stages["riftbound:EN"]["band_unknown"], 1)
+        self.assertEqual(builder.stages["riftbound:EN"]["tracked"], 1)
+
+    def test_the_number_is_sampled_for_the_report(self):
+        """"Report what those numbers looked like" -- so the string is kept,
+        not just the count. A count alone cannot tell you whether the parser
+        needs a new rule or the provider sent junk."""
+        builder = self._builder()
+        builder._row("riftbound", "EN", "OGN",
+                     {"number": "???", "name": "x", "rarity": "Showcase"},
+                     "apitcg")
+        self.assertEqual(builder.unbandable_numbers["riftbound:EN"],
+                         [{"rarity": "Showcase", "number": "???"}])
+
+    def test_a_readable_number_is_not_sampled(self):
+        builder = self._builder()
+        builder._row("riftbound", "EN", "OGN",
+                     {"number": "299*/298", "name": "x", "rarity": "Showcase"},
+                     "apitcg")
+        self.assertEqual(builder.unbandable_numbers, {})
+
+    def test_only_number_dependent_games_are_checked(self):
+        """Pokemon does not band on the number, so an odd Pokemon number is not
+        an unbandable card -- filing it as one would fill the report with rows
+        that need no action."""
+        builder = self._builder()
+        builder._row("pkmn", "EN", "sv3",
+                     {"number": "TG01/TG30", "name": "x",
+                      "rarity": "Illustration rare"}, "apitcg")
+        self.assertEqual(builder.unbandable_numbers, {})
+
+
+class ShowcaseIsANumberProblemNotAVocabularyProblem(unittest.TestCase):
+    """`Showcase` is an umbrella over Signature ($300-3,090), Overnumbered
+    ($75-660) and Alternate Art ($40-90). The table maps it to `unknown` ON
+    PURPOSE, which is a classification -- "the word cannot say" -- and listing
+    it beside genuinely unrecognised strings sends the reader to
+    `GAME_BANDS` when the fix, if any, belongs in the number parser."""
+
+    def _builder(self):
+        from ingest.catalog import CatalogBuilder
+        return CatalogBuilder(tcgapi=object(), apitcg=object())
+
+    def test_the_deliberate_ones_are_recognised_as_deliberate(self):
+        from ingest.rarity import deliberately_unknown
+        self.assertTrue(deliberately_unknown("Showcase", "riftbound"))
+        self.assertTrue(deliberately_unknown("Promo", "riftbound"))
+        self.assertTrue(deliberately_unknown("showcase", "riftbound"))
+        self.assertFalse(deliberately_unknown("Mythic Prismatic", "riftbound"))
+        self.assertFalse(deliberately_unknown("Epic", "riftbound"))
+        self.assertFalse(deliberately_unknown(None, "riftbound"))
+
+    def test_it_is_per_game(self):
+        """`Promo` is a Riftbound decision. Another game's table gets to
+        answer for itself rather than inheriting this one's."""
+        from ingest.rarity import deliberately_unknown
+        self.assertFalse(deliberately_unknown("Showcase", "pkmn"))
+
+    def test_they_do_not_reach_the_unclassified_list(self):
+        builder = self._builder()
+        for rarity in ("Showcase", "Promo"):
+            builder._row("riftbound", "EN", "OGN",
+                         {"number": "OGN-100", "name": "x", "rarity": rarity},
+                         "apitcg")
+        self.assertEqual(builder.unmapped_rarities, {})
+
+    def test_a_genuinely_unknown_string_still_does(self):
+        builder = self._builder()
+        builder._row("riftbound", "EN", "OGN",
+                     {"number": "OGN-100", "name": "x", "rarity": "Foilest"},
+                     "apitcg")
+        self.assertEqual(builder.unmapped_rarities["riftbound:EN"], {"Foilest"})
+
+    def test_the_summary_separates_the_two_sections(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"riftbound:EN": 1},
+            "_unmapped_rarities": {"riftbound:EN": ["Foilest"]},
+            "_unbandable_numbers": {"riftbound:EN": [
+                {"rarity": "Showcase", "number": "???"}]}})
+        self.assertIn("no table classifies", text)
+        self.assertIn("Foilest", text)
+        self.assertIn("unreadable number", text)
+        self.assertIn("`Showcase` at `???`", text)
+        # The whole point: they are not in the same list.
+        self.assertNotIn("Showcase", text.split("unreadable number")[0])
+
+
+class TheSetSizeLookupSpeaksBothDialects(unittest.TestCase):
+    """`RIFTBOUND_SETS` is keyed by printed set code (`OGN`) and apitcg returns
+    slugs (`origins`). The lookup returned None for every Riftbound card, so
+    `above_set_size` could never place a bare number -- silently, because None
+    is a legitimate answer meaning "ceiling unknown"."""
+
+    def _builder(self):
+        from ingest.catalog import CatalogBuilder
+        return CatalogBuilder(tcgapi=object(), apitcg=object())
+
+    def test_the_slug_resolves(self):
+        self.assertEqual(self._builder().set_size("riftbound", "origins"), 298)
+        self.assertEqual(self._builder().set_size("riftbound", "spiritforged"),
+                         221)
+
+    def test_the_printed_code_still_resolves(self):
+        self.assertEqual(self._builder().set_size("riftbound", "OGN"), 298)
+        self.assertEqual(self._builder().set_size("riftbound", "ogn"), 298)
+
+    def test_a_set_with_no_published_count_stays_none(self):
+        """Radiance has no confirmed base count. None must survive as None --
+        guessing a ceiling would file every Signature in the set as ordinary."""
+        self.assertIsNone(self._builder().set_size("riftbound", "RAD"))
+
+    def test_other_games_are_not_given_a_riftbound_ceiling(self):
+        self.assertIsNone(self._builder().set_size("pkmn", "sv3"))
+
+    def test_every_alias_points_at_a_real_set(self):
+        from resolve.identity import RIFTBOUND_SET_ALIASES, RIFTBOUND_SETS
+        for slug, code in RIFTBOUND_SET_ALIASES.items():
+            self.assertIn(code, RIFTBOUND_SETS,
+                          f"alias {slug} points at unknown set {code}")
+
+
+class TheEnglishFallbackIsCounted(unittest.TestCase):
+    """It had never been called; then it was wired up and run #10 still showed
+    nothing borrowed. Proving it ran needs a count in the output, not an
+    assertion that the code path exists."""
+
+    def test_the_summary_names_the_count(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:CN-S": 4},
+            "_stages": {"pkmn:CN-S": {"fetched": 9, "tracked": 4,
+                                      "rarity_en_fallback": 7}}})
+        self.assertIn("en_fallback", text)
+        self.assertIn("`pkmn:CN-S` 7", text)
+
+    def test_zero_reads_as_zero_rather_than_as_silence(self):
+        """The distinction run #10 could not make: "no Chinese card needed a
+        borrowed rarity" and "the index never ran" both produced no output."""
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:CN-S": 0},
+            "_stages": {"pkmn:CN-S": {"fetched": 9, "tracked": 0}}})
+        self.assertIn("NONE", text)
+        self.assertIn("did not run", text)
+
+    def test_the_stage_table_reaches_the_summary(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:JP": 0},
+            "_stages": {"pkmn:JP": {"provider_hits": 2683,
+                                    "dropped_no_identity": 2683,
+                                    "fetched": 0, "tracked": 0}}})
+        self.assertIn("Where the cards went", text)
+        self.assertIn("2683", text)
+
+
+class SealedProductIsNotACard(unittest.TestCase):
+    """apitcg's Riftbound set lists carry `Origins - Booster Display Case`
+    beside `Jinx - Loose Cannon`: a collector number, a set, `cardType: null`
+    and `rarity: null`. Absent rarity means `unknown`, and `unknown` is
+    TRACKED, so 24 boxes and bulk rune bags were queued for pricing as if they
+    were singles.
+
+    The rule that put them there is right and stays. It is a rule about cards.
+    """
+
+    def _builder(self):
+        from ingest.catalog import CatalogBuilder
+        return CatalogBuilder(tcgapi=object(), apitcg=object())
+
+    BOX = {"number": "2", "name": "Origins - Booster Display Case",
+           "rarity": None, "cardType": None}
+
+    def test_the_box_is_dropped(self):
+        builder = self._builder()
+        self.assertIsNone(builder._row("riftbound", "EN", "origins",
+                                       self.BOX, "apitcg"))
+        self.assertEqual(builder.stages["riftbound:EN"]["dropped_not_a_card"], 1)
+
+    def test_the_drop_is_named_not_silent(self):
+        builder = self._builder()
+        builder._row("riftbound", "EN", "origins", self.BOX, "apitcg")
+        self.assertEqual(builder.not_a_card["riftbound:EN"],
+                         [{"number": "2",
+                           "name": "Origins - Booster Display Case"}])
+
+    def test_a_card_with_a_null_type_but_a_rarity_reaches_the_band(self):
+        """An Alternate Art in the same file has `cardType: null` too, but it
+        carries a rarity. One null is not two.
+
+        It is still not tracked -- `058a` is an `a`-suffix Alternate Art, which
+        the reband put in `rare` -- but it must be REJECTED BY THE BAND, not
+        deleted as a box. The two exits look identical from the target count
+        and mean completely different things."""
+        builder = self._builder()
+        builder._row("riftbound", "EN", "spiritforged",
+                     {"number": "058a/221", "cardType": None,
+                      "name": "Ornn - Blacksmith (Alternate Art)",
+                      "rarity": "Showcase"}, "apitcg")
+        self.assertEqual(builder.not_a_card, {})
+        stages = builder.stages["riftbound:EN"]
+        self.assertEqual(stages.get("dropped_not_a_card", 0), 0)
+        self.assertEqual(stages["parsed"], 1)
+        self.assertEqual(stages["band_rare"], 1)
+
+    def test_a_rarityless_card_with_a_real_type_survives(self):
+        builder = self._builder()
+        row = builder._row("riftbound", "EN", "origins",
+                           {"number": "299/298", "name": "Jinx",
+                            "rarity": None, "cardType": "Champion Unit"},
+                           "apitcg")
+        self.assertIsNotNone(row)
+        self.assertEqual(builder.not_a_card, {})
+
+    def test_a_payload_with_no_type_field_is_never_touched(self):
+        """THE DANGEROUS CASE. tcgdex briefs carry no card-type field, and
+        neither does apitcg's Pokemon data -- 20,132 rows of it. Reading a
+        missing field as `not a card` would delete the entire Pokemon catalog
+        and every Chinese card waiting on the English fallback."""
+        from ingest.catalog import _is_sealed_product
+        self.assertFalse(_is_sealed_product({"id": "sv2a-198",
+                                             "localId": "198/165",
+                                             "name": "x"}))
+        builder = self._builder()
+        row = builder._row("pkmn", "EN", "sv3",
+                           {"number": "1/197", "name": "x", "rarity": None},
+                           "apitcg")
+        self.assertIsNotNone(row, "a rarityless Pokemon card was called a box")
+        self.assertEqual(builder.not_a_card, {})
+
+    def test_the_predicate_directly(self):
+        from ingest.catalog import _is_sealed_product
+        self.assertTrue(_is_sealed_product({"cardType": None, "rarity": None}))
+        self.assertTrue(_is_sealed_product({"card_type": "", "rarity": ""}))
+        self.assertFalse(_is_sealed_product({"cardType": None,
+                                             "rarity": "Showcase"}))
+        self.assertFalse(_is_sealed_product({"cardType": "Unit",
+                                             "rarity": None}))
+        self.assertFalse(_is_sealed_product({"rarity": None}))
+        self.assertFalse(_is_sealed_product(None))
+
+    def test_the_summary_lists_them(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"riftbound:EN": 91},
+            "_not_a_card": {"riftbound:EN": [
+                {"number": "2", "name": "Origins - Booster Display Case"}]}})
+        self.assertIn("Not a card printing", text)
+        self.assertIn("Origins - Booster Display Case", text)
+
+    def test_the_summary_omits_the_section_when_there_are_none(self):
+        from ingest.catalog import render_catalog_summary
+        self.assertNotIn("Not a card printing",
+                         render_catalog_summary({"_counts": {"pkmn:EN": 1}}))
