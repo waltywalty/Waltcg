@@ -1,0 +1,100 @@
+# What each provider's rate limit ACTUALLY is, as observed.
+#
+# Dated config, like grading.yaml and fees.yaml, and for the same reason: a
+# limit hardcoded in an adapter is a limit nobody can see change. This file is
+# the record of what we have measured, not a set of knobs -- the adapters read
+# `stop_calling_after_rate_limits` and `Retry-After`, never these numbers.
+#
+# THE PROBLEM THIS EXISTS FOR. apitcg publishes no quota. It is not in
+# openapi.json, it is not in a response header, and it is not on the docs site.
+# On 2026-08-17 it served 250 calls without complaint; on 2026-08-18 it refused
+# after 16. Those two numbers are the entire evidence base, and without writing
+# them down each run rediscovers the ceiling by hitting it.
+#
+# HOW TO ADD AN OBSERVATION. The ingest job summary prints a rate-limit table
+# every run: calls made, 429s seen, and every rate header verbatim. Copy the
+# numbers here. An observation is (date, calls_before_refusal) and nothing
+# else -- do not average them, do not infer a daily figure from two days, and
+# do not delete an inconvenient one.
+
+as_of: "2026-08-18"
+
+providers:
+  apitcg:
+    published_limit: null
+    published_where: >-
+      NOWHERE. Checked openapi.json (read in full on 2026-08-17), the response
+      headers, and the docs site. No quota, no X-RateLimit-*, no Retry-After
+      documented. The 429 is the only signal it gives.
+    sends_rate_headers: unknown      # measured per run; see the job summary
+    observations:
+      - date: "2026-08-17"
+        calls_made: 250
+        refused_after: null
+        note: "Run #10. 250 calls, no 429. The ceiling is above 250 or the window had reset."
+      - date: "2026-08-18"
+        calls_made: 16
+        refused_after: 16
+        note: >-
+          Run #11. 429 on 16 calls, with four attempts behind each -- so up to
+          64 requests reached the service, which is the number that probably
+          matters. Every apitcg-served combo went to zero. This is what put
+          the two-strike breaker in ingest/base.py.
+    inference: >-
+      NOT ENOUGH DATA for a daily quota. 250 then 16 is consistent with a
+      per-minute or per-hour window rather than a daily one -- a daily cap
+      would not reset between two runs 24 hours apart and then refuse at 16.
+      Retry-After, if it ever sends one, settles it. Until then the catalog
+      cache is the mitigation, not a guessed limit.
+
+  tcgapi:
+    published_limit: 100
+    published_where: "Documented free tier: 100 calls/day."
+    unit: per_day
+    sends_rate_headers: unknown
+    observations:
+      - date: "2026-08-17"
+        calls_made: 1
+        refused_after: null
+        note: "Run #9. Reported 0/100 remaining on its first call -- the quota is shared across the key, not per run."
+
+  fx_alphavantage:
+    published_limit: 25
+    unit: per_day
+    also:
+      limit: 5
+      unit: per_minute
+    published_where: "Alpha Vantage free tier, documented on their pricing page."
+    sends_rate_headers: false
+    note: >-
+      Answers a throttle with HTTP 200 and an `Information` key rather than a
+      429, so `Retry-After` never arrives and the breaker never trips. Handled
+      by min_interval_seconds (13s) and the error-body check instead.
+    observations:
+      - date: "2026-08-17"
+        calls_made: 3
+        refused_after: null
+        note: "Run #10. Three pairs, one call each, day-cached."
+
+  tcgdex:
+    published_limit: null
+    published_where: "Open database, no key, no published quota."
+    sends_rate_headers: unknown
+    observations:
+      - date: "2026-08-18"
+        calls_made: null
+        refused_after: null
+        note: >-
+          Run #11. Served pkmn:JP (658) and pkmn:CN-T (3) and carried pkmn:EN
+          when apitcg was refused. No 429 observed.
+
+  pokemonpricetracker:
+    published_limit: null
+    sends_rate_headers: unknown
+    observations: []
+
+  pricecharting:
+    published_limit: null
+    sends_rate_headers: unknown
+    note: "Deferred by choice; never called."
+    observations: []

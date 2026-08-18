@@ -1954,3 +1954,143 @@ It timed out mid-mutation and left `deliberately_unknown` returning a constant
 `False`, which the next test run reported as a regression in the code under
 test. It now restores in a `finally`. All eleven guards above are mutation-
 tested and all eleven are caught.
+
+---
+
+## ADR-0031 — Run #11: stop asking, and stop re-deriving
+
+**2026-08-18.** The brief-object fix landed and pkmn:JP came back with 658
+cards, CN-T with 3. That bug is closed. Then apitcg started refusing: 429 after
+four attempts on 16 calls, where run #10 had made 250 without complaint. Every
+apitcg-served combination went to zero. pkmn:EN survived only because tcgdex
+covered it.
+
+### Four attempts against a 429 is four ways to be refused
+
+A 429 is not a failure. It is an **answer**, and the answer is "not now" —
+which makes it categorically different from an endpoint that does not respond.
+One is fixed by waiting; the other needs a code change. Retrying it four times
+turns one refusal into four, and with 16 calls behind that budget, up to 64
+requests reached a service that had already said no.
+
+Now: `Retry-After` is read if sent (both RFC 9110 forms — delta-seconds and
+HTTP-date, because reading only the integer turns a date into "no Retry-After
+sent", an answer misread as silence, which is this project's oldest bug shape).
+Exponential backoff otherwise. **After the second refusal the adapter is closed
+for the rest of the run** and every later call raises `RateLimited` without
+touching the network. A `Retry-After` longer than the run can wait closes it on
+the first.
+
+`RateLimited` is deliberately not a subclass of `AdapterGaveUp`, and a combo
+that hit one is `rate_limited`, never `source_unreachable`. Filing a refusal as
+unreachability sends the next session hunting for a broken endpoint that works
+fine.
+
+### We still do not know apitcg's quota, and now we are measuring it
+
+It is not in `openapi.json`, not on the docs site, and not in any header — and
+we would not have known about the header either, because `_send` returned
+`(status, body)` and threw the response headers away one frame below where they
+were needed. It returns them now, every rate-related header is kept **verbatim**
+(names as sent, values as sent — a tidied header is one we have already begun
+interpreting), and the job summary prints them.
+
+`config/rate_limits.yaml` is the dated record. Two observations so far — 250
+calls on the 17th, refused after 16 on the 18th — and the honest reading is
+written down with them: that shape is more consistent with a per-minute or
+per-hour window than a daily quota, and two points is not enough to say. The
+adapters do not read this file. It is a record, not a knob; enforcing a guessed
+ceiling would make one bad day's observation permanent.
+
+A provider that publishes nothing is recorded as publishing nothing. That is
+the measurement which justifies inferring a ceiling from call counts at all.
+
+### The catalog is persisted, and that is the actual fix
+
+Sets release monthly. Re-enumerating all eight combinations every morning spent
+the entire provider budget re-deriving an answer that had not changed — and
+then had nothing at all when the provider started refusing.
+
+`ingest/targets.json` (already tracked; card identities only) now carries a
+per-combination `as_of`. A combination younger than seven days is served from
+it and **no provider is called at all**. The status is `catalog_from_cache`
+with its age, never `ok` — a cached catalog and a fresh one are different facts
+even when the cards are identical. `--force` re-enumerates everything.
+
+The cache is reconstructed from the per-source card lists rather than stored a
+second time: every target row already carries its own `game` and `language`, so
+a duplicate copy would be one more thing that can disagree with itself.
+
+Three details that are the whole design:
+
+- **A failed refresh falls back to the cache** and reports
+  `catalog_from_cache_stale` with `refresh_failed`. That is the point — a
+  throttled provider costs nothing, because yesterday's answer is still the
+  answer.
+- **Unknown age is never fresh.** `cache_age_days` returns `None`, not zero,
+  for an entry with no `as_of`. Treating unknown as fresh is exactly how a
+  stale catalog starts looking like a fresh one.
+- **A cached combination carries its original stamp forward.** Restamping it
+  with today would make it immortal: refreshing its own timestamp every run
+  without ever being rebuilt.
+
+The commit-back is guarded three ways, because the failure mode is asymmetric —
+a bad commit here overwrites the cache and makes one bad day permanent.
+`--persist-check` refuses a file with zero cards or an undated combination; the
+commit runs only if that check passed (a step-level `if:`, not a bash
+conditional); and the data guard has already run. Default branch only.
+
+The step uses `if git diff --cached --quiet; then` rather than
+`git diff --quiet && echo && exit 0`. GitHub runs `bash -eo pipefail`, and a
+failing AND-list as a standalone statement aborts the step — so the "there ARE
+changes" branch would have died instead of committing. That is runs #4 and #7
+for a third time, caught before it shipped, and there is a test asserting no
+step contains the pattern.
+
+### Which source served this, against which one should have
+
+`tcgdex` under pkmn:EN read as ordinary operation. It meant apitcg had been
+refused and the fallback caught it. The expected source is now **declared**
+(`primary_source`) rather than inferred from what happened, precisely so the
+difference is visible: a combination served by anything else is
+`ok_via_fallback`, with its own summary section naming the primary and why it
+did not deliver.
+
+### 234 One Piece card_uids were collisions
+
+Found by round-tripping the cache: 737 rows went in and 451 came out. Not a
+cache bug — the catalog had been merging them all along, and deduping by
+`card_uid` hid it.
+
+`EB01-006`, `EB01-006_p1` and `EB01-006_p2` are three printings of one card at
+**one collector number**, all carrying rarity `SR`. Neither the number nor the
+rarity string can separate them, so all three collapsed into
+`optcg:eb01:EB01-006:base:EN`. 286 rows swallowed — 39% of the One Piece
+catalog — and the parallels are the expensive ones. Non-negotiable 3 says every
+printing is a different card, never merged in a join or an aggregation. This
+was a merge.
+
+The suffix is Bandai's own: the official card-list images are `EB01-006.png`
+and `EB01-006_p1.png`. `_p1` → `parallel`, `_p2` → `parallel2`, up to
+`parallel8` in the observed data; `_r1` → `reprint`. A suffix we do not
+recognise becomes `unknown_{suffix}` — **not** `base`, because falling back to
+base is the merge this exists to stop, and inventing a name is the other way to
+be wrong.
+
+Scoped to One Piece, and the restriction is load-bearing. Pokémon uses an
+identical-looking suffix for something entirely different: `cel25c-15_A1`
+through `_A4` are Venusaur, *Here Comes Team Rocket!*, Rocket's Zapdos and
+Claydol — four **different cards** that Celebrations printed at collector
+number 15. Calling those parallels of each other would be worse than the
+collision it fixed. They are the only three collisions left in the Pokémon
+catalog, and they are in `docs/OPEN_ISSUES.md` as S2, unfixed on purpose.
+
+One Piece EN, measured on apitcg's full data: 451 → **737** distinct cards,
+414 of them parallels.
+
+### Also
+
+`docs/OPEN_ISSUES.md` did not exist. The session ritual has called for it since
+the beginning. It exists now.
+
+All 22 new guards are mutation-tested and all 22 are caught.

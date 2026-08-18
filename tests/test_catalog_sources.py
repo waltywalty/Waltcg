@@ -19,6 +19,8 @@ that quietly did would be measuring the internet rather than this code.
 
 from __future__ import annotations
 
+import datetime
+import email.utils
 import json
 import os
 import sys
@@ -31,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ingest.catalog_sources import (CrystAdapter, Poke52Adapter,     # noqa: E402
                                     TcgdexAdapter, _catalog_row)
 from ingest.registry import CN_SOURCE_PRIORITY                       # noqa: E402
-from ingest.base import AdapterGaveUp                                # noqa: E402
+from ingest.base import AdapterGaveUp, RateLimited                   # noqa: E402
 from ingest.catalog import CatalogBuilder                            # noqa: E402
 from ingest.runner import STATUS, _write_card, render_summary        # noqa: E402
 
@@ -1605,3 +1607,636 @@ class SealedProductIsNotACard(unittest.TestCase):
         from ingest.catalog import render_catalog_summary
         self.assertNotIn("Not a card printing",
                          render_catalog_summary({"_counts": {"pkmn:EN": 1}}))
+
+
+class FourAttemptsAgainstA429IsFourWaysToBeRefused(unittest.TestCase):
+    """Run #11: apitcg served 250 calls on the 17th and refused after 16 on the
+    18th, with a four-attempt retry budget behind each -- so up to 64 requests
+    reached a service that had already said no. The provider was not failing.
+    It was answering."""
+
+    def _adapter(self, responses):
+        """A transport that returns (status, body, headers) from a script."""
+        import itertools
+        from ingest.base import Adapter
+
+        class Probe(Adapter):
+            name = "probe"
+            host = "example.test"
+
+        script = itertools.chain(responses, itertools.repeat(responses[-1]))
+        slept = []
+
+        def transport(url, headers):
+            return next(script)
+
+        adapter = Probe(raw_root=tempfile.mkdtemp(), sleep=slept.append,
+                        transport=transport)
+        adapter.slept = slept
+        return adapter
+
+    TOO_MANY = (429, b'{"error":"rate limited"}', {"Retry-After": "5"})
+    FINE = (200, b'{"data":[]}', {})
+
+    def test_the_second_refusal_closes_the_adapter(self):
+        from ingest.base import RateLimited
+        adapter = self._adapter([self.TOO_MANY])
+        with self.assertRaises(RateLimited):
+            adapter.get("https://example.test/a")
+        self.assertTrue(adapter.rate_limited)
+        self.assertEqual(adapter.rate_limit_hits, 2,
+                         "the breaker should trip on the second 429, not the fourth")
+
+    def test_a_closed_adapter_makes_no_further_calls(self):
+        from ingest.base import RateLimited
+        adapter = self._adapter([self.TOO_MANY])
+        with self.assertRaises(RateLimited):
+            adapter.get("https://example.test/a")
+        before = adapter.quota.consumed_this_run
+        for _ in range(5):
+            with self.assertRaises(RateLimited):
+                adapter.get("https://example.test/b")
+        self.assertEqual(adapter.quota.consumed_this_run, before,
+                         "a closed adapter kept spending calls to be refused")
+
+    def test_it_is_rate_limited_and_not_gave_up(self):
+        """The distinction the whole thing rests on: one is fixable by
+        waiting and the other needs a code change."""
+        from ingest.base import AdapterGaveUp, RateLimited
+        self.assertFalse(issubclass(RateLimited, AdapterGaveUp))
+        adapter = self._adapter([self.TOO_MANY])
+        with self.assertRaises(RateLimited):
+            adapter.get("https://example.test/a")
+
+    def test_one_refusal_then_success_does_not_close_it(self):
+        """A single 429 is a hiccup. Closing on the first would make one
+        unlucky moment cost the whole run."""
+        adapter = self._adapter([self.TOO_MANY, self.FINE])
+        self.assertEqual(adapter.get("https://example.test/a"), {"data": []})
+        self.assertFalse(adapter.rate_limited)
+        self.assertEqual(adapter.rate_limit_hits, 1)
+
+    def test_retry_after_beats_the_exponential_guess(self):
+        adapter = self._adapter([(429, b'{}', {"Retry-After": "7"}), self.FINE])
+        adapter.get("https://example.test/a")
+        self.assertEqual(adapter.slept, [7.0],
+                         "slept on our own guess instead of the provider's number")
+
+    def test_no_retry_after_falls_back_to_exponential(self):
+        adapter = self._adapter([(429, b'{}', {}), self.FINE])
+        adapter.get("https://example.test/a")
+        self.assertEqual(adapter.slept, [1.0])
+
+    def test_a_retry_after_longer_than_the_run_closes_immediately(self):
+        """A provider asking for an hour is telling us to come back tomorrow.
+        Sleeping on it would spend the whole 30-minute job on one cooldown."""
+        from ingest.base import RateLimited
+        adapter = self._adapter([(429, b'{}', {"Retry-After": "3600"})])
+        with self.assertRaises(RateLimited):
+            adapter.get("https://example.test/a")
+        self.assertTrue(adapter.rate_limited)
+        self.assertEqual(adapter.rate_limit_hits, 1,
+                         "should close on the FIRST refusal when the wait is absurd")
+        self.assertEqual(adapter.slept, [], "slept on an hour-long Retry-After")
+        self.assertIn("3600", adapter.rate_limited_why)
+
+    def test_retry_after_as_an_http_date(self):
+        """RFC 9110 allows delta-seconds OR an HTTP-date. Reading only the
+        integer turns a date into 'no Retry-After sent' -- an answer misread
+        as silence, which is this project's oldest bug shape."""
+        from ingest.base import retry_after_seconds
+        self.assertEqual(retry_after_seconds({"Retry-After": "12"}), 12.0)
+        soon = email.utils.formatdate(
+            (datetime.datetime.now(datetime.timezone.utc)
+             + datetime.timedelta(seconds=40)).timestamp(), usegmt=True)
+        self.assertAlmostEqual(retry_after_seconds({"retry-after": soon}),
+                               40.0, delta=5.0)
+        self.assertIsNone(retry_after_seconds({"Retry-After": "nonsense"}))
+        self.assertIsNone(retry_after_seconds({}))
+        self.assertIsNone(retry_after_seconds(None))
+
+    def test_a_transport_that_returns_two_values_still_works(self):
+        """Every existing test fake predates response headers. A two-tuple is
+        read as 'no headers', which is not the same claim as 'no rate headers
+        were sent' -- and we never make the second from the first."""
+        from ingest.base import Adapter
+
+        class Probe(Adapter):
+            name = "probe"
+
+        adapter = Probe(raw_root=tempfile.mkdtemp(), sleep=lambda _s: None,
+                        transport=lambda u, h: (200, b'{"ok":1}'))
+        self.assertEqual(adapter.get("https://example.test/a"), {"ok": 1})
+        self.assertEqual(adapter.rate_headers, {})
+        self.assertEqual(adapter.rate_headers_seen, 0)
+
+
+class WeDoNotKnowApitcgsQuota(unittest.TestCase):
+    """It is not in openapi.json, not on the docs site, and not in a header we
+    were keeping. 250 calls succeeded on one day and 16 were refused on the
+    next; that difference is the only evidence there is, and it only becomes
+    evidence if it is written down."""
+
+    def _adapter(self, headers):
+        from ingest.base import Adapter
+
+        class Probe(Adapter):
+            name = "probe"
+
+        return Probe(raw_root=tempfile.mkdtemp(), sleep=lambda _s: None,
+                     transport=lambda u, h: (200, b'{"ok":1}', headers))
+
+    def test_rate_headers_are_kept_verbatim(self):
+        """VERBATIM. Names as sent, values as sent -- we are trying to
+        discover a limit nobody documents, and a tidied header is one we have
+        already started interpreting."""
+        adapter = self._adapter({"X-RateLimit-Limit": "500",
+                                 "x-ratelimit-remaining": "12",
+                                 "Content-Type": "application/json"})
+        adapter.get("https://example.test/a")
+        self.assertEqual(adapter.rate_headers,
+                         {"X-RateLimit-Limit": "500",
+                          "x-ratelimit-remaining": "12"})
+
+    def test_the_spellings_providers_actually_use(self):
+        for name in ("Retry-After", "RateLimit-Remaining", "X-RateLimit-Reset",
+                     "x-rate-limit-limit", "X-Quota-Remaining",
+                     "RateLimit-Policy"):
+            adapter = self._adapter({name: "1"})
+            adapter.get("https://example.test/a")
+            self.assertEqual(adapter.rate_headers, {name: "1"},
+                             f"{name} was not recognised as a rate header")
+
+    def test_a_provider_that_sends_nothing_is_recorded_as_sending_nothing(self):
+        """"It publishes nothing" is the measurement that justifies inferring
+        a ceiling from call counts. A blank is not the same as unasked."""
+        adapter = self._adapter({"Content-Type": "application/json"})
+        adapter.get("https://example.test/a")
+        self.assertEqual(adapter.rate_headers, {})
+        self.assertEqual(adapter.responses_seen, 1)
+        self.assertEqual(adapter.rate_headers_seen, 0)
+
+    def test_the_summary_prints_them_verbatim(self):
+        from ingest.runner import render_rate_limits
+        text = "\n".join(render_rate_limits([
+            {"source": "apitcg", "calls": 16, "rate_limit_hits": 2,
+             "rate_limited": True, "responses_seen": 16,
+             "rate_headers": {"Retry-After": "60"}}]))
+        self.assertIn("Retry-After: 60", text)
+        self.assertIn("16", text)
+
+    def test_the_summary_says_when_a_provider_published_nothing(self):
+        from ingest.runner import render_rate_limits
+        text = "\n".join(render_rate_limits([
+            {"source": "apitcg", "calls": 250, "rate_limit_hits": 0,
+             "rate_limited": False, "responses_seen": 250,
+             "rate_headers": {}}]))
+        self.assertIn("Publishing nothing is itself the measurement", text)
+        self.assertIn("config/rate_limits.yaml", text)
+
+    def test_the_observed_ceiling_is_recorded_in_dated_config(self):
+        """Not in a comment and not in code. Both observations, both dates."""
+        import yaml
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "config", "rate_limits.yaml")
+        with open(path, encoding="utf-8") as handle:
+            config = yaml.safe_load(handle)
+        apitcg = config["providers"]["apitcg"]
+        self.assertIsNone(apitcg["published_limit"],
+                          "claiming a published limit apitcg does not publish")
+        dates = {o["date"]: o for o in apitcg["observations"]}
+        self.assertEqual(dates["2026-08-17"]["calls_made"], 250)
+        self.assertEqual(dates["2026-08-18"]["refused_after"], 16)
+
+    def test_the_adapters_do_not_read_the_observations_as_limits(self):
+        """It is a record, not a knob. An adapter that enforced a guessed
+        ceiling would turn one bad day's observation into a permanent cap."""
+        import ingest.base
+        import ingest.adapters
+        for module in (ingest.base, ingest.adapters):
+            with open(module.__file__, encoding="utf-8") as handle:
+                self.assertNotIn("rate_limits.yaml", handle.read(),
+                                 f"{module.__name__} reads the observations")
+
+
+class TheCatalogIsPersistedBetweenRuns(unittest.TestCase):
+    """Sets release monthly, not hourly. Re-enumerating every combination every
+    morning spends the provider budget re-deriving yesterday's answer -- and
+    run #11 ended with nothing at all when the provider started refusing."""
+
+    def _targets(self, **overrides):
+        base = {
+            "_counts": {"pkmn:EN": 2},
+            "_catalog_cache": {
+                "pkmn:EN": {"as_of": "2026-08-18T06:00:00Z", "cards": 2,
+                            "served_by": ["apitcg"], "primary": "apitcg"}},
+            "apitcg": {"cards": [
+                {"card_uid": "pkmn:sv3:1/197:base:EN", "game": "pkmn",
+                 "language": "EN", "name": "a", "number": "1/197",
+                 "set_code": "sv3", "external_id": ""},
+                {"card_uid": "pkmn:sv3:2/197:base:EN", "game": "pkmn",
+                 "language": "EN", "name": "b", "number": "2/197",
+                 "set_code": "sv3", "external_id": ""}]},
+            # The SAME cards under a second price source, as the real file has
+            # them. The cache must dedupe rather than double-count.
+            "tcgapi": {"cards": [
+                {"card_uid": "pkmn:sv3:1/197:base:EN", "game": "pkmn",
+                 "language": "EN", "name": "a", "number": "1/197",
+                 "set_code": "sv3", "external_id": ""}]},
+        }
+        base.update(overrides)
+        path = os.path.join(tempfile.mkdtemp(), "targets.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(base, handle)
+        return path
+
+    def test_the_cache_is_reconstructed_from_the_per_source_lists(self):
+        """Not stored a second time. Every target row already carries its own
+        game and language, so a duplicate copy would be one more thing that can
+        disagree with itself."""
+        from ingest.catalog import load_cached_catalog
+        cache = load_cached_catalog(self._targets())
+        self.assertEqual(len(cache["pkmn:EN"]["cards"]), 2, "duplicates leaked")
+        self.assertEqual(cache["pkmn:EN"]["as_of"], "2026-08-18T06:00:00Z")
+        self.assertEqual(cache["pkmn:EN"]["served_by"], ["apitcg"])
+
+    def test_a_missing_file_is_an_empty_cache_not_an_error(self):
+        from ingest.catalog import load_cached_catalog
+        self.assertEqual(load_cached_catalog("/nonexistent/targets.json"), {})
+
+    def test_unreadable_json_is_an_empty_cache_not_an_error(self):
+        from ingest.catalog import load_cached_catalog
+        path = os.path.join(tempfile.mkdtemp(), "targets.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("{not json")
+        self.assertEqual(load_cached_catalog(path), {})
+
+    def test_an_undated_entry_has_age_none_not_age_zero(self):
+        """None is not zero. Treating unknown age as fresh is how a stale
+        catalog starts looking like a fresh one, which is the one thing this
+        mechanism must never do."""
+        from ingest.catalog import cache_age_days
+        self.assertIsNone(cache_age_days({"cards": [1]}))
+        self.assertIsNone(cache_age_days({"as_of": "not a date"}))
+        self.assertIsNone(cache_age_days(None))
+
+    def test_age_is_measured_in_days(self):
+        from ingest.catalog import cache_age_days
+        now = datetime.datetime(2026, 8, 18, 12, 0, 0)
+        self.assertAlmostEqual(
+            cache_age_days({"as_of": "2026-08-15T12:00:00Z"}, now), 3.0,
+            places=3)
+
+
+class AFreshComboCostsNoProviderCall(unittest.TestCase):
+
+    def _builder(self):
+        from ingest.catalog import CatalogBuilder
+
+        class Exploding:
+            def __getattr__(self, _name):
+                raise AssertionError("a provider was called for a fresh combo")
+
+        return CatalogBuilder(tcgapi=Exploding(), apitcg=Exploding())
+
+    CARD = {"card_uid": "pkmn:sv3:1/197:base:EN", "game": "pkmn",
+            "language": "EN", "name": "a", "number": "1/197",
+            "set_code": "sv3", "external_id": ""}
+
+    def _cache(self, as_of):
+        return {"pkmn:EN": {"cards": [self.CARD], "as_of": as_of,
+                            "served_by": ["apitcg"], "primary": "apitcg"}}
+
+    def test_nothing_is_called_and_the_cards_come_back(self):
+        now = datetime.datetime(2026, 8, 18, 12, 0, 0)
+        builder = self._builder()
+        catalog = builder.build([("pkmn", "EN")],
+                                cache=self._cache("2026-08-16T12:00:00Z"),
+                                max_age_days=7, now=now)
+        self.assertEqual(len(catalog["pkmn:EN"]["cards"]), 1)
+
+    def test_it_never_reads_as_ok(self):
+        """A cached catalog and a fresh one are different facts even when the
+        cards are identical."""
+        now = datetime.datetime(2026, 8, 18, 12, 0, 0)
+        builder = self._builder()
+        builder.build([("pkmn", "EN")], cache=self._cache("2026-08-16T12:00:00Z"),
+                      max_age_days=7, now=now)
+        entry = builder.combo_status["pkmn:EN"]
+        self.assertEqual(entry["status"], "catalog_from_cache")
+        self.assertNotEqual(entry["status"], "ok")
+        self.assertAlmostEqual(entry["age_days"], 2.0, places=1)
+
+    def test_past_the_threshold_it_re_enumerates(self):
+        from ingest.catalog import CatalogBuilder
+        calls = []
+
+        class Counting:
+            def __getattr__(self, name):
+                calls.append(name)
+                raise AdapterGaveUp("no")
+
+        builder = CatalogBuilder(tcgapi=Counting(), apitcg=Counting())
+        builder.build([("pkmn", "EN")],
+                      cache=self._cache("2026-08-01T12:00:00Z"),
+                      max_age_days=7,
+                      now=datetime.datetime(2026, 8, 18, 12, 0, 0))
+        self.assertTrue(calls, "a 17-day-old catalog was served as fresh")
+
+    def test_force_re_enumerates_a_fresh_one(self):
+        from ingest.catalog import CatalogBuilder
+        calls = []
+
+        class Counting:
+            def __getattr__(self, name):
+                calls.append(name)
+                raise AdapterGaveUp("no")
+
+        builder = CatalogBuilder(tcgapi=Counting(), apitcg=Counting())
+        builder.build([("pkmn", "EN")],
+                      cache=self._cache("2026-08-18T11:00:00Z"),
+                      max_age_days=7, force=True,
+                      now=datetime.datetime(2026, 8, 18, 12, 0, 0))
+        self.assertTrue(calls, "--force did not force")
+
+    def test_an_undated_cache_is_re_enumerated(self):
+        """Unknown age must never satisfy a freshness test."""
+        from ingest.catalog import CatalogBuilder
+        calls = []
+
+        class Counting:
+            def __getattr__(self, name):
+                calls.append(name)
+                raise AdapterGaveUp("no")
+
+        builder = CatalogBuilder(tcgapi=Counting(), apitcg=Counting())
+        builder.build([("pkmn", "EN")], cache=self._cache(None),
+                      max_age_days=7,
+                      now=datetime.datetime(2026, 8, 18, 12, 0, 0))
+        self.assertTrue(calls, "an undated cache was treated as fresh")
+
+    def test_a_failed_refresh_falls_back_to_the_stale_cache(self):
+        """The whole point: a throttled provider costs nothing, because
+        yesterday's answer is still the answer."""
+        from ingest.catalog import CatalogBuilder
+
+        class Refusing:
+            def __getattr__(self, _name):
+                raise RateLimited("429")
+
+        builder = CatalogBuilder(tcgapi=Refusing(), apitcg=Refusing())
+        builder.live_open_sources = lambda: []
+        catalog = builder.build([("pkmn", "EN")],
+                                cache=self._cache("2026-08-01T12:00:00Z"),
+                                max_age_days=7,
+                                now=datetime.datetime(2026, 8, 18, 12, 0, 0))
+        self.assertEqual(len(catalog["pkmn:EN"]["cards"]), 1)
+        entry = builder.combo_status["pkmn:EN"]
+        self.assertEqual(entry["status"], "catalog_from_cache_stale")
+        self.assertTrue(entry["refresh_failed"])
+        self.assertAlmostEqual(entry["age_days"], 17.0, places=0)
+
+    def test_a_cached_combo_carries_its_original_stamp_forward(self):
+        """Restamping a cache with today's date makes it immortal: it would
+        refresh its own timestamp every run without ever being rebuilt."""
+        from ingest.catalog import to_targets
+        cache = self._cache("2026-08-16T12:00:00Z")
+        builder = self._builder()
+        catalog = builder.build([("pkmn", "EN")], cache=cache, max_age_days=7,
+                                now=datetime.datetime(2026, 8, 18, 12, 0, 0))
+        targets = to_targets(catalog, [], builder.combo_status, cache=cache)
+        self.assertEqual(targets["_catalog_cache"]["pkmn:EN"]["as_of"],
+                         "2026-08-16T12:00:00Z")
+
+    def test_a_rebuilt_combo_gets_todays_stamp(self):
+        from ingest.catalog import to_targets
+        builder = self._builder()
+        now = datetime.datetime(2026, 8, 18, 12, 0, 0)
+        builder.combo_status = {"pkmn:EN": {"status": "ok", "sources": ["apitcg"],
+                                            "as_of": now.isoformat() + "Z",
+                                            "primary": "apitcg"}}
+        catalog = {"pkmn:EN": {"sources": ["apitcg"], "cards": [self.CARD]}}
+        targets = to_targets(catalog, [], builder.combo_status, cache={})
+        self.assertEqual(targets["_catalog_cache"]["pkmn:EN"]["as_of"],
+                         "2026-08-18T12:00:00Z")
+
+    def test_an_empty_combo_is_not_stamped(self):
+        """A `no_catalog_source` combination must not sit unasked for a week
+        behind a fresh-looking stamp."""
+        from ingest.catalog import to_targets
+        targets = to_targets(
+            {"optcg:CN-S": {"sources": [], "cards": []}}, [],
+            {"optcg:CN-S": {"status": "no_catalog_source", "sources": [],
+                            "as_of": "2026-08-18T12:00:00Z"}}, cache={})
+        self.assertNotIn("optcg:CN-S", targets["_catalog_cache"])
+
+
+class AnEmptyRunMustNotOverwriteTheCache(unittest.TestCase):
+    """The failure mode worse than any this prevents. A run where every
+    provider refused writes a targets file with zero cards; committing it would
+    make one bad day permanent."""
+
+    def _write(self, payload):
+        path = os.path.join(tempfile.mkdtemp(), "targets.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+        return path
+
+    def test_zero_cards_is_refused(self):
+        from ingest.catalog import persistable
+        ok, why = persistable(self._write({"_counts": {"pkmn:EN": 0}}))
+        self.assertFalse(ok)
+        self.assertIn("zero cards", why)
+
+    def test_cards_with_no_as_of_are_refused(self):
+        from ingest.catalog import persistable
+        ok, why = persistable(self._write({
+            "_counts": {"pkmn:EN": 5},
+            "_catalog_cache": {"pkmn:EN": {"cards": 5, "as_of": None}}}))
+        self.assertFalse(ok)
+        self.assertIn("no as_of", why)
+
+    def test_a_real_catalog_is_accepted(self):
+        from ingest.catalog import persistable
+        ok, why = persistable(self._write({
+            "_counts": {"pkmn:EN": 5},
+            "_catalog_cache": {"pkmn:EN": {"cards": 5,
+                                           "as_of": "2026-08-18T06:00:00Z"}}}))
+        self.assertTrue(ok, why)
+        self.assertIn("5 cards", why)
+
+    def test_a_missing_or_broken_file_is_refused(self):
+        from ingest.catalog import persistable
+        self.assertFalse(persistable("/nonexistent/x.json")[0])
+        path = os.path.join(tempfile.mkdtemp(), "t.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("{[")
+        self.assertFalse(persistable(path)[0])
+
+
+class TheWorkflowPersistsSafely(unittest.TestCase):
+
+    def _workflow(self):
+        import yaml
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), ".github", "workflows", "ingest.yml")
+        with open(path, encoding="utf-8") as handle:
+            return yaml.safe_load(handle)
+
+    def _steps(self):
+        return self._workflow()["jobs"]["snapshot"]["steps"]
+
+    def test_the_persist_step_exists_and_is_gated_on_the_check(self):
+        step = next(s for s in self._steps()
+                    if s.get("name", "").startswith("Persist the catalog"))
+        self.assertIn("steps.persist_check.outcome == 'success'", step["if"])
+
+    def test_it_only_pushes_to_the_default_branch(self):
+        step = next(s for s in self._steps()
+                    if s.get("name", "").startswith("Persist the catalog"))
+        self.assertIn("default_branch", step["if"])
+
+    def test_the_data_guard_runs_before_the_push(self):
+        names = [s.get("name", "") for s in self._steps()]
+        guard = names.index("Data guard")
+        persist = next(i for i, n in enumerate(names)
+                       if n.startswith("Persist the catalog"))
+        self.assertLess(guard, persist,
+                        "the catalog would be pushed before it was scanned")
+
+    def test_it_commits_only_the_targets_file(self):
+        step = next(s for s in self._steps()
+                    if s.get("name", "").startswith("Persist the catalog"))
+        added = [line.strip() for line in step["run"].splitlines()
+                 if line.strip().startswith("git add")]
+        self.assertEqual(added, ["git add ingest/targets.json"])
+
+    def test_no_and_list_can_trip_set_e(self):
+        """Runs #4 and #7 were both shell logic in YAML. GitHub runs
+        `bash -eo pipefail`, and a failing AND-list as a standalone statement
+        aborts the step -- so `git diff --quiet && echo && exit 0` would abort
+        on the branch where there ARE changes, which is the branch that
+        matters. The condition of an `if` is the one place `set -e` is
+        documented to ignore an exit status."""
+        for step in self._steps():
+            for line in (step.get("run") or "").splitlines():
+                stripped = line.strip()
+                if stripped.startswith(("#", "if ", "elif ")):
+                    continue
+                self.assertNotIn("--quiet &&", stripped,
+                                 f"AND-list on a failing command in "
+                                 f"{step.get('name')!r}: {stripped}")
+
+    def test_the_job_can_write(self):
+        self.assertEqual(self._workflow()["permissions"]["contents"], "write")
+
+    def test_force_is_reachable_from_a_dispatch(self):
+        # PyYAML reads a bare `on:` as the boolean True (YAML 1.1), so the
+        # key is not the string it looks like in the file.
+        workflow = self._workflow()
+        triggers = workflow.get("on", workflow.get(True))
+        inputs = triggers["workflow_dispatch"]["inputs"]
+        self.assertIn("force_catalog", inputs)
+        step = next(s for s in self._steps()
+                    if s.get("name", "").startswith("Build targets"))
+        self.assertIn("--force", step["env"]["FORCE"])
+
+
+class WhichSourceActuallyServedThisCombo(unittest.TestCase):
+    """Run #11 read `tcgdex` against pkmn:EN and it looked like ordinary
+    operation. It meant apitcg had been refused and the fallback caught it.
+    The fallback working is good news, and it is still news."""
+
+    def test_the_expected_source_is_declared_not_inferred(self):
+        from ingest.catalog import primary_source
+        self.assertEqual(primary_source("pkmn", "EN"), "apitcg")
+        self.assertEqual(primary_source("optcg", "JP"), "apitcg")
+        self.assertEqual(primary_source("pkmn", "JP"), "tcgdex")
+        self.assertEqual(primary_source("pkmn", "CN-S"), "tcgdex")
+
+    def test_a_combo_nothing_serves_has_no_primary(self):
+        from ingest.catalog import primary_source
+        self.assertEqual(primary_source("optcg", "CN-S"), "")
+
+    def test_a_fallback_serving_does_not_read_as_ok(self):
+        from ingest.catalog import CatalogBuilder
+
+        class Refusing:
+            def __getattr__(self, _name):
+                raise RateLimited("429 from apitcg")
+
+        rows = [{"card_uid": "pkmn:sv3:1/197:base:EN", "game": "pkmn",
+                 "language": "EN", "name": "a", "number": "1/197",
+                 "set_code": "sv3", "variant": "base", "external_id": "",
+                 "source": "tcgdex"}]
+        builder = CatalogBuilder(tcgapi=Refusing(), apitcg=Refusing())
+        builder.open_catalog_fallback = lambda g, l: (
+            rows, {"used": ["tcgdex"], "failed": []})
+        builder.build([("pkmn", "EN")], cache={})
+        entry = builder.combo_status["pkmn:EN"]
+        self.assertEqual(entry["status"], "ok_via_fallback")
+        self.assertEqual(entry["primary"], "apitcg")
+        self.assertEqual(entry["sources"], ["tcgdex"])
+
+    def test_the_primary_serving_reads_as_ok(self):
+        from ingest.catalog import CatalogBuilder
+        rows = [{"card_uid": "pkmn:sv3:1/197:base:EN", "game": "pkmn",
+                 "language": "EN", "name": "a", "number": "1/197",
+                 "set_code": "sv3", "variant": "base", "external_id": "",
+                 "source": "tcgdex"}]
+        builder = CatalogBuilder(tcgapi=object(), apitcg=object())
+        builder.apitcg_cards = lambda g, l: []
+        builder.open_catalog_fallback = lambda g, l: (
+            rows, {"used": ["tcgdex"], "failed": []})
+        builder.build([("pkmn", "JP")], cache={})
+        self.assertEqual(builder.combo_status["pkmn:JP"]["status"], "ok")
+
+    def test_the_summary_names_the_expected_and_the_actual(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:EN": 6088},
+            "_combo_status": {"pkmn:EN": {
+                "status": "ok_via_fallback", "cards": 6088,
+                "sources": ["tcgdex"], "primary": "apitcg",
+                "reasons": ["apitcg_rate_limited"]}}})
+        self.assertIn("ok_via_fallback", text)
+        self.assertIn("fallback", text)
+        self.assertIn("apitcg_rate_limited", text)
+        self.assertIn("expected `apitcg`", text)
+
+    def test_a_rate_limited_combo_is_not_called_unreachable(self):
+        from ingest.catalog import CatalogBuilder
+
+        class Refusing:
+            def __getattr__(self, _name):
+                raise RateLimited("429 from apitcg")
+
+        builder = CatalogBuilder(tcgapi=Refusing(), apitcg=Refusing())
+        builder.live_open_sources = lambda: []
+        builder.build([("riftbound", "EN")], cache={})
+        entry = builder.combo_status["riftbound:EN"]
+        self.assertEqual(entry["status"], "rate_limited")
+        self.assertNotEqual(entry["status"], "source_unreachable")
+
+    def test_the_summary_separates_refused_from_broken(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"riftbound:EN": 0},
+            "_combo_status": {"riftbound:EN": {
+                "status": "rate_limited", "cards": 0, "sources": [],
+                "primary": "apitcg", "reasons": ["apitcg_rate_limited"]}}})
+        self.assertIn("Rate limited", text)
+        self.assertIn("not `source_unreachable`", text)
+        self.assertIn("config/rate_limits.yaml", text)
+
+    def test_the_cache_section_shows_the_age(self):
+        from ingest.catalog import render_catalog_summary
+        text = render_catalog_summary({
+            "_counts": {"pkmn:EN": 6088},
+            "_combo_status": {"pkmn:EN": {
+                "status": "catalog_from_cache", "cards": 6088,
+                "sources": ["apitcg"], "primary": "apitcg",
+                "age_days": 2.0, "cache_max_age_days": 7}}})
+        self.assertIn("catalog_from_cache", text)
+        self.assertIn("2.0d", text)
+        self.assertIn("--force", text)

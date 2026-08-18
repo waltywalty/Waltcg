@@ -31,9 +31,19 @@ on:
       sources:
         description: "comma-separated source names, or 'all'"
         default: "all"
+      force_catalog:
+        description: "re-enumerate every combination, ignoring the cached catalog"
+        type: boolean
+        default: false
 
+# `write` so the catalog can be PERSISTED. Sets release monthly, not hourly,
+# and run #11 spent its whole apitcg budget re-deriving a catalog that had not
+# changed -- then had nothing at all when the provider started refusing. The
+# only thing this token ever writes is ingest/targets.json, which is card
+# IDENTITIES and has always been tracked; the data guard runs before the push,
+# so a payload cannot ride out on it.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ingest
@@ -139,12 +149,18 @@ jobs:
       # One command now. `--summary` is written inside Python, BEFORE the exit
       # code is returned, so no exit code and no shell option can suppress it.
       # There is no shell logic left in this step to get wrong.
+      # `--force` on the first of the month, and on a manual run that asks for
+      # it. Everything else honours the per-combo age in the checked-in
+      # targets.json: a combination younger than the threshold is not
+      # re-enumerated and costs no provider call at all. That is what makes a
+      # throttled provider survivable -- yesterday's answer is still the answer.
       - name: Build targets from the catalogs -- BEFORE anything prices them
         continue-on-error: true
         env:
           TCGAPI_KEY: ${{ secrets.TCGAPI_KEY }}
           APITCG_KEY: ${{ secrets.APITCG_KEY }}
-        run: python -m ingest.catalog --write --summary "$GITHUB_STEP_SUMMARY"
+          FORCE: ${{ github.event.inputs.force_catalog == 'true' && '--force' || '' }}
+        run: python -m ingest.catalog --write $FORCE --summary "$GITHUB_STEP_SUMMARY"
 
       # Always runs to completion. The exit code is the runner's decision.
       - name: Run adapters and write snapshots
@@ -206,6 +222,56 @@ jobs:
       - name: Data guard
         if: always()
         run: python -m audit.checks.no_provider_data --verbose
+
+      # PERSIST THE CATALOG. This is the fix run #11 actually needed: the
+      # catalog barely changes day to day, and re-enumerating it every morning
+      # spends the provider budget on data we already had. With it committed,
+      # a combination younger than its threshold costs nothing, and a
+      # throttled provider costs nothing either -- yesterday's answer is still
+      # the answer.
+      #
+      # Guarded in three places rather than one, because the failure mode is
+      # asymmetric: a bad commit here overwrites the cache and makes one bad
+      # day permanent.
+      #
+      #   1. --persist-check refuses a file with zero cards or an undated
+      #      combination. The logic is in Python where the tests can reach it;
+      #      run #4 and run #7 were both shell in a YAML file.
+      #   2. The commit only runs if that check passed -- a step-level `if:`,
+      #      not a bash conditional.
+      #   3. The data guard above has already run, so a payload cannot ride
+      #      out on this token.
+      #
+      # Default branch only. A dispatch on a topic branch reads the cache and
+      # never writes it.
+      - name: Is the catalog safe to keep?
+        id: persist_check
+        if: always()
+        continue-on-error: true
+        run: python -m ingest.catalog --persist-check
+
+      - name: Persist the catalog for the next run
+        if: >-
+          always()
+          && steps.persist_check.outcome == 'success'
+          && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          git config user.name  "waltcg-ingest[bot]"
+          git config user.email "waltcg-ingest[bot]@users.noreply.github.com"
+          git add ingest/targets.json
+          # `if`, NOT `a && b && exit 0`. GitHub runs `bash -eo pipefail`, and
+          # a failing AND-list as a standalone statement trips `set -e` -- so
+          # the "there ARE changes" branch would abort the step instead of
+          # committing. That is the run #4 and run #7 failure exactly: shell
+          # logic in a YAML file, unreachable from the test suite. The
+          # condition of an `if` is the one place `set -e` is documented to
+          # ignore an exit status.
+          if git diff --cached --quiet; then
+            echo "catalog unchanged; nothing to persist"
+          else
+            git commit -m "catalog: refresh targets from run ${{ github.run_number }}"
+            git push origin HEAD:${{ github.event.repository.default_branch }}
+          fi
 
       # The runner's exit code, applied after the artifact is safely uploaded.
       - name: Fail the job if the run failed

@@ -372,3 +372,100 @@ class TheNameIsNotAKey(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ThePublishersOwnIdSaysWhichPrinting(unittest.TestCase):
+    """Non-negotiable 3: every printing is a different card, never merged.
+
+    `EB01-006`, `EB01-006_p1` and `EB01-006_p2` are three printings of one card
+    at ONE collector number, and all three carry rarity `SR`. Neither the
+    number nor the rarity string can separate them, so with only those two they
+    collapsed into a single card_uid: 234 collisions swallowing 286 rows, 39%
+    of the One Piece catalog -- and the parallels are the expensive ones.
+
+    The suffix is Bandai's, not a provider invention: the official card-list
+    images are `EB01-006.png` and `EB01-006_p1.png`.
+    """
+
+    def test_the_base_printing_implies_nothing(self):
+        from resolve.identity import variant_from_external_id
+        self.assertIsNone(variant_from_external_id("EB01-006", "optcg"))
+        self.assertIsNone(variant_from_external_id("", "optcg"))
+        self.assertIsNone(variant_from_external_id(None, "optcg"))
+
+    def test_each_parallel_is_its_own_printing(self):
+        from resolve.identity import variant_from_external_id
+        self.assertEqual(variant_from_external_id("EB01-006_p1", "optcg"),
+                         "parallel")
+        self.assertEqual(variant_from_external_id("EB01-006_p2", "optcg"),
+                         "parallel2")
+        self.assertEqual(variant_from_external_id("EB01-006_p7", "optcg"),
+                         "parallel7")
+
+    def test_p1_and_the_bare_parallel_are_the_same_token(self):
+        """`variant_from_rarity` already returns `parallel` for rarity `PR`.
+        A card is never both, and two names for one treatment would split a
+        price series in half."""
+        from resolve.identity import variant_from_external_id, variant_from_rarity
+        self.assertEqual(variant_from_external_id("OP01-001_p1", "optcg"),
+                         variant_from_rarity("PR", game="optcg"))
+
+    def test_reprints_are_separated_too(self):
+        from resolve.identity import variant_from_external_id
+        self.assertEqual(variant_from_external_id("OP09-006_r1", "optcg"),
+                         "reprint")
+
+    def test_an_unrecognised_suffix_stays_distinct_and_says_so(self):
+        """NOT `base`. Falling back to base is the merge this exists to stop,
+        and inventing a name for a treatment nobody has identified is the other
+        way to be wrong. It stays separable and it stays labelled unknown."""
+        from resolve.identity import variant_from_external_id
+        got = variant_from_external_id("OP01-001_x3", "optcg")
+        self.assertEqual(got, "unknown_x3")
+        self.assertNotEqual(got, "base")
+
+    def test_pokemon_is_not_given_one_piece_s_convention(self):
+        """THE REASON THIS IS GAME-SCOPED. `cel25c-15_A1` through `_A4` are
+        Venusaur, Here Comes Team Rocket!, Rocket's Zapdos and Claydol -- four
+        DIFFERENT CARDS that Celebrations printed at collector number 15. They
+        are not parallels of each other, and saying they were would be worse
+        than the collision it fixed."""
+        from resolve.identity import variant_from_external_id
+        self.assertIsNone(variant_from_external_id("cel25c-15_A1", "pkmn"))
+        self.assertIsNone(variant_from_external_id("OGN-001_p1", "riftbound"))
+
+    def test_the_numbered_tokens_are_recognised_as_variants(self):
+        from resolve.identity import VARIANTS, is_variant
+        for token in VARIANTS:
+            self.assertTrue(is_variant(token))
+        for token in ("parallel2", "parallel7", "reprint2"):
+            self.assertTrue(is_variant(token), token)
+        # `parallel1` is not a token this project produces -- the first one is
+        # plain `parallel` -- so accepting it would let two names for one
+        # printing through and split its price series.
+        for token in ("parallel1", "parallel0", "parallels", "nonsense", ""):
+            self.assertFalse(is_variant(token), token)
+
+    def test_the_three_printings_get_three_card_uids(self):
+        from ingest.catalog import CatalogBuilder
+        builder = CatalogBuilder(tcgapi=object(), apitcg=object())
+        uids = set()
+        for ident in ("EB01-006", "EB01-006_p1", "EB01-006_p2"):
+            row = builder._row("optcg", "EN", "eb01",
+                               {"id": ident, "number": "EB01-006",
+                                "name": "Tony Tony.Chopper", "rarity": "SR"},
+                               "apitcg")
+            self.assertIsNotNone(row, ident)
+            uids.add(row["card_uid"])
+        self.assertEqual(len(uids), 3,
+                         "three printings of one card merged into one card_uid")
+
+    def test_the_number_still_wins_where_it_encodes_the_treatment(self):
+        """Riftbound bands and variants on the number, and the id suffix must
+        not overtake it -- ordering is most-reliable-first, not last-writer."""
+        from ingest.catalog import CatalogBuilder
+        builder = CatalogBuilder(tcgapi=object(), apitcg=object())
+        row = builder._row("riftbound", "EN", "origins",
+                           {"id": "origins-299_p1", "number": "299*/298",
+                            "name": "Jinx", "rarity": "Showcase"}, "apitcg")
+        self.assertEqual(row["variant"], "signature")

@@ -266,7 +266,7 @@ def run_source(store: Store, name: str, adapter, targets,
         _finish(store, run_id, status, 0, 1, adapter, detail)
         return {"source": name, "status": status, "expected": expected,
                 "unverified": unverified, "rows": 0, "gaps": 1,
-                "detail": detail[:220]}
+                "detail": detail[:220], **rate_telemetry(adapter)}
 
     for record in records:
         writer = WRITERS.get(record.kind)
@@ -297,7 +297,59 @@ def run_source(store: Store, name: str, adapter, targets,
     status = "ok" if rows else "empty"
     _finish(store, run_id, status, rows, gaps, adapter, adapter.quota.note())
     return {"source": name, "status": status, "expected": expected,
-            "rows": rows, "gaps": gaps, "quota": adapter.quota.note()}
+            "rows": rows, "gaps": gaps, "quota": adapter.quota.note(),
+            **rate_telemetry(adapter)}
+
+
+def rate_telemetry(adapter) -> dict:
+    """What this adapter learned about the provider's limits, for the report.
+
+    We do not know apitcg's quota. It is not in its OpenAPI spec, it served
+    250 calls on 2026-08-17 and refused after 16 on 2026-08-18, and the only
+    way that gets answered is by writing down what each response actually
+    said. Headers verbatim; call counts as observed.
+    """
+    return {
+        "calls": getattr(adapter, "quota", None)
+                 and adapter.quota.consumed_this_run or 0,
+        "rate_headers": dict(getattr(adapter, "rate_headers", {}) or {}),
+        "rate_limit_hits": getattr(adapter, "rate_limit_hits", 0),
+        "rate_limited": bool(getattr(adapter, "rate_limited", False)),
+        "responses_seen": getattr(adapter, "responses_seen", 0),
+        "rate_headers_seen": getattr(adapter, "rate_headers_seen", 0),
+    }
+
+
+def render_rate_limits(results) -> list:
+    """The observed-ceiling table. Always rendered, including when nothing
+    published anything -- "this provider tells us nothing" is the finding that
+    justifies measuring, and a section that disappears when it is true reads
+    as though the question was never asked."""
+    seen = [r for r in results if r.get("responses_seen")]
+    if not seen:
+        return []
+    lines = ["", "**Rate limits, as the providers actually reported them.**",
+             "", "| Source | Calls | 429s | Stopped | Headers sent |",
+             "|---|---:|---:|---|---|"]
+    for r in sorted(seen, key=lambda r: r["source"]):
+        headers = r.get("rate_headers") or {}
+        # VERBATIM. Names as sent, values as sent -- we are trying to discover
+        # a limit nobody documents, and a tidied header is one we have already
+        # begun interpreting.
+        shown = ("; ".join(f"`{k}: {v}`" for k, v in sorted(headers.items()))
+                 if headers else "_none_")
+        stopped = "yes" if r.get("rate_limited") else "--"
+        lines.append(f"| `{r['source']}` | {r.get('calls', 0)} "
+                     f"| {r.get('rate_limit_hits', 0)} | {stopped} | {shown} |")
+    silent = [r["source"] for r in seen if not (r.get("rate_headers") or {})]
+    if silent:
+        lines += ["", "Publishing nothing is itself the measurement: "
+                  + ", ".join(f"`{n}`" for n in sorted(silent))
+                  + " sent no rate headers at all, so the ceiling can only be "
+                  "inferred from what succeeded and what was refused. "
+                  "`config/rate_limits.yaml` is where those observations "
+                  "accumulate -- add this run's numbers to it."]
+    return lines
 
 
 def _finish(store, run_id, status, rows, gaps, adapter, detail):
@@ -402,6 +454,8 @@ def render_summary(results, seal=None, db_path=None) -> str:
         detail = str(detail).replace("|", "\\|").replace("\n", " ")[:160]
         lines.append(f"| `{r['source']}` | {SYMBOL[r['status']]} | {r['rows']} "
                      f"| {r['gaps']} | {detail} |")
+
+    lines += render_rate_limits(results)
 
     no_import = [r for r in results if r.get("traceback")]
     if no_import:

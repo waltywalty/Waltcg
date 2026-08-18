@@ -42,7 +42,29 @@ LANGUAGES = ("EN", "JP", "CN-S", "CN-T")
 # `ar`/`sar` are separate printings of art that also exists at a base number.
 VARIANTS = ("base", "parallel", "alt_art", "promo", "ar", "sar", "sir",
             "manga_rare", "treasure_rare", "serialized", "overnumbered",
-            "signature")
+            "signature", "reprint")
+
+# A game may print the SAME collector number several times with different
+# treatments -- One Piece prints up to seven parallels of one card, all at
+# `EB01-006`. So `parallel` alone cannot separate them, and separating them is
+# not optional: non-negotiable 3 says every printing is a different card.
+# `parallel` is the first, `parallel2`..`parallelN` the rest.
+_NUMBERED_VARIANTS = ("parallel", "reprint")
+
+
+def is_variant(token) -> bool:
+    """Is this a variant token this project can produce?
+
+    Not an equality test against VARIANTS, because the numbered treatments are
+    open-ended -- a set that ships an eighth parallel does not need a code
+    change to be identifiable, only to be understood.
+    """
+    text = str(token or "")
+    if text in VARIANTS:
+        return True
+    stem = text.rstrip("0123456789")
+    return (stem in _NUMBERED_VARIANTS and stem != text
+            and text[len(stem):] not in ("0", "1"))
 
 # Which languages each game actually ships in. Riftbound is English-only;
 # there is no Japanese release (see probe/COVERAGE.md).
@@ -312,6 +334,57 @@ _SIR_BY_LANGUAGE = {"EN": "sir", "JP": "sar", "CN-S": "sar", "CN-T": "sar"}
 _VARIANT_BY_GAME = {
     "optcg": {"pr": "parallel"},
 }
+
+
+# Games whose PROVIDER ID encodes the printing treatment.
+#
+# One Piece only, and the restriction is load-bearing rather than cautious.
+# Bandai's own card-list images are `EB01-006.png`, `EB01-006_p1.png`,
+# `EB01-006_p2.png` -- the suffix IS the treatment, from the publisher, not a
+# provider invention. 1,165 of apitcg's 3,188 One Piece cards carry one.
+#
+# Pokemon uses the same-looking suffix for something completely different:
+# `cel25c-15_A1` through `_A4` are Venusaur, Here Comes Team Rocket!, Rocket's
+# Zapdos and Claydol -- four DIFFERENT CARDS that Celebrations printed at
+# collector number 15. That is a broken numbering the provider is patching
+# around, not a treatment of one card, and calling those four "parallels of
+# each other" would be worse than the collision it fixed. Recorded in
+# docs/OPEN_ISSUES.md; not guessed at here.
+ID_SUFFIX_VARIANT_GAMES = frozenset({"optcg"})
+
+# The letter, as the publisher writes it.
+_ID_SUFFIX_VARIANTS = {"p": "parallel", "r": "reprint"}
+
+_ID_SUFFIX = re.compile(r"_([a-zA-Z])(\d*)$")
+
+
+def variant_from_external_id(external_id, game=None):
+    """Variant implied by the provider's own card id, or None.
+
+    THE COLLISION THIS EXISTS FOR. `EB01-006`, `EB01-006_p1` and
+    `EB01-006_p2` are three printings of one card at one collector number, and
+    all three carry rarity `SR`. Neither the number nor the rarity string can
+    tell them apart, so with only those two the three collapsed into one
+    card_uid -- 234 collisions swallowing 286 rows, 39% of the One Piece
+    catalog, and the parallels are the expensive ones.
+
+    Returns None for every game not in `ID_SUFFIX_VARIANT_GAMES`, rather than
+    exporting one publisher's convention to the rest.
+    """
+    if game is not None and game not in ID_SUFFIX_VARIANT_GAMES:
+        return None
+    match = _ID_SUFFIX.search(str(external_id or ""))
+    if match is None:
+        return None
+    stem = _ID_SUFFIX_VARIANTS.get(match.group(1).lower())
+    if stem is None:
+        # A suffix we have not seen. NOT `base` -- that is the merge this
+        # function exists to stop -- and not a guessed name either. `unknown`
+        # keeps the card distinct from its base printing while saying plainly
+        # that we cannot name the treatment.
+        return "unknown_" + match.group(1).lower() + match.group(2)
+    index = match.group(2)
+    return stem if index in ("", "1") else f"{stem}{index}"
 
 
 def variant_from_rarity(rarity, name=None, language=None, game=None) -> str:

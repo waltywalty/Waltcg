@@ -40,6 +40,7 @@ from resolve.identity import (RIFTBOUND_SET_ALIASES,              # noqa: E402
                               RIFTBOUND_SETS, TCGAPI_GAME_ID,
                               TCGAPI_GAME_SLUG, TCGAPI_KNOWN_SLUGS,
                               card_uid, parse_collector_number,
+                              variant_from_external_id,
                               variant_from_number, variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402
 
@@ -68,6 +69,106 @@ APITCG_LANGUAGES = {"optcg": ("EN", "JP"), "pkmn": ("EN",), "riftbound": ("EN",)
 
 def _now():
     return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
+
+
+# How long a combination's catalog stays good. Sets release monthly, not
+# hourly, so re-enumerating every combination every day spends the whole
+# provider budget re-deriving yesterday's answer -- which is exactly what left
+# run #11 with nothing when apitcg started refusing.
+#
+# Seven days is a starting point, not a measurement. The cost of being wrong is
+# asymmetric and cheap in one direction: a set that dropped mid-week is missed
+# until the refresh, and `--force` exists for the day a set drops.
+DEFAULT_MAX_AGE_DAYS = 7
+
+
+def load_cached_catalog(path=TARGETS) -> dict:
+    """Yesterday's catalog, per combination, out of the committed targets file.
+
+    Reconstructed from the per-source card lists rather than stored a second
+    time: every target row already carries its own `game` and `language`, so
+    the grouping is derivable and a duplicate copy would be one more thing that
+    can disagree with itself.
+
+    Returns {combo: {"cards": [...], "as_of": iso, "served_by": [...]}}.
+    A missing or unreadable file is an empty cache, never an error -- the first
+    run has no cache and that is not a fault.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+
+    meta = raw.get("_catalog_cache") or {}
+    by_combo: dict = {}
+    seen: dict = {}
+    for key, value in raw.items():
+        if key.startswith("_") or not isinstance(value, dict):
+            continue
+        for card in value.get("cards") or []:
+            if not isinstance(card, dict):
+                continue
+            game, language = card.get("game"), card.get("language")
+            uid = card.get("card_uid")
+            if not (game and language and uid):
+                continue
+            combo = f"{game}:{language}"
+            if uid in seen.setdefault(combo, set()):
+                continue
+            seen[combo].add(uid)
+            by_combo.setdefault(combo, []).append(card)
+
+    out = {}
+    for combo in set(by_combo) | set(meta):
+        entry = meta.get(combo) or {}
+        out[combo] = {
+            "cards": by_combo.get(combo, []),
+            "as_of": entry.get("as_of"),
+            "served_by": entry.get("served_by") or [],
+            "primary": entry.get("primary"),
+        }
+    return out
+
+
+def cache_age_days(entry, now=None):
+    """Age in days, or None when the entry does not say when it was built.
+
+    None is not zero. A cache with no `as_of` is a cache of unknown age, and
+    treating unknown as fresh is how a stale catalog starts looking like a
+    fresh one -- which is the one thing this whole mechanism must not do.
+    """
+    stamp = (entry or {}).get("as_of")
+    if not stamp:
+        return None
+    text = str(stamp).rstrip("Z")
+    try:
+        when = _dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if when.tzinfo is not None:
+        when = when.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+    return max((( now or _now()) - when).total_seconds() / 86400.0, 0.0)
+
+
+def primary_source(game, language) -> str:
+    """Which source is SUPPOSED to serve this combination.
+
+    Declared, not inferred from what happened, because the whole point is to
+    notice when what happened differs. tcgdex carrying pkmn:EN is not the
+    normal state of affairs -- it means apitcg was refused -- and a report that
+    only names the source that answered cannot say so.
+    """
+    if language in APITCG_LANGUAGES.get(game, ()):
+        return "apitcg"
+    from ingest.catalog_sources import CATALOG_SOURCES
+    for name in CN_SOURCE_PRIORITY:
+        cls = CATALOG_SOURCES.get(name)
+        if cls is not None and (game, language) in getattr(cls, "serves", ()):
+            return name
+    return ""
 
 
 # The variant guess lives in resolve/identity.py so the catalog builder and the
@@ -293,7 +394,14 @@ class CatalogBuilder:
             self.attempt((game, language), name)
             try:
                 found = adapter.enumerate_combo(game, language)
-            except (AdapterGaveUp, RateLimited) as exc:
+            except RateLimited as exc:
+                # Refused, not broken. Also: stop asking this source for the
+                # rest of the run -- the adapter's own breaker has tripped and
+                # every further combo would spend a call to be told the same
+                # thing.
+                failed.append((f"{name}_rate_limited", str(exc)[:200]))
+                continue
+            except AdapterGaveUp as exc:
                 # ASKED AND DID NOT ANSWER. The only one of the four that is
                 # genuinely `source_unreachable`; the others used to share the
                 # `_no_cards` reason and were all classified as unreachable,
@@ -381,7 +489,8 @@ class CatalogBuilder:
                                 "detail": "source does not claim this combination"})
         return out
 
-    def build(self, combos=COMBOS):
+    def build(self, combos=COMBOS, cache=None,
+              max_age_days=DEFAULT_MAX_AGE_DAYS, force=False, now=None):
         """Two catalog sources, in order: apitcg, then the open ones.
 
         TCGAPI IS NOT ONE OF THEM ANY MORE. Run #9 settled it: apitcg made 250
@@ -391,8 +500,38 @@ class CatalogBuilder:
         here left none for the price rotation, where they buy something.
         See ingest/sources.yml -- tcgapi is `role: price` now.
         """
+        cache = {} if cache is None else cache
+        now = now or _now()
         catalog = {}
         for game, language in combos:
+            combo = f"{game}:{language}"
+            primary = primary_source(game, language)
+            cached = cache.get(combo) or {}
+            age = cache_age_days(cached, now)
+            fresh = (cached.get("cards") and age is not None
+                     and age < max_age_days)
+
+            # SERVED FROM YESTERDAY, AND NO PROVIDER IS CALLED AT ALL. This is
+            # the point of the cache: a throttled provider costs nothing,
+            # because the answer we already have is still the answer. The
+            # status can never be `ok` -- a cached catalog and a fresh one are
+            # different facts even when the cards are identical.
+            if fresh and not force:
+                cards = list(cached["cards"])
+                catalog[combo] = {"sources": list(cached.get("served_by") or []),
+                                  "cards": cards}
+                self.combo_status[combo] = {
+                    "status": "catalog_from_cache", "cards": len(cards),
+                    "sources": list(cached.get("served_by") or []),
+                    "asked": [], "reasons": [],
+                    "primary": primary, "age_days": round(age, 2),
+                    "cache_max_age_days": max_age_days,
+                }
+                self.log.append(
+                    f"{combo}: served from cache, {age:.1f}d old "
+                    f"(threshold {max_age_days}d); no provider called")
+                continue
+
             rows, sources = [], []
             try:
                 extra = self.apitcg_cards(game, language)
@@ -416,7 +555,13 @@ class CatalogBuilder:
                 if extra:
                     sources.append("apitcg")
             except (AdapterGaveUp, RateLimited) as exc:
-                self.gap((game, language), "apitcg_unreachable", str(exc)[:200])
+                # A 429 is an ANSWER. Filing it as `unreachable` sends the
+                # next session hunting for a broken endpoint that works fine,
+                # and hides the one fact that matters: this is fixable by
+                # waiting, and by not asking again tomorrow.
+                kind = ("apitcg_rate_limited" if isinstance(exc, RateLimited)
+                        else "apitcg_unreachable")
+                self.gap((game, language), kind, str(exc)[:200])
 
             # ANY combination still empty falls through to the open sources.
             #
@@ -434,15 +579,52 @@ class CatalogBuilder:
                     self.gap((game, language), f"{src}_no_cards", why)
 
             deduped = {r["card_uid"]: r for r in rows}
-            combo = f"{game}:{language}"
             reasons = [g["reason"] for g in self.gaps if g["combo"] == combo]
             asked = sorted(self.attempted.get(combo, ()))
             # ONLY genuine unreachability. `_empty`, `_does_not_serve` and
             # `_does_not_enumerate` are different answers and lumping them in
             # here reported "we asked and it had nothing" as a broken endpoint.
             unreachable = [r for r in reasons if "unreachable" in r]
-            if deduped:
+            limited = [r for r in reasons if "rate_limited" in r]
+            if deduped and primary and primary not in sources:
+                # CARDS, BUT NOT FROM THE SOURCE THAT SHOULD HAVE SUPPLIED
+                # THEM. Run #11 read `tcgdex` against pkmn:EN and that looked
+                # like ordinary operation; it meant apitcg had been refused and
+                # the fallback caught it. The fallback working is good news and
+                # it is still news.
+                status = "ok_via_fallback"
+            elif deduped:
                 status = "ok"
+            elif cached.get("cards"):
+                # NOTHING CAME BACK, BUT WE HAVE YESTERDAY'S. Serve it -- that
+                # is what it is for -- and say loudly that it is past its
+                # threshold, so a stale catalog can never pass for a fresh one.
+                status = "catalog_from_cache_stale"
+                cards = list(cached["cards"])
+                self.combo_status[combo] = {
+                    "status": status, "cards": len(cards),
+                    "sources": list(cached.get("served_by") or []),
+                    "asked": asked, "reasons": sorted(set(reasons)),
+                    "primary": primary,
+                    "age_days": None if age is None else round(age, 2),
+                    "cache_max_age_days": max_age_days,
+                    "refresh_failed": True,
+                }
+                catalog[combo] = {
+                    "sources": list(cached.get("served_by") or []),
+                    "cards": cards,
+                }
+                self.log.append(
+                    f"{combo}: refresh failed; serving the cached catalog "
+                    + (f"({age:.1f}d old)" if age is not None
+                       else "(age unknown)"))
+                continue
+            elif limited:
+                # THE PROVIDER ANSWERED, AND SAID NOT NOW. Fixable by waiting,
+                # which `source_unreachable` is not, and the two must not share
+                # a row -- one sends you to the code and the other sends you to
+                # bed.
+                status = "rate_limited"
             elif not asked:
                 # Nothing serves this combination, so nothing was asked. The
                 # honest verdict, and the only one that means "stop looking
@@ -463,6 +645,8 @@ class CatalogBuilder:
             self.combo_status[combo] = {
                 "status": status, "cards": len(deduped), "sources": sources,
                 "asked": asked, "reasons": sorted(set(reasons)),
+                "primary": primary,
+                "as_of": now.isoformat() + "Z",
             }
             catalog[combo] = {
                 "sources": sources,
@@ -570,10 +754,13 @@ class CatalogBuilder:
         if band not in TRACKED_BANDS:
             return None
         name = find(hit, "name") or ""
-        # NUMBER FIRST. The number is the reliable signal and the string is the
-        # unreliable one -- `299*/298` is a Signature and apitcg calls it
-        # `Alternate Art`. One parser feeds both the variant and the band.
+        external_id = str(find(hit, "id", "card_id") or "")
+        # NUMBER FIRST, then the publisher's own id, then the rarity string --
+        # most reliable to least. `299*/298` is a Signature that apitcg calls
+        # `Alternate Art`; `EB01-006_p1` is a parallel that apitcg calls `SR`,
+        # exactly like the base card it would otherwise merge into.
         variant = (variant_from_number(number, size, game)
+                   or variant_from_external_id(external_id, game)
                    or _variant_of(rarity, name, language, game))
         try:
             uid = card_uid(game, set_code, number, variant, language)
@@ -584,7 +771,7 @@ class CatalogBuilder:
         return {"card_uid": uid, "game": game, "language": language,
                 "set_code": set_code, "number": number, "variant": variant,
                 "name": name, "rarity": rarity,
-                "external_id": str(find(hit, "id", "card_id") or ""),
+                "external_id": external_id,
                 "source": source}
 
 
@@ -616,7 +803,7 @@ def _is_sealed_product(hit) -> bool:
 
 def to_targets(catalog, gaps, combo_status=None, endpoints=None,
                unmapped_rarities=None, unbandable=None,
-               stages=None, not_a_card=None):
+               stages=None, not_a_card=None, cache=None):
     """The shape the daily runner reads. Card identities only -- no prices."""
     per_source = {name: {"cards": []} for name in
                   ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting",
@@ -680,10 +867,43 @@ def to_targets(catalog, gaps, combo_status=None, endpoints=None,
         "_unbandable_numbers": unbandable or {},
         "_not_a_card": not_a_card or {},
         "_stages": stages or {},
+        # WHEN EACH COMBINATION'S CATALOG WAS ACTUALLY BUILT. The card lists
+        # below are grouped by source for the runner; this is the same data
+        # asked the other question, and it is what `load_cached_catalog` reads
+        # next run to decide whether to spend a provider call at all.
+        #
+        # A combination served from cache carries FORWARD its original as_of,
+        # never today's -- restamping it would make a stale catalog immortal,
+        # refreshing its own timestamp every run without ever being rebuilt.
+        "_catalog_cache": _cache_stamps(catalog, combo_status or {},
+                                        cache or {}),
         "_gaps": gaps,
         "fx_alphavantage": {},
         **per_source,
     }
+
+
+def _cache_stamps(catalog, combo_status, cache) -> dict:
+    out = {}
+    for combo in sorted(set(catalog) | set(combo_status)):
+        entry = combo_status.get(combo, {})
+        served = list((catalog.get(combo) or {}).get("sources")
+                      or entry.get("sources") or [])
+        cards = len((catalog.get(combo) or {}).get("cards") or [])
+        if entry.get("status", "").startswith("catalog_from_cache"):
+            as_of = (cache.get(combo) or {}).get("as_of")
+        else:
+            as_of = entry.get("as_of")
+        if not cards:
+            # Nothing to remember. Stamping an empty combination would let a
+            # `no_catalog_source` -- or a combination whose provider refused --
+            # sit unasked for a week behind a fresh-looking date, with no cards
+            # to show for it. A zero is always worth re-checking, and there is
+            # nothing to serve from cache anyway.
+            continue
+        out[combo] = {"as_of": as_of, "cards": cards, "served_by": served,
+                      "primary": entry.get("primary")}
+    return out
 
 
 def rarity_report(adapter=None, languages=("EN", "JP", "CN-S", "CN-T")):
@@ -802,16 +1022,80 @@ def render_catalog_summary(targets, builder=None) -> str:
                   "`no_targets` and the run will fail. The per-combo status "
                   "below is the diagnosis.", ""]
 
-    lines += ["| Combo | Cards | Status | Catalog source | Prices routed to |",
-              "|---|---:|---|---|---|"]
+    lines += ["| Combo | Cards | Status | Age | Expected | Served by "
+              "| Prices routed to |",
+              "|---|---:|---|---:|---|---|---|"]
     for combo in sorted(set(counts) | set(statuses) | set(routes)):
         entry = statuses.get(combo, {})
         status = entry.get("status", "not attempted")
-        sources = ", ".join(entry.get("sources") or []) or "--"
+        served = entry.get("sources") or []
+        primary = entry.get("primary") or ""
+        # WHICH SOURCE ACTUALLY SERVED THIS, against which one was supposed
+        # to. `tcgdex` under pkmn:EN is not routine -- it means apitcg was
+        # refused -- and a column that only names the answerer cannot say so.
+        if served and primary and primary not in served:
+            served_cell = ", ".join(f"**{s}**" for s in served) + " (fallback)"
+        else:
+            served_cell = ", ".join(served) or "--"
+        age = entry.get("age_days")
+        age_cell = "--" if age is None else f"{age:.1f}d"
         routed = ", ".join(f"{name} ({n})"
                            for name, n in sorted(routes.get(combo, {}).items())) or "--"
         lines.append(f"| `{combo}` | {counts.get(combo, 0)} | {status} | "
-                     f"{sources} | {routed} |")
+                     f"{age_cell} | {primary or '--'} | {served_cell} "
+                     f"| {routed} |")
+
+    fallbacks = [c for c, e in sorted(statuses.items())
+                 if e.get("status") == "ok_via_fallback"]
+    if fallbacks:
+        lines += ["", "**Served by a fallback, not by the expected source.** "
+                  "This is the fallback working, and it is still news: the "
+                  "primary was asked and did not deliver. Read the reason "
+                  "before treating the count as normal:", ""]
+        for combo in fallbacks:
+            entry = statuses[combo]
+            why = ", ".join(r for r in entry.get("reasons") or []
+                            if entry.get("primary", "") in r) or "see gaps below"
+            lines.append(f"- `{combo}` -- expected `{entry.get('primary')}`, "
+                         f"served by "
+                         + ", ".join(f"`{s}`" for s in entry.get("sources") or [])
+                         + f". {why}")
+
+    cached = {c: e for c, e in sorted(statuses.items())
+              if str(e.get("status", "")).startswith("catalog_from_cache")}
+    if cached:
+        lines += ["", "**Served from the persisted catalog.** Sets release "
+                  "monthly, so a combination younger than its threshold is "
+                  "not re-enumerated and costs no provider call at all. These "
+                  "never read as `ok`, because a cached catalog and a fresh "
+                  "one are different facts even when the cards are identical:",
+                  "", "| Combo | Age | Threshold | Why |", "|---|---:|---:|---|"]
+        for combo, entry in cached.items():
+            age = entry.get("age_days")
+            why = ("REFRESH FAILED -- this is past its threshold and is being "
+                   "served anyway, which is what the cache is for"
+                   if entry.get("refresh_failed")
+                   else "within threshold; no provider called")
+            lines.append(
+                f"| `{combo}` | "
+                + ("unknown" if age is None else f"{age:.1f}d")
+                + f" | {entry.get('cache_max_age_days', '--')}d | {why} |")
+        lines += ["", "Force a full re-enumeration with "
+                  "`python -m ingest.catalog --write --force`."]
+
+    limited = [c for c, e in sorted(statuses.items())
+               if e.get("status") == "rate_limited"]
+    if limited:
+        lines += ["", "**Rate limited.** The provider ANSWERED, and the answer "
+                  "was 'not now'. This is not `source_unreachable` and must "
+                  "not be read as one -- there is nothing to fix in the code, "
+                  "and the adapter stopped calling after its second refusal "
+                  "rather than spending the run being told the same thing: "
+                  "", ""]
+        lines += [f"- `{c}`" for c in limited]
+        lines += ["", "`config/rate_limits.yaml` is where the observed ceiling "
+                  "accumulates. Add this run's numbers from the ingest step's "
+                  "rate-limit table."]
 
     if builder is not None:
         lines += ["", "**Endpoints that answered.** These were never verified "
@@ -917,6 +1201,47 @@ def render_catalog_summary(targets, builder=None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def persistable(path=TARGETS):
+    """Is this targets file safe to commit as next run's catalog cache?
+
+    THE FAILURE MODE THIS EXISTS FOR is worse than any it prevents. A run where
+    every provider refused writes a targets file with zero cards; committing
+    that would overwrite the cache with the emptiness, and tomorrow's run --
+    which would have been fine, because yesterday's answer was still good --
+    starts from nothing. One bad day would become permanent.
+
+    So: commit only a file that is readable, carries cards, and stamps them.
+    Anything else leaves the previous cache exactly where it is.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except OSError as exc:
+        return False, f"NOT PERSISTABLE: cannot read {path} ({exc})"
+    except ValueError as exc:
+        return False, f"NOT PERSISTABLE: {path} is not valid JSON ({exc})"
+    if not isinstance(raw, dict):
+        return False, f"NOT PERSISTABLE: {path} is not an object"
+
+    counts = raw.get("_counts") or {}
+    total = sum(v for v in counts.values() if isinstance(v, int))
+    if total <= 0:
+        return False, ("NOT PERSISTABLE: zero cards across every combination. "
+                       "Committing this would overwrite the cache with the "
+                       "emptiness and make one bad day permanent -- the "
+                       "previous catalog stays exactly where it is.")
+    stamps = raw.get("_catalog_cache") or {}
+    undated = sorted(c for c, e in stamps.items()
+                     if (e or {}).get("cards") and not (e or {}).get("as_of"))
+    if undated:
+        return False, ("NOT PERSISTABLE: these combinations carry cards with "
+                       "no as_of, and a cache of unknown age reads as fresh "
+                       "forever: " + ", ".join(undated))
+    return True, (f"persistable: {total} cards across "
+                  f"{sum(1 for v in counts.values() if v)} combinations, "
+                  f"{len(stamps)} stamped")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="build ingest/targets.json")
     parser.add_argument("--write", action="store_true")
@@ -933,7 +1258,28 @@ def main(argv=None):
     parser.add_argument("--coverage", action="store_true",
                         help="measure what the open Chinese sources actually "
                              "serve, per combo, and report it without building")
+    parser.add_argument("--force", action="store_true",
+                        help="re-enumerate every combination, ignoring the "
+                             "cached catalog. Use it the day a set drops")
+    parser.add_argument("--max-age-days", type=float,
+                        default=DEFAULT_MAX_AGE_DAYS,
+                        help="re-enumerate a combination only when its cached "
+                             f"catalog is older than this "
+                             f"(default {DEFAULT_MAX_AGE_DAYS})")
+    parser.add_argument("--persist-check", action="store_true",
+                        help="is the written targets file safe to commit as "
+                             "next run's cache? Exit 0 yes, 1 no, with the "
+                             "reason on stdout. Nothing else -- no network")
+    parser.add_argument("--no-cache", action="store_true",
+                        help="do not READ the cache at all. Differs from "
+                             "--force only in that --force still lets a failed "
+                             "refresh fall back to yesterday's answer")
     args = parser.parse_args(argv)
+
+    if args.persist_check:
+        ok, why = persistable(args.out)
+        print(why)
+        return 0 if ok else 1
 
     combos = COMBOS
     if args.combos != "all":
@@ -968,13 +1314,18 @@ def main(argv=None):
         # Zero coverage is the honest answer when it is the true one, so this
         # does not fail. The report IS the deliverable.
         return 0
-    catalog = builder.build(combos)
+    # THE CATALOG IS READ BEFORE IT IS REBUILT. Sets release monthly; run #11
+    # spent its entire apitcg budget re-deriving a catalog that had not changed
+    # and ended with nothing when the provider started refusing.
+    cache = {} if args.no_cache else load_cached_catalog(args.out)
+    catalog = builder.build(combos, cache=cache,
+                            max_age_days=args.max_age_days, force=args.force)
     targets = to_targets(catalog, builder.gaps, builder.combo_status,
                          builder.endpoints_used,
                          {k: sorted(v)
                           for k, v in builder.unmapped_rarities.items()},
                          builder.unbandable_numbers, builder.stages,
-                         builder.not_a_card)
+                         builder.not_a_card, cache=cache)
 
     total = sum(targets["_counts"].values())
     for combo, count in sorted(targets["_counts"].items()):

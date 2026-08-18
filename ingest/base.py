@@ -27,6 +27,7 @@ guarantee re-implemented per adapter is a guarantee that holds in four of five:
 from __future__ import annotations
 
 import datetime as _dt
+import email.utils
 import http.client
 import json
 import os
@@ -87,7 +88,13 @@ class Quota:
 
 
 class RateLimited(RuntimeError):
-    pass
+    """The provider ANSWERED, and the answer was "not now".
+
+    Deliberately not a subclass of AdapterGaveUp. A 429 and a dead endpoint
+    are different facts: one is fixable by waiting and the other needs a code
+    change, and a run that files them together sends you hunting for a broken
+    URL that works fine.
+    """
 
 
 class AdapterGaveUp(RuntimeError):
@@ -106,6 +113,25 @@ class Adapter:
 
     # Backoff: 1s, 2s, 4s, 8s. Four attempts then give up loudly.
     max_attempts = 4
+
+    # HOW MANY 429s BEFORE WE STOP ASKING. Run #11: apitcg refused 16 calls
+    # after four attempts each, having served 250 the day before. Four attempts
+    # against a 429 is four ways to be refused -- the provider is not failing,
+    # it is answering, and the answer is "not now". After the second refusal
+    # this adapter is CLOSED for the rest of the run and every later call
+    # raises RateLimited without touching the network.
+    #
+    # `rate_limited` and `unreachable` are different facts and only one of them
+    # is fixable by waiting; a run that conflates them tells you to go looking
+    # for a broken endpoint that is not broken.
+    stop_calling_after_rate_limits = 2
+
+    # Longest `Retry-After` worth honouring inside one run. The job has a
+    # 30-minute ceiling; a provider asking for an hour is telling us to come
+    # back tomorrow, and sleeping on it would spend the whole run learning
+    # nothing. Past this we trip the breaker immediately and say what was
+    # asked for.
+    max_retry_after_seconds = 120.0
     # Does this adapter need a card list to do anything at all? A source that
     # was handed nothing did not "return no rows" -- it was never asked. Run #5
     # conflated those and reported a snapshot with 8,313 identities and zero
@@ -126,6 +152,19 @@ class Adapter:
         self._transport = transport
         self.quota = Quota(limit=self.daily_free_calls)
         self.log: list[str] = []
+        # 429 accounting. `rate_limited` is the breaker: once it is set this
+        # adapter makes no further calls this run, and every combination it
+        # had not reached yet is `rate_limited` rather than `unreachable`.
+        self.rate_limit_hits = 0
+        self.rate_limited = False
+        self.rate_limited_why: Optional[str] = None
+        # WHAT THE PROVIDER SAYS ITS LIMIT IS -- verbatim, because we do not
+        # know apitcg's quota and it is not in the OpenAPI spec. Every
+        # rate-related header off every response, kept as sent. The last one
+        # wins for reporting; the count is how many responses carried any.
+        self.rate_headers: dict = {}
+        self.rate_headers_seen = 0
+        self.responses_seen = 0
 
     # -- the interface ----------------------------------------------------
 
@@ -196,6 +235,17 @@ class Adapter:
         budget = self.max_attempts if attempts is None else max(1, int(attempts))
         last_error = None
         for attempt in range(budget):
+            # THE BREAKER, checked before anything else. Once this adapter has
+            # been refused twice it stops calling for the rest of the run --
+            # including on the retries of a call already in flight, which is
+            # where "four attempts, four refusals" came from.
+            if self.rate_limited:
+                raise RateLimited(
+                    f"{self.name}: stopped calling after "
+                    f"{self.rate_limit_hits} rate-limit refusals "
+                    f"({self.rate_limited_why}). Everything it had not reached "
+                    "is RATE LIMITED, not unreachable -- the provider answered, "
+                    "and the answer was 'not now'.")
             self.throttle()
             if self.exhausted():
                 raise RateLimited(
@@ -203,20 +253,25 @@ class Adapter:
                     "call rather than spending the last of the day's quota on "
                     "a request whose result we would not trust")
             try:
-                status, body = self._send(url, headers)
+                status, body, response_headers = self._send(url, headers)
             except OSError as exc:
                 last_error = f"{type(exc).__name__}: {exc}"
                 self._backoff(attempt, last_error, budget)
                 continue
 
             self.quota.consumed_this_run += 1
+            self.responses_seen += 1
             self._last_call = self._monotonic()
+            self.note_rate_headers(response_headers)
             path = self.cache_raw(label or url, body)   # BEFORE parsing
             self.log.append(f"{self.name} {status} {url} -> {path}")
 
             if status == 429:
-                last_error = "429 rate limited"
-                self._backoff(attempt, last_error, budget)
+                last_error = self.note_rate_limit(response_headers)
+                if self.rate_limited:
+                    raise RateLimited(f"{self.name}: {last_error}")
+                self._backoff(attempt, last_error, budget,
+                              seconds=retry_after_seconds(response_headers))
                 continue
 
             try:
@@ -261,8 +316,23 @@ class Adapter:
         return None, tried
 
     def _send(self, url: str, headers: dict):
+        """(status, body, response_headers).
+
+        RESPONSE HEADERS WERE BEING THROWN AWAY, which is why we still cannot
+        say what apitcg's quota is: `Retry-After` and any `X-RateLimit-*` the
+        provider sends arrived and were discarded one frame below where they
+        were needed.
+
+        A transport that returns the old two-tuple still works -- the test
+        fakes predate this -- and is read as "no headers", which is a
+        different thing from "no rate headers sent" only in that we never
+        claim the second from the first.
+        """
         if self._transport is not None:
-            return self._transport(url, headers)
+            answer = self._transport(url, headers)
+            if isinstance(answer, tuple) and len(answer) >= 3:
+                return answer[0], answer[1], dict(answer[2] or {})
+            return answer[0], answer[1], {}
         parts = urllib.parse.urlsplit(url)
         conn = http.client.HTTPSConnection(parts.netloc, timeout=30)
         try:
@@ -271,18 +341,65 @@ class Adapter:
             # of these providers are case-sensitive about their key header.
             conn.request("GET", target, headers=headers)
             response = conn.getresponse()
-            return response.status, response.read()
+            return (response.status, response.read(),
+                    {k: v for k, v in response.getheaders()})
         finally:
             conn.close()
 
-    def _backoff(self, attempt: int, why: str, budget: Optional[int] = None):
+    # -- what the provider says about its own limits ----------------------
+
+    def note_rate_headers(self, response_headers) -> dict:
+        """Keep every rate-related header VERBATIM.
+
+        Verbatim because we are trying to discover a limit nobody documents,
+        and a normalised or summarised header is a header we have already
+        started interpreting. Names are matched loosely (`X-RateLimit-Limit`,
+        `x-rate-limit-limit`, `RateLimit-Remaining`) and stored exactly as the
+        provider spelled them.
+        """
+        found = {k: v for k, v in (response_headers or {}).items()
+                 if _norm_key(k) in RATE_HEADER_NAMES
+                 or _norm_key(k).startswith(("ratelimit", "xratelimit"))}
+        if found:
+            self.rate_headers_seen += 1
+            self.rate_headers.update(found)
+        return found
+
+    def note_rate_limit(self, response_headers) -> str:
+        """Record a 429 and decide whether this adapter is done for the run."""
+        self.rate_limit_hits += 1
+        wait = retry_after_seconds(response_headers)
+        asked = (f"; provider asked for {wait:.0f}s" if wait is not None
+                 else "; no Retry-After sent")
+        why = f"429 #{self.rate_limit_hits}{asked}"
+        if wait is not None and wait > self.max_retry_after_seconds:
+            # Longer than the run has. Waiting it out would spend the whole
+            # job on one provider's cooldown.
+            self.rate_limited = True
+            why += (f" -- longer than the {self.max_retry_after_seconds:.0f}s "
+                    "this run can wait")
+        elif self.rate_limit_hits >= self.stop_calling_after_rate_limits:
+            self.rate_limited = True
+        if self.rate_limited:
+            self.rate_limited_why = why
+            self.log.append(f"{self.name} STOP -- {why}")
+        return why
+
+    def _backoff(self, attempt: int, why: str, budget: Optional[int] = None,
+                 seconds: Optional[float] = None):
         # Nothing follows the last attempt, so sleeping after it only delays
         # the error. Discovery calls with attempts=1 would otherwise pay a
         # full backoff for every candidate URL it rules out.
         if budget is not None and attempt >= budget - 1:
             self.log.append(f"{self.name} giving up after {why}")
             return
+        # The provider's own number beats ours whenever it sends one: an
+        # exponential guess that undershoots earns another 429, and one that
+        # overshoots wastes the run.
         delay = self.base_delay * (2 ** attempt)
+        if seconds is not None:
+            delay = min(max(seconds, 0.0), self.max_retry_after_seconds)
+            self.log.append(f"{self.name} honouring Retry-After {delay:.0f}s")
         self.log.append(f"{self.name} backoff {delay:.0f}s after {why}")
         self._sleep(delay)
 
@@ -373,6 +490,48 @@ class Adapter:
     def error_text(self, payload) -> str:
         entry = self._error_entry(payload)
         return f"{entry[0]}: {entry[1]}"[:200] if entry else ""
+
+
+# Header names that carry a rate limit, normalised. Providers disagree about
+# hyphens, case and the `X-` prefix, and there is no standard: `RateLimit-*` is
+# a draft, `X-RateLimit-*` is the convention, `Retry-After` is the only one
+# actually in an RFC. Matched loosely, stored verbatim.
+RATE_HEADER_NAMES = frozenset({
+    "retryafter", "ratelimit", "ratelimitlimit", "ratelimitremaining",
+    "ratelimitreset", "ratelimitused", "ratelimitpolicy", "ratelimitresource",
+    "xratelimitlimit", "xratelimitremaining", "xratelimitreset",
+    "xratelimitused", "xratelimitretryafter", "xrateremaining",
+    "xquotalimit", "xquotaremaining", "xdailylimit", "xdailyremaining",
+})
+
+
+def retry_after_seconds(response_headers) -> Optional[float]:
+    """`Retry-After` in seconds, whichever of its two forms was sent.
+
+    RFC 9110 allows delta-seconds OR an HTTP-date, and a provider is free to
+    pick either. Reading only the integer form turns a date into "no
+    Retry-After sent", which is the same mistake as reading a 200 with an
+    error body as an empty result: an answer misread as silence.
+    """
+    for key, value in (response_headers or {}).items():
+        if _norm_key(key) != "retryafter":
+            continue
+        text = str(value).strip()
+        try:
+            return float(text)
+        except ValueError:
+            pass
+        try:
+            when = email.utils.parsedate_to_datetime(text)
+        except (TypeError, ValueError):
+            return None
+        if when is None:
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=_dt.timezone.utc)
+        gap = (when - _dt.datetime.now(_dt.timezone.utc)).total_seconds()
+        return max(gap, 0.0)
+    return None
 
 
 def _norm_key(key) -> str:
