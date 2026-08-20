@@ -46,6 +46,98 @@ HARD_CASE = {
 }
 
 
+# Every confidence a labelled row may carry, and what each one buys.
+#
+# `verified` is the ONLY one that scores. That asymmetry is the point: a
+# single-source identity is one transcription error away from being wrong, and
+# precision computed over it measures the source rather than the resolver.
+CONFIDENCE = ("verified", "single_source", "in_repo", "unstated")
+SCORED = ("verified",)
+
+REQUIRED_FIELDS = ("card_uid", "game", "set_code", "number", "variant",
+                   "language", "name", "source", "confidence")
+
+
+def ingest(rows, labelled_path=LABELLED, dry_run=False):
+    """Merge externally-researched rows into the labelled set.
+
+    Refuses rather than repairs. A row that will not validate is REPORTED and
+    skipped, never coerced into shape -- an identity is the one thing in this
+    project that must not be guessed at, and a loader that fills in a plausible
+    variant is exactly how a wrong card enters ground truth wearing the costume
+    of a verified one.
+
+    Returns (accepted, rejected, report).
+    """
+    from resolve.identity import (KNOWN_CONFUSABLE_NUMBERS,
+                                  card_uid as build_uid, is_variant)
+
+    labelled = _load(labelled_path, {"cards": []})
+    existing = {c["card_uid"]: c for c in labelled.get("cards", [])}
+    accepted, rejected = [], []
+
+    for index, row in enumerate(rows):
+        why = []
+        missing = [f for f in REQUIRED_FIELDS if not row.get(f)]
+        if missing:
+            why.append("missing " + ", ".join(missing))
+        if row.get("confidence") and row["confidence"] not in CONFIDENCE:
+            why.append(f"confidence {row['confidence']!r} is not one of "
+                       + ", ".join(CONFIDENCE))
+        if row.get("variant") and not is_variant(row["variant"]):
+            why.append(f"variant {row['variant']!r} is not a token this "
+                       "project produces")
+        if not why:
+            try:
+                expected = build_uid(row["game"], row["set_code"],
+                                     row["number"], row["variant"],
+                                     row["language"])
+            except Exception as exc:                      # noqa: BLE001
+                why.append(f"card_uid will not build: {exc}")
+            else:
+                # THE UID IS DERIVED, NOT TRUSTED. A row whose stated uid
+                # disagrees with its own fields is a transcription error, and
+                # accepting either half of it would put a wrong identity into
+                # the set that scores identity.
+                if row["card_uid"] != expected:
+                    why.append(f"card_uid says {row['card_uid']!r} but its own "
+                               f"fields build {expected!r}")
+        # A NUMBER THAT BELONGS TO ANOTHER MARKET. `083/069` for Rayquaza
+        # VMAX is the Korean printing's denominator, and it is dangerous
+        # precisely because it parses: it looks like a collector number, reads
+        # like one, and points at a printing this project does not track. A
+        # loader that accepts it puts a card that does not exist here into the
+        # set that defines what exists here.
+        confusable = KNOWN_CONFUSABLE_NUMBERS.get(
+            (row.get("game"), row.get("set_code"), row.get("name")))
+        if confusable and row.get("number") in confusable["confusable"]:
+            why.append(f"number {row['number']!r} is a KNOWN CONFUSABLE for "
+                       f"this card -- {confusable['why']} The number for this "
+                       f"card is {confusable['correct']!r}")
+
+        if not why and row["card_uid"] in existing:
+            previous = existing[row["card_uid"]]
+            if previous.get("confidence") == row.get("confidence"):
+                why.append("already in the set at the same confidence")
+            else:
+                why.append(f"already in the set at confidence "
+                           f"{previous.get('confidence')!r}; promoting or "
+                           "demoting a row is a deliberate edit, not an import")
+        if why:
+            rejected.append({"index": index, "row": row, "why": why})
+        else:
+            accepted.append(row)
+
+    if accepted and not dry_run:
+        labelled.setdefault("cards", []).extend(accepted)
+        labelled["cards"].sort(key=lambda c: c["card_uid"])
+        labelled["_status"] = _status_line(labelled)
+        _save(labelled_path, labelled)
+
+    report = collections.Counter(r.get("confidence") for r in accepted)
+    return accepted, rejected, report
+
+
 def _load(path, default):
     if not os.path.exists(path):
         return default
@@ -266,18 +358,38 @@ def _status_line(labelled):
 def status():
     labelled = _load(LABELLED, {"cards": []})
     cards = labelled.get("cards", [])
-    per_combo = collections.Counter(f"{c['game']}:{c['language']}" for c in cards)
-    hard = [c for c in cards if c.get("hard_case")]
+    # THE GATE COUNTS `verified` ONLY. Reporting the pool size as though it
+    # were the ground-truth size is how a set gets called complete while the
+    # thing it gates was never tested -- and a single-source row is a candidate,
+    # not a fact.
+    scored = [c for c in cards if c.get("confidence") in SCORED]
+    by_confidence = collections.Counter(c.get("confidence", "unstated")
+                                        for c in cards)
+    print(f"{len(cards)} rows in the set, of which {len(scored)} are "
+          f"ground truth:")
+    for value in CONFIDENCE:
+        if by_confidence.get(value):
+            mark = "  <- counted and scored" if value in SCORED else ""
+            print(f"  {value:14} {by_confidence[value]:>4}{mark}")
+    print()
+    per_combo = collections.Counter(f"{c['game']}:{c['language']}"
+                                    for c in scored)
+    pool = collections.Counter(f"{c['game']}:{c['language']}" for c in cards)
+    hard = [c for c in scored if c.get("hard_case")]
     adjudicated = collections.Counter(
         c.get("adjudication", "seeded") for c in cards)
 
-    print(f"{'combo':14} {'have':>5} {'want':>5} {'floor':>6}  state")
+    print(f"{'combo':14} {'have':>5} {'want':>5} {'floor':>6} {'pool':>5}  state")
     for combo, want in sorted(TARGET_PER_COMBO.items()):
         have = per_combo.get(combo, 0)
         state = ("ok" if have >= want else
                  "below floor" if have < MIN_PER_COMBO else "short")
-        print(f"{combo:14} {have:>5} {want:>5} {MIN_PER_COMBO:>6}  {state}")
-    print(f"\ntotal {len(cards)} of {TARGET_TOTAL}")
+        print(f"{combo:14} {have:>5} {want:>5} {MIN_PER_COMBO:>6} "
+              f"{pool.get(combo, 0):>5}  {state}")
+    print("\n`have` is verified rows; `pool` is every row including "
+          "single-source candidates and rows that score nothing.")
+    print(f"\ntotal {len(scored)} of {TARGET_TOTAL} verified "
+          f"({len(cards)} rows in the pool)")
     print(f"hard cases {len(hard)} of {int(TARGET_TOTAL * HARD_CASE_SHARE)} "
           f"({HARD_CASE_SHARE:.0%} of the set)")
     print(f"adjudication {dict(adjudicated)}")
@@ -290,7 +402,14 @@ def status():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="waft label")
-    parser.add_argument("command", choices=["propose", "review", "status"])
+    parser.add_argument("command",
+                        choices=["propose", "review", "status", "ingest"])
+    parser.add_argument("--rows", default=None,
+                        help="JSON file of externally-researched rows to "
+                             "ingest. A list, or an object with a `cards` key. "
+                             "Every row needs `source` and `confidence`")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="validate and report without writing")
     parser.add_argument("--source", default="targets",
                         choices=["targets", "tcgdex"],
                         help="where candidates come from. `tcgdex` pulls the "
@@ -312,6 +431,26 @@ def main(argv=None):
                        combos=combos)
     if args.command == "review":
         return review(args.queue, limit=args.limit)
+    if args.command == "ingest":
+        if not args.rows:
+            parser.error("ingest needs --rows FILE")
+        payload = _load(args.rows, None)
+        if payload is None:
+            parser.error(f"{args.rows} does not exist")
+        rows = payload.get("cards") if isinstance(payload, dict) else payload
+        accepted, rejected, report = ingest(rows or [], dry_run=args.dry_run)
+        print(f"accepted {len(accepted)}  rejected {len(rejected)}"
+              + ("  (DRY RUN, nothing written)" if args.dry_run else ""))
+        for value in CONFIDENCE:
+            if report.get(value):
+                mark = "  <- scores" if value in SCORED else ""
+                print(f"  {value:14} {report[value]:>4}{mark}")
+        for entry in rejected:
+            uid = entry["row"].get("card_uid", f"row {entry['index']}")
+            print(f"  REJECTED {uid}: " + "; ".join(entry["why"]))
+        # Rejections are a finding, not a failure: the report IS the
+        # deliverable, and a non-zero exit would hide it behind a red step.
+        return 0
     return status()
 
 

@@ -95,6 +95,43 @@ GAME_LANGUAGES = {
 NUMBERING_PARENT = {"CN-T": "JP"}
 RENUMBERED = frozenset({"CN-S"})
 
+# The exact set codes external research recorded for the Traditional Chinese
+# printings, against their Japanese parents. Two observations, kept as DATA
+# rather than folded into a casing rule -- `sv2a -> SV2aF` uppercases the
+# alphabetic prefix and leaves the trailing `a` alone, and two examples is not
+# enough to say whether that is the rule or a coincidence of these two codes.
+# `traditional_chinese_set_code` therefore compares case-INSENSITIVELY and
+# does not attempt to reproduce the casing.
+OBSERVED_TC_SET_CODES = {"sv2a": "SV2aF", "s7R": "S7RF"}
+
+# Denominators that appear in listings for a card and are NOT that card's.
+#
+# A wrong denominator is the most dangerous kind of near-miss: it looks like a
+# collector number, it parses like one, and it points at a printing in another
+# market with its own price series. Recorded per card so a labelled row can be
+# checked against it rather than against memory.
+#
+#   Rayquaza VMAX, s7R -- the Japanese card is 083/067. Listings carrying
+#   083/069 are quoting the KOREAN printing's denominator; Korean is not a
+#   printing this project tracks, so 083/069 is not "a different card we have",
+#   it is a number that must not resolve to the Japanese one either.
+KNOWN_CONFUSABLE_NUMBERS = {
+    ("pkmn", "s7R", "Rayquaza VMAX"): {
+        "correct": "083/067",
+        "confusable": ("083/069",),
+        "why": ("083/069 is the Korean printing's denominator. Korean is not "
+                "in LANGUAGES, so this number belongs to no card this project "
+                "tracks and must resolve to none."),
+        "source": "external_research",
+    },
+}
+
+
+def confusable_numbers(game, set_code, name) -> tuple:
+    """Numbers seen in listings for this card that are not its number."""
+    entry = KNOWN_CONFUSABLE_NUMBERS.get((game, set_code, name))
+    return tuple(entry["confusable"]) if entry else ()
+
 # Documented for CN-T. There is no equivalent entry for CN-S: both Simplified
 # sets we have externally-verified identities for (151C, csv6C) happen to end
 # in C, but two observations is not a naming rule and nothing enforces it.
@@ -108,6 +145,52 @@ def shares_numbering_with(language: str) -> Optional[str]:
     renumbers -- `renumbers(language)` is the separate question.
     """
     return NUMBERING_PARENT.get(language)
+
+
+def traditional_chinese_set_code(japanese_set_code) -> str:
+    """The Traditional Chinese set code for a Japanese one: JP code + `F`.
+
+    `sv2a` -> `sv2aF`, `s7R` -> `s7RF`. The printed codes are `SV2aF` and
+    `S7RF`; the casing is NOT reproduced here, because two observations do not
+    establish a casing rule and `same_traditional_chinese_set` compares without
+    it. See `OBSERVED_TC_SET_CODES`.
+    """
+    code = str(japanese_set_code or "").strip()
+    if not code:
+        raise IdentityError("a Japanese set code is required to derive its "
+                            "Traditional Chinese counterpart")
+    return code + SET_CODE_SUFFIX["CN-T"]
+
+
+def japanese_set_code_of(traditional_chinese_set_code):
+    """The Japanese parent of a Traditional Chinese set code, or None.
+
+    None when the code carries no `F` suffix -- which is a real answer meaning
+    "this is not a Traditional Chinese code we recognise", not a failure.
+    """
+    code = str(traditional_chinese_set_code or "").strip()
+    suffix = SET_CODE_SUFFIX["CN-T"]
+    if len(code) <= len(suffix) or not code.lower().endswith(suffix.lower()):
+        return None
+    return code[: -len(suffix)]
+
+
+def same_traditional_chinese_set(japanese_set_code, tc_set_code) -> bool:
+    """Are these the same set, one printing apart? Case-insensitive."""
+    parent = japanese_set_code_of(tc_set_code)
+    if parent is None:
+        return False
+    return parent.lower() == str(japanese_set_code or "").strip().lower()
+
+
+def shares_parent_numbering(language: str) -> bool:
+    """Does this printing use its parent's collector numbers verbatim?
+
+    True for CN-T and ONLY CN-T. Charizard ex SIR is `201/165` in both
+    Japanese and Traditional Chinese -- the number is not a distinguishing
+    feature there, and `language` is the only thing keeping the two apart.
+    """
+    return language in NUMBERING_PARENT
 
 
 def renumbers(language: str) -> bool:
@@ -339,9 +422,25 @@ _VARIANT_BY_GAME = {
 # Games whose PROVIDER ID encodes the printing treatment.
 #
 # One Piece only, and the restriction is load-bearing rather than cautious.
-# Bandai's own card-list images are `EB01-006.png`, `EB01-006_p1.png`,
-# `EB01-006_p2.png` -- the suffix IS the treatment, from the publisher, not a
-# provider invention. 1,165 of apitcg's 3,188 One Piece cards carry one.
+#
+# WHAT THE SUFFIX IS, PRECISELY. `_p1` / `_p2` / `_r1` are BANDAI IMAGE
+# FILENAMES, surfaced by apitcg in its card ids. They are a PROVIDER
+# CONVENTION, not a printed identifier -- nothing on the physical card says
+# `_p1`, and a seller reading the card in hand will never type it. Marketplaces
+# render the same distinction as an `a` suffix on the number, or as
+# "(Parallel)" appended to the name.
+#
+# Splitting on it is still right, and the reason is worth being exact about:
+# the suffix is EVIDENCE of a distinct printing, not the NAME of one. Two
+# printings exist, the publisher's own asset naming is the only machine-readable
+# trace of which is which in this feed, and merging them because the trace is
+# informal would lose the more valuable card. What the suffix must never do is
+# reach a user-facing field or a matching key that a marketplace record could be
+# expected to carry -- a record saying `OP01-025a` or `OP01-025 (Parallel)` is
+# describing the same printing as `_p1`, and the resolver has to accept all
+# three spellings of it.
+#
+# 1,165 of apitcg's 3,188 One Piece cards carry one.
 #
 # Pokemon uses the same-looking suffix for something completely different:
 # `cel25c-15_A1` through `_A4` are Venusaur, Here Comes Team Rocket!, Rocket's
@@ -360,6 +459,12 @@ _ID_SUFFIX = re.compile(r"_([a-zA-Z])(\d*)$")
 
 def variant_from_external_id(external_id, game=None):
     """Variant implied by the provider's own card id, or None.
+
+    The id is apitcg's, and the suffix inside it is Bandai's image-filename
+    convention. It is NOT printed on the card. See the note above
+    `ID_SUFFIX_VARIANT_GAMES`: this reads a provider artifact as evidence of a
+    printing, which is sound, and must not be mistaken for reading an
+    identifier off the card.
 
     THE COLLISION THIS EXISTS FOR. `EB01-006`, `EB01-006_p1` and
     `EB01-006_p2` are three printings of one card at one collector number, and

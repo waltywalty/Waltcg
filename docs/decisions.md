@@ -2175,3 +2175,126 @@ cards kept, all three stamps carried forward, all three statuses distinct from
 undeclared-document gate doing exactly its job, on a file I wrote. Declared now.
 
 All 14 new guards are mutation-tested and all 14 are caught.
+
+---
+
+## ADR-0033 — Confidence is a field, not a footnote
+
+**2026-08-18.** Externally-researched identities arrive with a source count,
+and that count decides what they are allowed to do.
+
+### `verified` is the only thing that scores
+
+Two independent external sources agreeing is ground truth. One source is a
+**candidate** — and a candidate is one transcription error away from being
+wrong, so a precision figure computed over it measures the source rather than
+the resolver. Four values, and the three that are not `verified` all score
+nothing:
+
+- `verified` — counted against the 250 gate, scored for precision.
+- `single_source` — reported, never promoted. Promotion is a deliberate edit
+  backed by a second source; a re-import cannot do it silently.
+- `in_repo` — provenance is elsewhere in this repository. Not circular (these
+  are hand-authored EV fixtures, not a catalog the resolver reads) but not
+  independent corroboration either.
+- `unstated` — seeded before the field existed, source count never recorded.
+
+Both counts are reported everywhere: `label_cli status`, the gate's failure
+messages, the ingest report. The pool size must never be hidden by the
+ground-truth size, and must never be mistaken for it.
+
+**The honest consequence: the set went from "21 of 250" to "0 verified, 21 in
+the pool".** `ResolverQuality` now SKIPS with an explicit reason rather than
+reporting a precision of 1.00 over zero rows — a skip that says why is a
+finding; a green tick over nothing is a lie.
+
+The nine existing `external_research` rows are `unstated` rather than
+back-filled. Assigning them `verified` would invent the exact thing the field
+exists to state.
+
+### The loader refuses rather than repairs
+
+An identity is the one thing in this project that must not be guessed at, and
+a loader that fills in a plausible variant is how a wrong card enters ground
+truth wearing the costume of a verified one. `label_cli ingest` refuses a row
+that is missing `source` or `confidence`, carries an unknown confidence or an
+unknown variant, is already present, or — the important one — **whose stated
+`card_uid` disagrees with its own fields**. The uid is derived and compared,
+never trusted.
+
+Rejections print and the command still exits 0: the report is the deliverable,
+and a red step would hide it.
+
+### The three numbering rules, asserted in all three directions
+
+Worth more than the rows, and each fails a different way, so each is asserted
+forwards, backwards, and adversarially.
+
+1. **Traditional Chinese is the Japanese set code + `F`, with IDENTICAL
+   collector numbers.** `sv2a` → `SV2aF`, `s7R` → `S7RF`. Charizard ex SIR is
+   `201/165` in *both*. The number is not a distinguishing feature here and
+   `language` is the only thing keeping the two apart — which is precisely the
+   merge non-negotiable 3 exists to prevent.
+
+   The casing is kept as **data**, not folded into a rule. `sv2a → SV2aF`
+   uppercases the alphabetic prefix and leaves the trailing `a`; two examples
+   do not establish that, so comparison is case-insensitive and
+   `OBSERVED_TC_SET_CODES` records the printed forms.
+
+2. **English diverges from the JP family on secret rares.** Same card, same
+   art: EN `199/165` against JP/TC `201/165`, and EN prints SIR where JP prints
+   SAR. Three printings, three identities. Nothing in the uid says they are the
+   same picture and nothing should — that relationship belongs in `card_xref`
+   with a confidence.
+
+3. **Simplified Chinese has its own codes AND its own denominators.** Pikachu
+   AR is `173/165` in EN/JP/TC and `173/151` in SC `151C`. The index matches
+   and the total does not, which is the trap: comparing on the index alone
+   calls them the same card. Normalising `173/151` to `173/165` "to match the
+   family" would turn CN-S's failure mode from a miss into a merge.
+
+### Three blocking failures, armed before the set exists
+
+Not scored, not averaged, not traded against precision. A resolver at 0.99 that
+commits one of these is not a resolver at 0.99 with a rough edge — it is a
+confident price on the wrong asset, and nothing downstream looks wrong.
+
+- EN `199/165` resolving to the same uid as JP `201/165`.
+- One Piece `OP01-025`, which exists as a base SR *and* an alt-art SR, both
+  **printed** `OP01-025`, collapsing into one identity. Plus the realistic
+  version: a record that says only `OP01-025` must REFUSE, not guess `base`.
+- Riftbound `303/298` against `303*/298` — same art, same rules, an asterisk
+  and a foil signature apart, and hundreds of dollars apart. The parser is
+  asserted directly too: if the asterisk is dropped on the way in, nothing
+  downstream can recover it.
+
+They run against a synthetic three-card set on purpose, so they hold from the
+first commit and regardless of what the labelled set contains. A blocking
+failure that only arms once you have 250 rows was never armed. A meta-test
+asserts they cannot reach `precision_threshold`, `_gate`, or `load()`.
+
+**All six pass today.** The resolver already handles all three merges.
+
+### Two corrections recorded
+
+**`_p1` / `_p2` / `_r1` are Bandai image filenames surfaced by apitcg — a
+provider convention, not a printed identifier.** Nothing on the card says
+`_p1`, and a seller reading the card in hand will never type it; marketplaces
+render the same distinction as an `a` suffix or "(Parallel)". Splitting on it
+is still right, and the reason is worth being exact about: the suffix is
+*evidence* of a distinct printing, not the *name* of one. What it must never do
+is reach a user-facing field or a matching key a marketplace record could be
+expected to carry — `OP01-025a`, `OP01-025 (Parallel)` and `_p1` all describe
+one printing and the resolver has to accept all three spellings. ADR-0031's
+wording implied the suffix was printed; it is not.
+
+**Rayquaza VMAX s7R is `083/067`.** The `083/069` in listings is the KOREAN
+printing's denominator. Dangerous precisely because it parses: it looks like a
+collector number, reads like one, and points at a printing this project does
+not track — so it is not "a card we do not have", it is a number that must
+resolve to nothing. Recorded in `KNOWN_CONFUSABLE_NUMBERS` with the correct
+value beside it, enforced by the loader, and checked against the labelled set.
+If Korean is ever added to `LANGUAGES` a test fails and the entry has to be
+re-decided.
+
+16 new guards, all mutation-tested, all caught.

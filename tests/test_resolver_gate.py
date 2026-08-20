@@ -21,6 +21,7 @@ has not been met.
 from __future__ import annotations
 
 import collections
+import inspect
 import json
 import os
 import sys
@@ -34,9 +35,36 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LABELLED = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
 
 
+# Only `verified` rows -- two INDEPENDENT external sources agreeing -- are
+# ground truth. A single-source identity is one transcription error away from
+# being wrong, and a precision figure computed over it measures the source
+# rather than the resolver.
+SCORED = ("verified",)
+
+
 def load():
     with open(LABELLED, encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def scored_rows(data):
+    """The rows precision may be computed on."""
+    return [c for c in data["cards"] if c.get("confidence") in SCORED]
+
+
+def pool_counts(data):
+    """Every row, by confidence. Reported alongside the scored count so the
+    size of the candidate pool is never hidden by the size of ground truth --
+    and never mistaken for it."""
+    return collections.Counter(c.get("confidence", "unstated")
+                               for c in data["cards"])
+
+
+def _counts_note(data):
+    counts = pool_counts(data)
+    return (f"scored on {len(scored_rows(data))} verified row(s); "
+            f"pool is {len(data['cards'])} ("
+            + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) + ")")
 
 
 class ResolverQuality(unittest.TestCase):
@@ -51,8 +79,20 @@ class ResolverQuality(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.data = load()
-        cls.cards = cls.data["cards"]
-        cls.resolver = Resolver(cls.cards)
+        # The resolver's INDEX may use every row -- knowing about a card is not
+        # a claim about it. Only the scored rows are used as truth.
+        cls.pool = cls.data["cards"]
+        cls.cards = scored_rows(cls.data)
+        cls.resolver = Resolver(cls.pool)
+
+    def setUp(self):
+        if not self.cards:
+            self.skipTest(
+                "no `verified` rows to score on -- " + _counts_note(self.data)
+                + ". This is a SKIP rather than a pass: a precision of 1.00 "
+                "over zero rows is not evidence, and reporting it as green is "
+                "the failure this split exists to prevent. "
+                "`python -m resolve.label_cli ingest --rows FILE`.")
 
     def _score(self, records):
         used = right = should = 0
@@ -81,7 +121,8 @@ class ResolverQuality(unittest.TestCase):
         precision, recall, wrong = self._score(self._self_records())
         self.assertGreaterEqual(
             precision, self.data["_gate"]["precision_threshold"],
-            f"precision {precision:.4f}; wrong matches: {wrong}")
+            f"precision {precision:.4f} ({_counts_note(self.data)}); "
+            f"wrong matches: {wrong}")
 
     def test_recall_is_reported_even_when_precision_passes(self):
         precision, recall, _ = self._score(self._self_records())
@@ -157,14 +198,15 @@ class TheLabelledSetIsComplete(unittest.TestCase):
 
     def setUp(self):
         self.data = load()
-        self.cards = self.data["cards"]
+        self.cards = scored_rows(self.data)
         self.gate = self.data["_gate"]
 
     def test_two_hundred_cards(self):
         self.assertGreaterEqual(
             len(self.cards), self.gate["required_cards"],
-            f"{len(self.cards)} of {self.gate['required_cards']} labelled cards. "
-            f"{self.data['_needed']['why']}")
+            f"{len(self.cards)} of {self.gate['required_cards']} VERIFIED "
+            f"cards ({_counts_note(self.data)}). Single-source rows are "
+            f"candidates and do not count. {self.data['_needed']['why']}")
 
     def test_all_eight_combinations_are_represented(self):
         present = {f"{c['game']}:{c['language']}" for c in self.cards}
@@ -238,3 +280,188 @@ class TheSeededCardsAreTraceable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class BlockingFailures(unittest.TestCase):
+    """THREE MERGES THAT FAIL THE RESOLVER OUTRIGHT.
+
+    Not scored, not averaged, not traded off against precision. A resolver at
+    0.99 that commits any one of these is not a resolver at 0.99 with a rough
+    edge -- it is a resolver that produces a confident price on the wrong
+    asset, and nothing downstream looks wrong. An aggregate can absorb one
+    error in a hundred. These are the errors an aggregate must not be allowed
+    to absorb.
+
+    Each one is a MERGE: two printings that share every field the naive key
+    looks at, differing only in the one this project insists on keeping.
+
+    They run against a synthetic three-card set, deliberately, so they hold
+    from the first commit -- before the labelled set exists, and regardless of
+    what is in it. A blocking failure that only fires once you have 250 rows is
+    a blocking failure that was never armed.
+    """
+
+    def _resolver(self, cards):
+        return Resolver(cards)
+
+    def _card(self, uid, game, set_code, number, variant, language, name):
+        return {"card_uid": uid, "game": game, "set_code": set_code,
+                "number": number, "variant": variant, "language": language,
+                "name": name}
+
+    def _record(self, card):
+        return {"source": "probe", "game": card["game"],
+                "language": card["language"], "number": card["number"],
+                "set_code": card["set_code"], "variant": card["variant"],
+                "name": card["name"]}
+
+    # -- 1 -----------------------------------------------------------------
+
+    def test_english_199_does_not_resolve_to_japanese_201(self):
+        """EN 199/165 and JP 201/165 are the same art in two markets. Same
+        set code, same name, same rarity tier -- and two price series that
+        have moved apart by triple digits before now."""
+        cards = [
+            self._card("pkmn:sv2a:199/165:sir:EN", "pkmn", "sv2a", "199/165",
+                       "sir", "EN", "Charizard ex"),
+            self._card("pkmn:sv2a:201/165:sar:JP", "pkmn", "sv2a", "201/165",
+                       "sar", "JP", "Charizard ex"),
+        ]
+        resolver = self._resolver(cards)
+        for card in cards:
+            got = resolver.resolve(self._record(card))
+            self.assertEqual(
+                got.card_uid, card["card_uid"],
+                f"BLOCKING: {card['card_uid']} resolved to {got.card_uid}. "
+                "The English secret rare and its Japanese counterpart were "
+                "merged; every comp for one is now a comp for the other.")
+
+    def test_the_english_number_never_reaches_the_japanese_card(self):
+        """The adversarial direction: an English number offered as Japanese
+        must not find the Japanese card by falling back on the name."""
+        cards = [self._card("pkmn:sv2a:201/165:sar:JP", "pkmn", "sv2a",
+                            "201/165", "sar", "JP", "Charizard ex")]
+        got = self._resolver(cards).resolve(
+            {"source": "probe", "game": "pkmn", "language": "JP",
+             "number": "199/165", "set_code": "sv2a", "name": "Charizard ex"})
+        self.assertNotEqual(
+            got.card_uid, "pkmn:sv2a:201/165:sar:JP",
+            "BLOCKING: the English collector number resolved to the Japanese "
+            "card on the strength of a matching name.")
+
+    # -- 2 -----------------------------------------------------------------
+
+    def test_a_one_piece_base_and_its_parallel_stay_apart(self):
+        """OP01-025 exists as a base SR and as an alt-art SR. BOTH are printed
+        OP01-025 -- the number on the card is identical, the rarity string is
+        identical, and the alt art is worth several times the base.
+
+        The only trace of the difference in the provider feed is Bandai's
+        image-filename suffix; on a marketplace it is an `a` on the number or
+        `(Parallel)` on the name. All three spellings describe one printing and
+        none of them may collapse into the other."""
+        cards = [
+            self._card("optcg:op01:OP01-025:base:EN", "optcg", "op01",
+                       "OP01-025", "base", "EN", "Nami"),
+            self._card("optcg:op01:OP01-025:parallel:EN", "optcg", "op01",
+                       "OP01-025", "parallel", "EN", "Nami"),
+        ]
+        resolver = self._resolver(cards)
+        seen = set()
+        for card in cards:
+            got = resolver.resolve(self._record(card))
+            seen.add(got.card_uid)
+            self.assertEqual(
+                got.card_uid, card["card_uid"],
+                f"BLOCKING: {card['card_uid']} resolved to {got.card_uid}. "
+                "A One Piece base printing and its parallel share a printed "
+                "number; merging them prices an alt art at its base's comp.")
+        self.assertEqual(len(seen), 2, "BLOCKING: two printings, one identity")
+
+    def test_a_parallel_with_no_variant_stated_is_not_silently_the_base(self):
+        """The realistic failure. A marketplace record says `OP01-025` and
+        nothing else. It could be either printing, so the honest answer is to
+        refuse -- guessing `base` is right roughly half the time and wrong
+        expensively the other half."""
+        cards = [
+            self._card("optcg:op01:OP01-025:base:EN", "optcg", "op01",
+                       "OP01-025", "base", "EN", "Nami"),
+            self._card("optcg:op01:OP01-025:parallel:EN", "optcg", "op01",
+                       "OP01-025", "parallel", "EN", "Nami"),
+        ]
+        got = self._resolver(cards).resolve(
+            {"source": "probe", "game": "optcg", "language": "EN",
+             "number": "OP01-025", "set_code": "op01", "name": "Nami"})
+        self.assertFalse(
+            got.usable_in_signals,
+            f"BLOCKING: an ambiguous OP01-025 was resolved to "
+            f"{got.card_uid} at {got.confidence:.2f} and used in a signal. "
+            "Two printings share that number; nothing in the record says "
+            "which.")
+
+    # -- 3 -----------------------------------------------------------------
+
+    def test_riftbound_303_and_303_starred_stay_apart(self):
+        """Same art, same rules text. The asterisk and a foil signature are
+        the only difference between them, and the difference is worth
+        hundreds -- a Signature against an Overnumbered."""
+        cards = [
+            self._card("riftbound:OGN:303/298:overnumbered:EN", "riftbound",
+                       "OGN", "303/298", "overnumbered", "EN", "Jinx"),
+            self._card("riftbound:OGN:303*/298:signature:EN", "riftbound",
+                       "OGN", "303*/298", "signature", "EN", "Jinx"),
+        ]
+        resolver = self._resolver(cards)
+        seen = set()
+        for card in cards:
+            got = resolver.resolve(self._record(card))
+            seen.add(got.card_uid)
+            self.assertEqual(
+                got.card_uid, card["card_uid"],
+                f"BLOCKING: {card['card_uid']} resolved to {got.card_uid}. "
+                "A Riftbound Signature and the plain Overnumbered at the same "
+                "index were merged.")
+        self.assertEqual(len(seen), 2, "BLOCKING: two printings, one identity")
+
+    def test_the_asterisk_survives_the_number_parser(self):
+        """The mechanical half. If the parser drops the asterisk on the way
+        in, nothing downstream can tell the two apart no matter how careful it
+        is -- so the parser is asserted directly rather than only through the
+        resolver."""
+        from resolve.identity import parse_collector_number
+        plain = parse_collector_number("303/298")
+        starred = parse_collector_number("303*/298")
+        self.assertFalse(plain.starred)
+        self.assertTrue(starred.starred,
+                        "BLOCKING: the signature asterisk was parsed away")
+        self.assertEqual(plain.index, starred.index)
+        self.assertNotEqual(plain.raw, starred.raw)
+
+    def test_the_asterisk_reaches_the_variant(self):
+        from resolve.identity import variant_from_number
+        self.assertEqual(
+            variant_from_number("303*/298", 298, "riftbound"), "signature")
+        self.assertEqual(
+            variant_from_number("303/298", 298, "riftbound"), "overnumbered")
+
+    # -- and the rule that ties all three together -------------------------
+
+    def test_none_of_the_three_is_scored_away(self):
+        """A guard on the guards. These must not be reachable through the
+        precision threshold -- if someone moves them into `ResolverQuality`
+        they become one error in a hundred, which is exactly what they must
+        never be."""
+        # Every test method EXCEPT this one -- reading its own source would
+        # match on the very strings it is looking for.
+        others = "\n".join(
+            inspect.getsource(getattr(BlockingFailures, name))
+            for name in dir(BlockingFailures)
+            if name.startswith("test_") and name != "test_none_of_the_three_"
+                                                    "is_scored_away")
+        for forbidden in ("precision_threshold", "_gate", "load()", "self.data"):
+            self.assertNotIn(
+                forbidden, others,
+                f"a blocking failure reads {forbidden!r}. These must not be "
+                "reachable through the aggregate score, and must hold before "
+                "the labelled set exists.")
+        self.assertNotIn(ResolverQuality, BlockingFailures.__mro__)

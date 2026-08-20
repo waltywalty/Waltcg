@@ -48,12 +48,54 @@ Mitigated rather than solved: the catalog cache means a refusal costs nothing,
 and the two-strike breaker means we stop asking. Add each run's numbers from
 the ingest step's rate-limit table.
 
-## S3 — the labelled set is 21 of 250
+## S1 — Model A cannot run at all: three assumptions are null
+
+Every tier on every route refuses with `ConfigIncomplete` on the same three:
+
+```
+assumptions.submission_selection_haircut.current_value
+assumptions.empirical_bayes_prior_strength.current_value
+assumptions.empirical_bayes_min_card_pop.current_value
+```
+
+23 tier/route pairs, no exceptions. These are the registered assumptions
+CLAUDE.md calls known-fragile — the haircut is "a guess until calibrated
+against my own submission results" — and the model refusing rather than
+picking a plausible default is the correct behaviour, not a defect. But it
+does mean **Model A produces nothing today**, and that is worth stating
+plainly rather than leaving to be discovered from an empty screen.
+
+Unblocking it is a decision, not a fix: put a number in with a calibration
+plan, or leave it refusing.
+
+## S2 — PSA's four Value tiers are null, and TAG has no route
+
+`PSA.value_bulk`, `value`, `value_plus`, `value_max` each have a null `fee`,
+`min_cards` and `turnaround_business_days` — PSA paused those tiers in June
+2026, which is exactly why they live in dated config. Two more tiers block on
+`turnaround_business_days` alone: `BGS.base`, `BGS.base_subgrades`, and all
+four SGC tiers.
+
+Separately, `config/grading.yaml` declares four routes — `cgc_uk`, `psa_us`,
+`bgs_us`, `sgc_us` — and none of them is TAG. So TAG's four tiers are
+unreachable from Model A regardless of their config: there is no route that
+gets a card to them and back.
+
+## S3 — the labelled set is 21 rows and 0 of them are ground truth
 
 `tests/test_resolver_gate.py` is deliberately red. Six failures in every run,
 and they are the only six. Candidates must be adjudicated by hand
 (`python -m resolve.label_cli propose`); generating them from the catalogs the
 resolver reads would make the precision score a measurement of the catalog.
+
+Since the `confidence` field landed the count is more honest and worse: 12
+rows are `in_repo` (traceable here, not independently corroborated) and 9 are
+`unstated` (seeded before the field existed, source count never recorded).
+**Zero are `verified`.** `ResolverQuality` now SKIPS with a reason rather than
+reporting a precision of 1.00 over nothing.
+
+The nine `unstated` rows need re-adjudication or discarding. Back-filling a
+confidence would invent the exact thing the field exists to state.
 
 ## S3 — the seven-day catalog threshold is a guess
 

@@ -469,3 +469,227 @@ class ThePublishersOwnIdSaysWhichPrinting(unittest.TestCase):
                            {"id": "origins-299_p1", "number": "299*/298",
                             "name": "Jinx", "rarity": "Showcase"}, "apitcg")
         self.assertEqual(row["variant"], "signature")
+
+
+class TheThreeNumberingRules(unittest.TestCase):
+    """The rules are worth more than the rows. They are asserted in all three
+    directions, because each one fails a different way and a rule tested only
+    in the direction it was written in is a rule tested once.
+
+    Sources: external research, independent of tcgdex and apitcg.
+    """
+
+    # -- 1. Traditional Chinese: Japanese set code + F, IDENTICAL numbers ----
+
+    def test_the_tc_set_code_is_the_jp_one_with_an_f(self):
+        from resolve.identity import (OBSERVED_TC_SET_CODES,
+                                      same_traditional_chinese_set,
+                                      traditional_chinese_set_code)
+        for japanese, printed in OBSERVED_TC_SET_CODES.items():
+            self.assertTrue(same_traditional_chinese_set(japanese, printed),
+                            f"{printed} was not recognised as {japanese} + F")
+            self.assertEqual(
+                traditional_chinese_set_code(japanese).lower(),
+                printed.lower())
+
+    def test_the_casing_is_data_not_a_rule(self):
+        """`sv2a -> SV2aF` uppercases the alphabetic prefix and leaves the
+        trailing `a`. Two examples do not establish that, so the comparison is
+        case-insensitive and the printed forms are kept as observations."""
+        from resolve.identity import (OBSERVED_TC_SET_CODES,
+                                      same_traditional_chinese_set)
+        self.assertEqual(OBSERVED_TC_SET_CODES["sv2a"], "SV2aF")
+        self.assertEqual(OBSERVED_TC_SET_CODES["s7R"], "S7RF")
+        for spelling in ("SV2AF", "sv2af", "Sv2aF"):
+            self.assertTrue(same_traditional_chinese_set("sv2a", spelling))
+
+    def test_the_jp_parent_is_recoverable(self):
+        from resolve.identity import japanese_set_code_of
+        self.assertEqual(japanese_set_code_of("SV2aF").lower(), "sv2a")
+        self.assertEqual(japanese_set_code_of("S7RF").lower(), "s7r")
+
+    def test_a_code_with_no_f_has_no_parent(self):
+        """None is a real answer -- "not a Traditional Chinese code we
+        recognise" -- and must not be confused with a failure."""
+        from resolve.identity import japanese_set_code_of
+        self.assertIsNone(japanese_set_code_of("sv2a"))
+        self.assertIsNone(japanese_set_code_of("F"))
+        self.assertIsNone(japanese_set_code_of(""))
+        self.assertIsNone(japanese_set_code_of(None))
+
+    def test_tc_must_share_the_jp_collector_number(self):
+        """DIRECTION 1. Charizard ex SIR is 201/165 in BOTH Japanese and
+        Traditional Chinese. The number is not a distinguishing feature here,
+        and a scheme that renumbers TC would invent a card."""
+        from resolve.identity import (card_uid, shares_parent_numbering,
+                                      traditional_chinese_set_code)
+        self.assertTrue(shares_parent_numbering("CN-T"))
+        number = "201/165"
+        jp = card_uid("pkmn", "sv2a", number, "sar", "JP")
+        tc = card_uid("pkmn", traditional_chinese_set_code("sv2a"), number,
+                      "sar", "CN-T")
+        self.assertIn(f":{number}:", jp)
+        self.assertIn(f":{number}:", tc)
+        self.assertNotEqual(jp, tc, "the two printings collapsed into one uid")
+
+    def test_tc_and_jp_are_never_the_same_card(self):
+        """DIRECTION 2. Same art, same number, different market, different
+        price series. Only `language` and the set code keep them apart."""
+        from resolve.identity import card_uid, parse_card_uid
+        jp = parse_card_uid(card_uid("pkmn", "sv2a", "201/165", "sar", "JP"))
+        tc = parse_card_uid(card_uid("pkmn", "SV2aF", "201/165", "sar", "CN-T"))
+        self.assertEqual(jp["number"], tc["number"])
+        self.assertNotEqual(jp["language"], tc["language"])
+        self.assertNotEqual(jp["set_code"], tc["set_code"])
+
+    def test_a_tc_row_whose_number_differs_from_jp_is_a_contradiction(self):
+        """DIRECTION 3. The rule read backwards is a check: if a labelled TC
+        row carries a number its Japanese parent does not, one of the two is
+        wrong, and the set is where that has to surface."""
+        from resolve.identity import shares_parent_numbering
+        jp_numbers = {"201/165", "173/165"}
+        tc_rows = [("SV2aF", "201/165"), ("SV2aF", "173/165")]
+        self.assertTrue(shares_parent_numbering("CN-T"))
+        for _code, number in tc_rows:
+            self.assertIn(number, jp_numbers,
+                          "a Traditional Chinese row carries a number its "
+                          "Japanese parent does not")
+
+    # -- 2. English DIVERGES from the JP family on secret rares -------------
+
+    def test_english_secret_rares_do_not_share_the_jp_number(self):
+        """Same card, same art: EN 199/165, JP and TC 201/165. Three
+        printings, three numbers-and-languages, three cards."""
+        from resolve.identity import card_uid
+        en = card_uid("pkmn", "sv2a", "199/165", "sir", "EN")
+        jp = card_uid("pkmn", "sv2a", "201/165", "sar", "JP")
+        tc = card_uid("pkmn", "SV2aF", "201/165", "sar", "CN-T")
+        self.assertEqual(len({en, jp, tc}), 3)
+
+    def test_matching_english_to_japanese_on_art_alone_is_a_merge(self):
+        """The number is not the bridge and neither is the art. Nothing in the
+        identity says these are the same picture, and nothing should -- that
+        relationship belongs in `card_xref`, with a confidence, not in the uid."""
+        from resolve.identity import parse_card_uid
+        en = parse_card_uid("pkmn:sv2a:199/165:sir:EN")
+        jp = parse_card_uid("pkmn:sv2a:201/165:sar:JP")
+        self.assertNotEqual(en["number"], jp["number"])
+        self.assertNotEqual(en["variant"], jp["variant"],
+                            "EN prints SIR where JP prints SAR; collapsing "
+                            "the two loses which market a comp came from")
+
+    def test_the_en_number_is_not_normalised_toward_jp(self):
+        """DIRECTION 3 again: no code path may rewrite 199/165 to 201/165 on
+        the grounds that they are the same art."""
+        from resolve.identity import parse_collector_number
+        en, jp = parse_collector_number("199/165"), parse_collector_number("201/165")
+        self.assertEqual((en.index, en.total), (199, 165))
+        self.assertEqual((jp.index, jp.total), (201, 165))
+        self.assertNotEqual(en.index, jp.index)
+
+    # -- 3. Simplified Chinese: own codes AND own denominators --------------
+
+    def test_simplified_chinese_renumbers(self):
+        from resolve.identity import renumbers, shares_parent_numbering
+        self.assertTrue(renumbers("CN-S"))
+        self.assertFalse(shares_parent_numbering("CN-S"),
+                         "CN-S was given CN-T's behaviour; the two are "
+                         "opposite and a scheme that handles one handles the "
+                         "other wrong")
+
+    def test_the_denominator_is_its_own(self):
+        """Pikachu AR is 173/165 in EN, JP and TC, and 173/151 in SC 151C.
+        The INDEX matches and the TOTAL does not, which is the trap: a
+        comparison on the index alone calls them the same card."""
+        from resolve.identity import card_uid, parse_collector_number
+        family, simplified = "173/165", "173/151"
+        a, b = parse_collector_number(family), parse_collector_number(simplified)
+        self.assertEqual(a.index, b.index)
+        self.assertNotEqual(a.total, b.total)
+        self.assertNotEqual(card_uid("pkmn", "sv2a", family, "ar", "JP"),
+                            card_uid("pkmn", "151C", simplified, "ar", "CN-S"))
+
+    def test_the_sc_denominator_is_never_normalised_to_the_jp_one(self):
+        """DIRECTION 3. Rewriting 173/151 to 173/165 to "match the family"
+        would file a Simplified Chinese card as a Japanese one -- the CN-S
+        failure mode is a MISS, and this is how a miss becomes a merge."""
+        from resolve.identity import parse_card_uid
+        uid = "pkmn:151C:173/151:ar:CN-S"
+        parsed = parse_card_uid(uid)
+        self.assertEqual(parsed["number"], "173/151")
+        self.assertNotIn("165", parsed["number"])
+        self.assertEqual(parsed["set_code"], "151C")
+
+    def test_the_sc_set_code_is_not_an_f_suffix(self):
+        from resolve.identity import japanese_set_code_of
+        self.assertIsNone(japanese_set_code_of("151C"),
+                          "a C-suffixed Simplified Chinese code was read as a "
+                          "Traditional Chinese one")
+
+    def test_all_four_printings_of_one_art_are_four_cards(self):
+        """The whole rule set in one assertion, and non-negotiable 3 stated as
+        code: EN, JP, CN-T and CN-S of the same picture are four cards with
+        four price series."""
+        from resolve.identity import card_uid
+        uids = {
+            card_uid("pkmn", "sv2a", "173/165", "ar", "EN"),
+            card_uid("pkmn", "sv2a", "173/165", "ar", "JP"),
+            card_uid("pkmn", "SV2aF", "173/165", "ar", "CN-T"),
+            card_uid("pkmn", "151C", "173/151", "ar", "CN-S"),
+        }
+        self.assertEqual(len(uids), 4)
+
+
+class TheKoreanDenominatorIsNotTheJapaneseCard(unittest.TestCase):
+    """Rayquaza VMAX s7R is 083/067. The 083/069 in listings is the KOREAN
+    printing's denominator.
+
+    Dangerous because it parses: it looks like a collector number, it reads
+    like one, and it points at a printing in a market this project does not
+    track. So it is not "a card we do not have" -- it is a number that must
+    resolve to nothing at all."""
+
+    def test_the_confusable_is_recorded_against_the_card(self):
+        from resolve.identity import confusable_numbers
+        self.assertEqual(confusable_numbers("pkmn", "s7R", "Rayquaza VMAX"),
+                         ("083/069",))
+
+    def test_the_correct_number_is_recorded_too(self):
+        """A confusable with no correct value beside it tells you what is
+        wrong and not what is right."""
+        from resolve.identity import KNOWN_CONFUSABLE_NUMBERS
+        entry = KNOWN_CONFUSABLE_NUMBERS[("pkmn", "s7R", "Rayquaza VMAX")]
+        self.assertEqual(entry["correct"], "083/067")
+        self.assertIn("Korean", entry["why"])
+        self.assertEqual(entry["source"], "external_research")
+
+    def test_korean_is_not_a_language_this_project_tracks(self):
+        """Which is why 083/069 cannot resolve to anything. If Korean is ever
+        added, this test fails and the confusable has to be re-decided."""
+        from resolve.identity import LANGUAGES
+        self.assertNotIn("KO", LANGUAGES)
+
+    def test_the_two_numbers_are_not_the_same_card(self):
+        from resolve.identity import card_uid
+        self.assertNotEqual(card_uid("pkmn", "s7R", "083/067", "base", "JP"),
+                            card_uid("pkmn", "s7R", "083/069", "base", "JP"))
+
+    def test_a_labelled_row_for_this_card_carries_the_right_number(self):
+        """The check that makes the record useful: if the card is in the
+        labelled set, its number must be the Japanese one."""
+        import json
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "tests", "fixtures",
+            "labelled_200.json")
+        with open(path, encoding="utf-8") as handle:
+            cards = json.load(handle)["cards"]
+        from resolve.identity import KNOWN_CONFUSABLE_NUMBERS
+        for (game, set_code, name), entry in KNOWN_CONFUSABLE_NUMBERS.items():
+            for card in cards:
+                if (card["game"], card["set_code"], card["name"]) != \
+                        (game, set_code, name):
+                    continue
+                self.assertNotIn(card["number"], entry["confusable"],
+                                 f"{card['card_uid']} carries a known "
+                                 f"confusable number: {entry['why']}")
+                self.assertEqual(card["number"], entry["correct"])
