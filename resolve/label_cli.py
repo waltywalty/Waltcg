@@ -57,8 +57,17 @@ SCORED = ("verified",)
 REQUIRED_FIELDS = ("card_uid", "game", "set_code", "number", "variant",
                    "language", "name", "source", "confidence")
 
+# Fields a superseded row must NOT pass on. These are claims about provenance
+# and standing, and the whole point of superseding is that the new row makes
+# its own -- inheriting them would let a discarded claim survive its own
+# replacement.
+_NOT_INHERITED = frozenset({"confidence", "source", "verified_from",
+                            "supersedes", "supersedes_confidence",
+                            "inherited_fields", "adjudication"})
 
-def ingest(rows, labelled_path=LABELLED, dry_run=False):
+
+def ingest(rows, labelled_path=LABELLED, dry_run=False,
+           supersede_unstated=False):
     """Merge externally-researched rows into the labelled set.
 
     Refuses rather than repairs. A row that will not validate is REPORTED and
@@ -70,14 +79,32 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False):
     Returns (accepted, rejected, report).
     """
     from resolve.identity import (KNOWN_CONFUSABLE_NUMBERS,
-                                  card_uid as build_uid, is_variant)
+                                  canonical_set_code, card_uid as build_uid,
+                                  is_variant)
 
     labelled = _load(labelled_path, {"cards": []})
     existing = {c["card_uid"]: c for c in labelled.get("cards", [])}
-    accepted, rejected = [], []
+    accepted, rejected, aliased, superseded = [], [], [], []
 
     for index, row in enumerate(rows):
         why = []
+        # THE SET CODE IS A KEY, NOT A CLAIM. A row whose identity came from
+        # outside the catalog is still non-circular when its set_code is
+        # spelled the catalog's way -- and a key that matches nothing scores
+        # nothing. The mapping is declared in `SET_CODE_ALIASES` and every
+        # application is reported, so this is a normalisation you can audit
+        # rather than a coercion you cannot see.
+        canonical, alias = canonical_set_code(row.get("game"),
+                                              row.get("language"),
+                                              row.get("set_code"))
+        if alias:
+            row = dict(row, set_code=canonical,
+                       set_code_as_sourced=row.get("set_code"))
+            if row.get("card_uid"):
+                row["card_uid"] = ":".join(
+                    [row["game"], canonical, row["number"], row["variant"],
+                     row["language"]])
+            aliased.append((index, alias["code"], alias["why"]))
         missing = [f for f in REQUIRED_FIELDS if not row.get(f)]
         if missing:
             why.append("missing " + ", ".join(missing))
@@ -117,24 +144,54 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False):
 
         if not why and row["card_uid"] in existing:
             previous = existing[row["card_uid"]]
-            if previous.get("confidence") == row.get("confidence"):
+            if (supersede_unstated
+                    and previous.get("confidence") == "unstated"
+                    and row.get("confidence") in ("verified", "single_source")):
+                # `unstated` is not a competing claim. It means "seeded before
+                # this field existed and the source count was never recorded" --
+                # there is no information in it that a sourced row lacks. So
+                # this is not a PROMOTION of an existing claim, it is a claim
+                # replacing a non-claim, and the append-only convention applies:
+                # the new row carries a `supersedes` reference rather than the
+                # old one being edited in place.
+                # CARRY FORWARD WHAT THE NEW ROW DOES NOT SUPPLY. Superseding
+                # is a correction, not a deletion: the incoming row has better
+                # provenance, and that is no reason to lose a `hard_case` tag or
+                # an artist the old row recorded. The new row wins wherever it
+                # has a value; the old one fills the gaps.
+                inherited = {k: v for k, v in previous.items()
+                             if k not in row and k not in _NOT_INHERITED}
+                row = dict(inherited, **row)
+                row.update(supersedes=previous.get("card_uid"),
+                           supersedes_confidence="unstated",
+                           inherited_fields=sorted(inherited) or None)
+                row = {k: v for k, v in row.items() if v is not None}
+                superseded.append(row["card_uid"])
+            elif previous.get("confidence") == row.get("confidence"):
                 why.append("already in the set at the same confidence")
             else:
                 why.append(f"already in the set at confidence "
                            f"{previous.get('confidence')!r}; promoting or "
-                           "demoting a row is a deliberate edit, not an import")
+                           "demoting a row is a deliberate edit, not an import"
+                           + ("" if previous.get("confidence") != "unstated"
+                              else ". Pass --supersede-unstated: an `unstated` "
+                                   "row is not a competing claim"))
         if why:
             rejected.append({"index": index, "row": row, "why": why})
         else:
             accepted.append(row)
 
     if accepted and not dry_run:
-        labelled.setdefault("cards", []).extend(accepted)
-        labelled["cards"].sort(key=lambda c: c["card_uid"])
+        replaced = {r["supersedes"] for r in accepted if r.get("supersedes")}
+        kept = [c for c in labelled.get("cards", [])
+                if c["card_uid"] not in replaced]
+        labelled["cards"] = sorted(kept + accepted, key=lambda c: c["card_uid"])
         labelled["_status"] = _status_line(labelled)
         _save(labelled_path, labelled)
 
     report = collections.Counter(r.get("confidence") for r in accepted)
+    report["_aliased"] = len(aliased)
+    report["_superseded"] = len(superseded)
     return accepted, rejected, report
 
 
@@ -410,6 +467,11 @@ def main(argv=None):
                              "Every row needs `source` and `confidence`")
     parser.add_argument("--dry-run", action="store_true",
                         help="validate and report without writing")
+    parser.add_argument("--supersede-unstated", action="store_true",
+                        help="let a sourced row replace an `unstated` one at "
+                             "the same card_uid. `unstated` records no source "
+                             "count, so it is not a competing claim -- the new "
+                             "row carries a `supersedes` reference")
     parser.add_argument("--source", default="targets",
                         choices=["targets", "tcgdex"],
                         help="where candidates come from. `tcgdex` pulls the "
@@ -438,13 +500,20 @@ def main(argv=None):
         if payload is None:
             parser.error(f"{args.rows} does not exist")
         rows = payload.get("cards") if isinstance(payload, dict) else payload
-        accepted, rejected, report = ingest(rows or [], dry_run=args.dry_run)
+        accepted, rejected, report = ingest(
+            rows or [], dry_run=args.dry_run,
+            supersede_unstated=args.supersede_unstated)
         print(f"accepted {len(accepted)}  rejected {len(rejected)}"
               + ("  (DRY RUN, nothing written)" if args.dry_run else ""))
         for value in CONFIDENCE:
             if report.get(value):
                 mark = "  <- scores" if value in SCORED else ""
                 print(f"  {value:14} {report[value]:>4}{mark}")
+        if report.get("_aliased"):
+            print(f"  set codes normalised to the catalog: "
+                  f"{report['_aliased']} (see SET_CODE_ALIASES)")
+        if report.get("_superseded"):
+            print(f"  superseded an `unstated` row: {report['_superseded']}")
         for entry in rejected:
             uid = entry["row"].get("card_uid", f"row {entry['index']}")
             print(f"  REJECTED {uid}: " + "; ".join(entry["why"]))

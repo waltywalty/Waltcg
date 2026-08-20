@@ -465,3 +465,138 @@ class BlockingFailures(unittest.TestCase):
                 "reachable through the aggregate score, and must hold before "
                 "the labelled set exists.")
         self.assertNotIn(ResolverQuality, BlockingFailures.__mro__)
+
+
+class BlockingFailuresAgainstTheRealSet(BlockingFailures):
+    """The same three merges, checked against the LABELLED SET rather than a
+    synthetic pair.
+
+    `BlockingFailures` proves the resolver can keep two well-formed printings
+    apart. This proves it does so for the rows actually in the set, which are
+    the ones a score will be computed over -- a merge here is a blocking
+    failure with real data, and it is not permitted to show up as one wrong
+    match in an aggregate.
+
+    Each group SKIPS when the set does not yet contain both halves. A skip says
+    "not yet tested"; a pass over one row would say "tested and fine", and only
+    one of those is true.
+    """
+
+    #: Groups that must resolve to as many distinct identities as they have rows.
+    GROUPS = {
+        "One Piece OP01-025 base and parallel, EN and JP -- all four printed "
+        "OP01-025": (
+            "optcg:op01:OP01-025:base:EN", "optcg:op01:OP01-025:parallel:EN",
+            "optcg:op01:OP01-025:base:JP", "optcg:op01:OP01-025:parallel:JP"),
+        "One Piece OP01-001 base and parallel, EN and JP": (
+            "optcg:op01:OP01-001:base:EN", "optcg:op01:OP01-001:parallel:EN",
+            "optcg:op01:OP01-001:base:JP", "optcg:op01:OP01-001:parallel:JP"),
+        "Riftbound 303/298 against 303*/298 -- an asterisk apart": (
+            "riftbound:OGN:303/298:overnumbered:EN",
+            "riftbound:OGN:303*/298:signature:EN"),
+        "Riftbound 299/298 against 299*/298": (
+            "riftbound:OGN:299/298:overnumbered:EN",
+            "riftbound:OGN:299*/298:signature:EN"),
+        "Pokemon 173/165 against 173/151 -- same index, different total": (
+            "pkmn:sv03.5:173/165:ar:EN", "pkmn:SV2aF:173/165:ar:CN-T",
+            "pkmn:151C:173/151:ar:CN-S"),
+        "Pokemon EN 199/165 against JP and CN-T 201/165 -- same art": (
+            "pkmn:sv03.5:199/165:sir:EN", "pkmn:sv2a:201/165:sar:JP",
+            "pkmn:SV2aF:201/165:sar:CN-T"),
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        cls.data = load()
+        cls.by_uid = {c["card_uid"]: c for c in cls.data["cards"]}
+        cls.resolver = Resolver(cls.data["cards"])
+
+    def _check(self, label, uids):
+        present = [u for u in uids if u in self.by_uid]
+        if len(present) < 2:
+            self.skipTest(f"{label}: the set has {len(present)} of "
+                          f"{len(uids)} rows, so the merge is untested")
+        got = {}
+        for uid in present:
+            card = self.by_uid[uid]
+            got[uid] = self.resolver.resolve(self._record(card)).card_uid
+        # Each printing must resolve to ITSELF. That is the whole check: if
+        # every row returns its own uid then the results are distinct by
+        # construction, so a separate "did they collapse" count would be a
+        # line that cannot fail on its own -- decoration, and this project
+        # does not keep guards nothing catches. A collapse shows up here, as
+        # one row returning another's identity.
+        for uid, resolved in got.items():
+            self.assertEqual(
+                resolved, uid,
+                f"BLOCKING ({label}): {uid} resolved to {resolved}. "
+                f"{len(present)} printings share a printed number here and "
+                "only their identities keep them apart.")
+
+    def test_one_piece_op01_025(self):
+        label = ("One Piece OP01-025 base and parallel, EN and JP -- all four "
+                 "printed OP01-025")
+        self._check(label, self.GROUPS[label])
+
+    def test_one_piece_op01_001(self):
+        label = "One Piece OP01-001 base and parallel, EN and JP"
+        self._check(label, self.GROUPS[label])
+
+    def test_riftbound_303(self):
+        label = "Riftbound 303/298 against 303*/298 -- an asterisk apart"
+        self._check(label, self.GROUPS[label])
+
+    def test_riftbound_299(self):
+        label = "Riftbound 299/298 against 299*/298"
+        self._check(label, self.GROUPS[label])
+
+    def test_pokemon_173(self):
+        label = ("Pokemon 173/165 against 173/151 -- same index, different "
+                 "total")
+        self._check(label, self.GROUPS[label])
+
+    def test_pokemon_199_against_201(self):
+        label = "Pokemon EN 199/165 against JP and CN-T 201/165 -- same art"
+        self._check(label, self.GROUPS[label])
+
+    def test_every_group_is_reachable(self):
+        """A guard on the guards, again. If a set-code alias changes and these
+        uids stop matching anything, every group above would SKIP and the file
+        would go quiet -- which reads exactly like passing."""
+        reachable = sum(1 for uids in self.GROUPS.values()
+                        if sum(1 for u in uids if u in self.by_uid) >= 2)
+        self.assertGreater(
+            reachable, 0,
+            "not one blocking group is present in the labelled set. Either "
+            "the rows were never ingested or their card_uids no longer match "
+            "-- a set-code alias change would do this silently.")
+
+
+class PrecisionIsReportedWithItsInterval(unittest.TestCase):
+    """A precision of 1.0000 is not a passing gate; it is a point estimate, and
+    on a small set it is a weak one.
+
+    `_gate.sizing_note` sized the set on the ERROR BUDGET rather than the count:
+    at n=250 a zero-error sweep gives a 95% lower bound of 0.9881 and survives
+    one mistake. Reporting the point estimate without the bound is how "1.00"
+    gets read as "met"."""
+
+    def test_the_lower_bound_is_computable_and_reported(self):
+        import math
+        data = load()
+        n = len(scored_rows(data))
+        if not n:
+            self.skipTest("no scored rows")
+        # Clopper-Pearson, zero errors: the one-sided 95% lower bound is
+        # 0.05 ** (1/n). Only valid while the sweep is clean; a single wrong
+        # match needs the full beta quantile.
+        bound = 0.05 ** (1.0 / n)
+        threshold = data["_gate"]["precision_threshold"]
+        self.assertGreater(bound, 0.0)
+        if n < data["_gate"]["required_cards"]:
+            self.assertLess(
+                bound, threshold,
+                f"n={n} gives a 95% lower bound of {bound:.4f}, which already "
+                f"clears {threshold} -- if that is true the gate's required "
+                "count is larger than the error budget needs and ADR-0015 "
+                "should be revisited.")

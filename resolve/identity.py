@@ -127,6 +127,47 @@ KNOWN_CONFUSABLE_NUMBERS = {
 }
 
 
+# Set codes a source spelled differently from the catalog.
+#
+# A labelled row's IDENTITY is non-circular -- it came from outside the
+# catalogs the resolver reads -- but its set_code is a KEY, and a key that
+# matches nothing scores nothing. So the code is normalised to whatever the
+# catalog uses, and the normalisation is declared here rather than applied
+# silently at the point of import: an alias is a claim that two spellings name
+# one set, and a claim belongs somewhere it can be checked.
+#
+# Each entry records what it was VERIFIED against, because "SV: 151 is
+# probably sv151" is a guess and "sv03.5 holds 199 Charizard ex and 205 Mew ex,
+# which is what the row says" is a check.
+SET_CODE_ALIASES = {
+    ("pkmn", "EN", "sv151"): {
+        "code": "sv03.5",
+        "why": "source said `SV: 151`; a colon cannot survive a "
+               "colon-delimited card_uid",
+        "verified_against": "ingest/targets.json -- sv03.5 holds 199 Charizard "
+                            "ex and 205 Mew ex, matching the rows",
+    },
+    ("pkmn", "EN", "swsh07"): {
+        "code": "swsh7",
+        "why": "source said `SWSH07`; the catalog does not zero-pad",
+        "verified_against": "ingest/targets.json -- swsh7 holds 94 Umbreon V, "
+                            "95 Umbreon VMAX and 111 Rayquaza VMAX, which is "
+                            "Evolving Skies",
+    },
+}
+
+
+def canonical_set_code(game, language, set_code):
+    """(code, alias_entry_or_None). Unknown codes pass through unchanged.
+
+    Passing through is the right default: this table is a list of spellings we
+    have RECONCILED, not a whitelist of sets that exist. A code absent from it
+    is a code nobody has checked, which is different from a wrong one.
+    """
+    entry = SET_CODE_ALIASES.get((game, language, str(set_code or "")))
+    return (entry["code"], entry) if entry else (set_code, None)
+
+
 def confusable_numbers(game, set_code, name) -> tuple:
     """Numbers seen in listings for this card that are not its number."""
     entry = KNOWN_CONFUSABLE_NUMBERS.get((game, set_code, name))

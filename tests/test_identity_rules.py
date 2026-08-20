@@ -370,9 +370,6 @@ class TheNameIsNotAKey(unittest.TestCase):
         self.assertFalse(result.usable_in_signals)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
 
 class ThePublishersOwnIdSaysWhichPrinting(unittest.TestCase):
     """Non-negotiable 3: every printing is a different card, never merged.
@@ -685,11 +682,26 @@ class TheKoreanDenominatorIsNotTheJapaneseCard(unittest.TestCase):
             cards = json.load(handle)["cards"]
         from resolve.identity import KNOWN_CONFUSABLE_NUMBERS
         for (game, set_code, name), entry in KNOWN_CONFUSABLE_NUMBERS.items():
-            for card in cards:
-                if (card["game"], card["set_code"], card["name"]) != \
-                        (game, set_code, name):
-                    continue
+            matching = [c for c in cards
+                        if (c["game"], c["set_code"], c["name"])
+                        == (game, set_code, name)]
+            if not matching:
+                continue
+            # NO row may carry a confusable. That is the invariant, and it
+            # holds however many printings of the card are in the set --
+            # Rayquaza VMAX s7R is here twice, 047/067 base and 083/067 alt
+            # art, and both are legitimate.
+            for card in matching:
                 self.assertNotIn(card["number"], entry["confusable"],
                                  f"{card['card_uid']} carries a known "
                                  f"confusable number: {entry['why']}")
-                self.assertEqual(card["number"], entry["correct"])
+            # And the printing the entry is ABOUT must be the correct number,
+            # not the confusable one -- otherwise the record guards nothing.
+            self.assertIn(entry["correct"], {c["number"] for c in matching},
+                          f"the set has {name} in {set_code} but not at "
+                          f"{entry['correct']}, which is the number the "
+                          "confusable record exists to protect")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

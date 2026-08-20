@@ -2298,3 +2298,103 @@ If Korean is ever added to `LANGUAGES` a test fails and the entry has to be
 re-decided.
 
 16 new guards, all mutation-tested, all caught.
+
+---
+
+## ADR-0034 — 86 researched rows, 68 landed, 18 held at the vocabulary
+
+**2026-08-18.** The first real external research file. 57 `verified`, 29
+`single_source`, card_uids derived rather than typed.
+
+**68 accepted, 18 rejected, every rejection on the variant vocabulary.** Not
+one row failed on a derived uid, a confusable number, or a malformed field —
+which is the loader saying the file is clean, not that the loader is lax.
+
+### The nine unknown tokens are reported, not coerced
+
+`sr` ×5, `ur` ×3, `hr` ×2, `manga` ×2, `rainbow_secret` ×2, `gold_secret`,
+`ssr`, `holo`, `sp`. Mapping `sr` onto `parallel` because both mean "special"
+would put two printings in one bucket, which is the merge every other guard
+here exists to prevent. `manga` is the odd one: we already have `manga_rare`,
+so it is a rename rather than a new concept.
+
+Held, and named with the token, awaiting a decision. Listed in
+`docs/OPEN_ISSUES.md` as S2.
+
+### The set code is a key, not a claim
+
+`sv151` and `swsh07` were the two the source normalised from set NAMES, and
+neither matches the catalog. `SET_CODE_ALIASES` maps them — and each entry
+records what it was **verified against**, because "SV: 151 is probably sv151"
+is a guess and "sv03.5 holds 199 Charizard ex and 205 Mew ex, which is what the
+row says" is a check.
+
+- `sv151` → `sv03.5`, confirmed against catalog rows 199 Charizard ex, 205 Mew ex
+- `swsh07` → `swsh7`, confirmed against 94 Umbreon V, 95 Umbreon VMAX, 111 Rayquaza VMAX
+
+The card_uid is rebuilt around the new code, the original spelling is kept as
+`set_code_as_sourced`, and every application is printed. An unknown code passes
+through untouched: the table lists spellings we have *reconciled*, not sets
+that exist, and a code absent from it is one nobody has checked.
+
+### `unstated` is not a competing claim
+
+Four rows collided with seeded `unstated` ones. `unstated` means "seeded before
+the field existed and the source count was never recorded" — there is no
+information in it a sourced row lacks, so this is a claim replacing a
+non-claim, not a promotion. `--supersede-unstated` makes it deliberate; the new
+row carries a `supersedes` reference per the append-only convention; a
+`single_source`, `verified` or `in_repo` row is never superseded by an import.
+
+**The first attempt lost data.** Superseding replaced the row wholesale, and
+the old rows carried `hard_case: name_is_not_unique` and `artist: Oswaldo
+KATO`. `TheNameIsNotAKey` selected on that tag and went from four cards to
+zero. Superseding is a *correction*, not a deletion: the new row now inherits
+whatever it does not supply, except provenance — `confidence`, `source`,
+`verified_from` never carry forward, or a discarded claim would survive its own
+replacement.
+
+### Zero blocking failures, on real data
+
+All six groups the file was built to stress resolve to themselves at
+confidence 1.00:
+
+- One Piece `OP01-025` base and parallel × EN and JP — four rows, four
+  identities, all printed `OP01-025`
+- the same for `OP01-001`
+- Riftbound `303/298` against `303*/298`, and `299/298` against `299*/298`
+- `173/165` (EN, CN-T) against `173/151` (CN-S) — same index, different total
+- EN `199/165` against JP and CN-T `201/165` — same art
+
+`BlockingFailuresAgainstTheRealSet` runs the same three merges against the
+labelled set and skips per group when the set lacks both halves — a skip says
+"not yet tested", a pass over one row would say "tested and fine". A guard on
+the guards fails if *every* group skips, because a file that has gone quiet
+reads exactly like one that is passing.
+
+### Precision 1.0000 is not a passing gate
+
+51 of 51, zero errors — and the 95% lower bound at n=51 is **0.9430**, against
+a 0.98 threshold. n=250 gives 0.9881 and survives one mistake, which is what
+ADR-0015 sized the set on. `PrecisionIsReportedWithItsInterval` asserts the
+bound is below the threshold while the set is short, so "1.00" can never be
+read as "met".
+
+### The mutation harness was reporting false CAUGHTs
+
+It compared each mutant's result against a hardcoded `failures=6`. The baseline
+had moved to 5, so every mutant differed from a string that no longer appeared
+and 9 of 11 were reported CAUGHT when they were MISSED. It compares against the
+measured baseline now.
+
+The 9 real misses were all the same mistake: the tests asserted the *committed
+file* rather than the loader's behaviour, so mutating the loader changed
+nothing they looked at. A snapshot is not a test of the thing that produced it.
+
+One assertion was then removed rather than defended: the blocking check
+asserted both that each row resolves to itself *and* that the results are
+distinct. The first implies the second, so no mutant could ever kill the second
+alone. A guard nothing catches is decoration.
+
+19 new guards; every one mutation-tested against the measured baseline, and all
+19 caught.

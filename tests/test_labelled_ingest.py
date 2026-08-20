@@ -229,20 +229,48 @@ class TheStoredSetKeepsItsShape(unittest.TestCase):
         for value in CONFIDENCE:
             self.assertIn(value, data["_confidence"]["values"])
 
-    def test_no_seeded_row_claims_to_be_verified(self):
-        """The nine externally-researched rows predate the field and their
-        source count was never recorded. Back-filling `verified` would invent
-        the very thing the field exists to state."""
+    def test_verified_means_researched_outside_this_repository(self):
+        """`verified` is a claim about two INDEPENDENT external sources. A row
+        whose provenance is `verified_from` -- somewhere in this repository --
+        cannot be making it, whatever else is true of the row."""
         path = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
         for card in data["cards"]:
-            if card.get("adjudication"):
+            if card.get("confidence") != "verified":
                 continue
-            self.assertNotEqual(
-                card.get("confidence"), "verified",
-                f"{card['card_uid']} was seeded but claims two independent "
-                "sources")
+            self.assertEqual(
+                card.get("source"), "external_research",
+                f"{card['card_uid']} claims `verified` without naming an "
+                "external source")
+            self.assertNotIn(
+                "verified_from", card,
+                f"{card['card_uid']} claims both an in-repo provenance and "
+                "two independent external sources")
+
+    def test_a_superseded_row_keeps_the_annotations_it_replaced(self):
+        """Superseding is a CORRECTION, not a deletion. The incoming row has
+        better provenance; that is no reason to lose a `hard_case` tag the old
+        row carried, and losing one silently broke a test class that selected
+        on it."""
+        path = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        superseded = [c for c in data["cards"] if c.get("supersedes")]
+        if not superseded:
+            self.skipTest("nothing in the set supersedes anything")
+        for card in superseded:
+            self.assertTrue(card.get("inherited_fields") is not None
+                            or card.get("hard_case") is not None,
+                            f"{card['card_uid']} superseded a row and recorded "
+                            "nothing about what it inherited")
+
+    def test_a_superseded_row_does_not_inherit_a_claim(self):
+        """Provenance is the one thing that must NOT carry forward -- the
+        point of superseding is that the new row makes its own claim."""
+        from resolve.label_cli import _NOT_INHERITED
+        for field in ("confidence", "source", "verified_from", "supersedes"):
+            self.assertIn(field, _NOT_INHERITED)
 
 
 if __name__ == "__main__":
@@ -286,3 +314,197 @@ class TheGateCountsVerifiedRowsOnly(unittest.TestCase):
         self.assertIn("1 verified row", note)
         self.assertIn("pool is 5", note)
         self.assertIn("single_source=1", note)
+
+
+class TheSetCodeIsNormalisedToTheCatalog(unittest.TestCase):
+    """A labelled row's IDENTITY is non-circular; its `set_code` is a KEY, and
+    a key that matches nothing scores nothing.
+
+    The mapping is declared in `SET_CODE_ALIASES` and every application is
+    reported, so this is a normalisation you can audit rather than a coercion
+    you cannot see."""
+
+    def _fresh(self):
+        path = os.path.join(tempfile.mkdtemp(), "labelled.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump({"cards": []}, handle)
+        return path
+
+    def test_a_known_alias_is_rewritten(self):
+        accepted, rejected, report = ingest([
+            row(card_uid="pkmn:sv151:199/165:sir:EN", set_code="sv151",
+                number="199/165", variant="sir", language="EN",
+                name="Charizard ex")], labelled_path=self._fresh())
+        self.assertEqual(rejected, [])
+        self.assertEqual(accepted[0]["set_code"], "sv03.5")
+        self.assertEqual(report["_aliased"], 1)
+
+    def test_the_card_uid_is_rebuilt_around_the_new_code(self):
+        """Renaming the field and leaving the uid alone would produce a row
+        whose stated identity disagrees with its own fields -- the exact thing
+        the uid check rejects, introduced by the fix for something else."""
+        accepted, _r, _rep = ingest([
+            row(card_uid="pkmn:swsh07:215/203:alt_art:EN", set_code="swsh07",
+                number="215/203", variant="alt_art", language="EN",
+                name="Umbreon VMAX")], labelled_path=self._fresh())
+        self.assertEqual(accepted[0]["card_uid"],
+                         "pkmn:swsh7:215/203:alt_art:EN")
+
+    def test_the_original_spelling_is_kept(self):
+        """What the source actually said survives, so the normalisation can be
+        checked rather than trusted."""
+        accepted, _r, _rep = ingest([
+            row(card_uid="pkmn:sv151:199/165:sir:EN", set_code="sv151",
+                number="199/165", variant="sir", language="EN",
+                name="Charizard ex")], labelled_path=self._fresh())
+        self.assertEqual(accepted[0]["set_code_as_sourced"], "sv151")
+
+    def test_an_unknown_code_passes_through_untouched(self):
+        """The table lists spellings we have RECONCILED, not sets that exist.
+        A code absent from it is one nobody has checked, which is different
+        from a wrong one -- rewriting or blanking it would invent a verdict."""
+        accepted, rejected, report = ingest([row()],
+                                            labelled_path=self._fresh())
+        self.assertEqual(rejected, [])
+        self.assertEqual(accepted[0]["set_code"], "sv2a")
+        self.assertNotIn("set_code_as_sourced", accepted[0])
+        self.assertEqual(report["_aliased"], 0)
+
+    def test_the_alias_is_scoped_to_a_game_and_language(self):
+        from resolve.identity import canonical_set_code
+        self.assertEqual(canonical_set_code("pkmn", "EN", "sv151")[0], "sv03.5")
+        self.assertEqual(canonical_set_code("pkmn", "JP", "sv151")[0], "sv151")
+        self.assertEqual(canonical_set_code("optcg", "EN", "sv151")[0], "sv151")
+
+    def test_every_alias_records_what_it_was_checked_against(self):
+        """"SV: 151 is probably sv151" is a guess. "sv03.5 holds 199 Charizard
+        ex, which is what the row says" is a check, and the difference has to
+        be written down."""
+        from resolve.identity import SET_CODE_ALIASES
+        self.assertTrue(SET_CODE_ALIASES)
+        for key, entry in SET_CODE_ALIASES.items():
+            self.assertTrue(entry.get("code"), key)
+            self.assertTrue(entry.get("why"), key)
+            self.assertIn("targets.json", entry.get("verified_against", ""),
+                          f"{key} was aliased without naming what it was "
+                          "verified against")
+
+
+class SupersedingAnUnstatedRow(unittest.TestCase):
+    """`unstated` records no source count, so it is not a competing claim --
+    there is no information in it that a sourced row lacks. Replacing it is a
+    claim replacing a non-claim, and it still has to be deliberate and
+    visible."""
+
+    def _seeded(self, confidence="unstated", **extra):
+        path = os.path.join(tempfile.mkdtemp(), "labelled.json")
+        existing = row(confidence=confidence, hard_case="name_is_not_unique",
+                       artist="Oswaldo KATO", **extra)
+        existing.pop("source", None)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump({"cards": [existing]}, handle)
+        return path
+
+    def test_it_does_not_happen_without_the_flag(self):
+        _a, rejected, _r = ingest([row()], labelled_path=self._seeded())
+        self.assertEqual(len(rejected), 1)
+        self.assertIn("--supersede-unstated", " ".join(rejected[0]["why"]))
+
+    def test_with_the_flag_the_sourced_row_wins(self):
+        path = self._seeded()
+        accepted, rejected, report = ingest([row()], labelled_path=path,
+                                            supersede_unstated=True)
+        self.assertEqual(rejected, [])
+        self.assertEqual(report["_superseded"], 1)
+        self.assertEqual(accepted[0]["confidence"], "verified")
+
+    def test_the_old_row_is_removed_not_duplicated(self):
+        """Two rows at one card_uid would double-count the combo and score the
+        same card twice."""
+        path = self._seeded()
+        ingest([row()], labelled_path=path, supersede_unstated=True)
+        with open(path, encoding="utf-8") as handle:
+            cards = json.load(handle)["cards"]
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["confidence"], "verified")
+
+    def test_a_supersedes_reference_is_recorded(self):
+        """CLAUDE.md: corrections are new rows with a `supersedes` reference.
+        Nothing is edited in place and nothing vanishes unrecorded."""
+        accepted, _r, _rep = ingest([row()], labelled_path=self._seeded(),
+                                    supersede_unstated=True)
+        self.assertEqual(accepted[0]["supersedes"], row()["card_uid"])
+        self.assertEqual(accepted[0]["supersedes_confidence"], "unstated")
+
+    def test_annotations_carry_forward(self):
+        """Superseding is a CORRECTION, not a deletion. Losing a `hard_case`
+        tag silently broke a test class that selected on it."""
+        accepted, _r, _rep = ingest([row()], labelled_path=self._seeded(),
+                                    supersede_unstated=True)
+        self.assertEqual(accepted[0]["hard_case"], "name_is_not_unique")
+        self.assertEqual(accepted[0]["artist"], "Oswaldo KATO")
+        self.assertEqual(accepted[0]["inherited_fields"],
+                         ["artist", "hard_case"])
+
+    def test_the_new_row_wins_where_it_has_a_value(self):
+        path = self._seeded()
+        accepted, _r, _rep = ingest([row(name="Corrected Name")],
+                                    labelled_path=path,
+                                    supersede_unstated=True)
+        self.assertEqual(accepted[0]["name"], "Corrected Name")
+
+    def test_provenance_is_never_inherited(self):
+        """The point of superseding is that the new row makes its OWN claim.
+        Inheriting `confidence` or `verified_from` would let a discarded claim
+        survive its replacement."""
+        path = self._seeded()
+        with open(path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+        payload["cards"][0]["verified_from"] = "contracts/fixtures"
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+        accepted, _r, _rep = ingest([row()], labelled_path=path,
+                                    supersede_unstated=True)
+        self.assertNotIn("verified_from", accepted[0])
+        self.assertEqual(accepted[0]["confidence"], "verified")
+
+    def test_a_stated_confidence_is_never_superseded(self):
+        """`single_source` IS a claim. Overwriting it needs a human, not a
+        flag -- otherwise a re-import silently promotes."""
+        for confidence in ("single_source", "verified", "in_repo"):
+            path = self._seeded(confidence=confidence)
+            _a, rejected, _r = ingest([row()], labelled_path=path,
+                                      supersede_unstated=True)
+            self.assertEqual(
+                len(rejected), 1,
+                f"a {confidence!r} row was superseded by an import")
+
+
+class TheCollapseDetectorDetectsACollapse(unittest.TestCase):
+    """A guard on the blocking-failure guard. It currently passes because
+    nothing in the set collapses; that is indistinguishable from a check that
+    cannot fail, so the check is pointed at a set that DOES collapse."""
+
+    def test_two_printings_at_one_identity_are_caught(self):
+        from tests.test_resolver_gate import BlockingFailuresAgainstTheRealSet
+        from resolve.resolver import Resolver
+
+        merged = [
+            {"card_uid": "optcg:op01:OP01-025:base:EN", "game": "optcg",
+             "set_code": "op01", "number": "OP01-025", "variant": "base",
+             "language": "EN", "name": "Roronoa Zoro"},
+            # SAME uid, different variant: the merge, made real.
+            {"card_uid": "optcg:op01:OP01-025:base:EN", "game": "optcg",
+             "set_code": "op01", "number": "OP01-025", "variant": "parallel",
+             "language": "EN", "name": "Roronoa Zoro"},
+        ]
+
+        case = BlockingFailuresAgainstTheRealSet("test_one_piece_op01_025")
+        case.by_uid = {"optcg:op01:OP01-025:base:EN": merged[0],
+                       "optcg:op01:OP01-025:parallel:EN": merged[1]}
+        case.resolver = Resolver(merged)
+        with self.assertRaises(AssertionError) as caught:
+            case._check("synthetic collapse",
+                        ("optcg:op01:OP01-025:base:EN",
+                         "optcg:op01:OP01-025:parallel:EN"))
+        self.assertIn("BLOCKING", str(caught.exception))

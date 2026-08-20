@@ -81,21 +81,63 @@ Separately, `config/grading.yaml` declares four routes — `cgc_uk`, `psa_us`,
 unreachable from Model A regardless of their config: there is no route that
 gets a card to them and back.
 
-## S3 — the labelled set is 21 rows and 0 of them are ground truth
+## S2 — nine variant tokens are rejected and 18 rows are waiting on them
+
+The 86-row external research file uses 18 variant tokens. Nine are not in
+`resolve.identity.VARIANTS`, so 18 rows are held out of the set:
+
+| token | rows | note |
+|---|---:|---|
+| `sr` | 5 | Super Rare. Pokemon JP/CN printing; collides with One Piece's `SR` **rarity** |
+| `ur` | 3 | Ultra Rare / gold |
+| `hr` | 2 | Hyper Rare (rainbow), SM/SWSH-era JP |
+| `manga` | 2 | we already have `manga_rare` — a RENAME, not a new concept |
+| `rainbow_secret` | 2 | EN rainbow secret |
+| `gold_secret` | 1 | EN gold secret |
+| `ssr` | 1 | CN-S |
+| `holo` | 1 | CN-S |
+| `sp` | 1 | Riftbound Vendetta SP |
+
+Not coerced, deliberately. Mapping `sr` to `parallel` because both are
+"special" would put two printings in one bucket, which is the merge everything
+else here exists to prevent. Awaiting a decision: extend the vocabulary, or
+rename the rows.
+
+## S3 — the catalog and the labelled set disagree about number format
+
+The catalog is tcgdex-derived and stores BARE collector numbers — `199`, `95`,
+`173`. The labelled set stores what is printed on the card — `199/165`,
+`095/203`, `173/165`. Neither is wrong and neither should change: the printed
+number is the identity, and tcgdex's `localId` is what the provider sends.
+
+But it means a labelled row cannot be matched to a catalog row by string
+equality, and nothing currently bridges them. That is a resolver problem, not
+a data problem, and it is not yet solved.
+
+Set codes are bridged, for two sets, by `SET_CODE_ALIASES`. Nothing bridges
+the rest: `sv2a`, `s6a`, `s7R`, `151C`, `SV2aF`, `op01`, `op08`, `OGN`, `VEN`
+all have no counterpart in the current catalog — mostly because apitcg has been
+throttled and optcg/riftbound catalogs are empty, so there is nothing to
+reconcile against yet.
+
+## S3 — the labelled set is 85 rows, 51 of them ground truth
 
 `tests/test_resolver_gate.py` is deliberately red. Six failures in every run,
 and they are the only six. Candidates must be adjudicated by hand
 (`python -m resolve.label_cli propose`); generating them from the catalogs the
 resolver reads would make the precision score a measurement of the catalog.
 
-Since the `confidence` field landed the count is more honest and worse: 12
-rows are `in_repo` (traceable here, not independently corroborated) and 9 are
-`unstated` (seeded before the field existed, source count never recorded).
-**Zero are `verified`.** `ResolverQuality` now SKIPS with a reason rather than
-reporting a precision of 1.00 over nothing.
+51 `verified`, 17 `single_source`, 12 `in_repo`, 5 `unstated`. Precision and
+recall are 1.0000 over the 51 — and that is a point estimate, not a passing
+gate. Zero errors at n=51 gives a 95% lower bound of **0.9430**, against a
+0.98 threshold. n=250 gives 0.9881 and survives one mistake, which is what
+ADR-0015 sized the set on.
 
-The nine `unstated` rows need re-adjudication or discarding. Back-filling a
-confidence would invent the exact thing the field exists to state.
+Every combination now has verified rows, and every combination is still below
+the 20-row detection floor.
+
+Five `unstated` rows remain, down from nine: four were superseded by sourced
+rows. The rest need re-adjudication or discarding.
 
 ## S3 — the seven-day catalog threshold is a guess
 
