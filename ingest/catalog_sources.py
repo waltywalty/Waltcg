@@ -261,6 +261,34 @@ class TcgdexAdapter(CatalogSource):
                           for x in found)
         return []
 
+    def set_totals(self, language) -> dict:
+        """{set_code: official card count} for one language.
+
+        THE BRIDGE DEPENDS ON THIS. tcgdex sends bare `localId`s and the cards
+        themselves are printed `199/165`; deriving one from the other needs the
+        set's official count, and without it the comparison must refuse rather
+        than fall back to matching on the index alone.
+
+        `cardCount.official` is the printed denominator -- `total` includes
+        secret rares and is NOT what the card says. Reading the wrong one would
+        make every secret rare fail to bridge while looking like it worked.
+
+        A set that publishes no official count is OMITTED, not defaulted. An
+        absent entry makes the bridge refuse, which is the correct outcome; a
+        guessed one makes it match the wrong card.
+        """
+        out = {}
+        for entry in self.sets(language):
+            if not isinstance(entry, dict):
+                continue
+            code = entry.get("id") or entry.get("code")
+            counts = entry.get("cardCount") or entry.get("card_count") or {}
+            official = (counts.get("official") if isinstance(counts, dict)
+                        else None)
+            if code and isinstance(official, int) and official > 0:
+                out[str(code)] = official
+        return out
+
     def sets(self, language) -> list:
         code = self.LANG.get(language)
         if code is None:

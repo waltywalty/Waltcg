@@ -277,6 +277,76 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TheMutationHarnessIsInTheRepository(unittest.TestCase):
+    """"All mutations caught" was the verification backbone for weeks while the
+    harness lived in a scratch directory -- unreviewable, un-re-runnable, and
+    gone when the session ended. It compared against a HARDCODED failure count
+    that the baseline had moved past, so an entire batch reported CAUGHT for
+    mutants it had never tested.
+
+    The harness is in the repository now and these are the two rules that
+    failure produced."""
+
+    def _source(self):
+        path = os.path.join(REPO, "audit", "mutate.py")
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_the_baseline_is_measured_not_hardcoded(self):
+        """THE BUG, asserted. A literal failure count in the comparison is the
+        whole fault -- it silently stops matching the moment the suite changes,
+        and every mutant then looks different from a string that never
+        appears."""
+        import re
+        source = self._source()
+        self.assertIn("baseline = run_suite()", source)
+        self.assertIn("caught = outcome != baseline", source)
+        body = source[source.index("def _run("):]
+        self.assertIsNone(
+            re.search(r'failures=\d', body),
+            "audit/mutate.py compares against a hardcoded failure count")
+
+    def test_the_source_is_restored_in_a_finally(self):
+        """A harness that times out mid-mutation leaves a sabotaged repository
+        behind, and the next test run reports the sabotage as a regression in
+        the code under test. That has happened."""
+        source = self._source()
+        self.assertIn("finally:", source)
+        self.assertIn("path.write_text(source)", source)
+
+    def test_a_stale_anchor_is_a_failure_not_a_pass(self):
+        """A mutant whose anchor no longer matches is a guard that has quietly
+        stopped testing anything -- the same silence in a different costume."""
+        source = self._source()
+        self.assertIn("errored.append(label)", source)
+        self.assertIn("return 1 if (missed or errored) else 0", source)
+
+    def test_it_refuses_to_run_alongside_itself(self):
+        """It edits source files in place. A concurrent run -- or an ordinary
+        test run started beside one -- reads a sabotaged tree."""
+        self.assertIn("AlreadyRunning", self._source())
+
+    def test_every_catalogued_anchor_still_matches_its_file(self):
+        """The catalogue is only worth having if it still applies. This is the
+        cheap half of a mutation run -- it does not execute anything, it just
+        asserts that every mutant would still mutate something."""
+        from audit.mutants import MUTANTS
+        self.assertGreater(len(MUTANTS), 50)
+        stale = []
+        for label, relative, old, _new in MUTANTS:
+            path = os.path.join(REPO, relative)
+            with open(path, encoding="utf-8") as handle:
+                if old not in handle.read():
+                    stale.append(f"{label} [{relative}]")
+        self.assertEqual(stale, [], "mutant anchors no longer in the source: "
+                         + "; ".join(stale))
+
+    def test_no_mutant_is_catalogued_twice(self):
+        from audit.mutants import MUTANTS
+        seen = [(m[0], m[1]) for m in MUTANTS]
+        self.assertEqual(len(seen), len(set(seen)))
+
+
 class TheGateCountsVerifiedRowsOnly(unittest.TestCase):
     """Directly, rather than only through the gate's failure messages. A gate
     that counted the whole pool would report the set as bigger than its ground

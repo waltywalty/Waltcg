@@ -79,3 +79,4 @@ build/
 .DS_Store
 Thumbs.db
 *.swp
+.mutate.lock

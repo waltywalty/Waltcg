@@ -80,7 +80,7 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False,
     """
     from resolve.identity import (KNOWN_CONFUSABLE_NUMBERS,
                                   canonical_set_code, card_uid as build_uid,
-                                  is_variant)
+                                  is_variant, why_not_a_variant)
 
     labelled = _load(labelled_path, {"cards": []})
     existing = {c["card_uid"]: c for c in labelled.get("cards", [])}
@@ -111,9 +111,12 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False,
         if row.get("confidence") and row["confidence"] not in CONFIDENCE:
             why.append(f"confidence {row['confidence']!r} is not one of "
                        + ", ".join(CONFIDENCE))
-        if row.get("variant") and not is_variant(row["variant"]):
-            why.append(f"variant {row['variant']!r} is not a token this "
-                       "project produces")
+        # PER GAME. `sr` is a Pokemon printing and a One Piece RARITY, and a
+        # shared vocabulary would have to pick one -- the third time this
+        # collision has appeared, after the rarity letters and the band tables.
+        if row.get("variant") and not is_variant(row["variant"],
+                                                 row.get("game")):
+            why.append(why_not_a_variant(row["variant"], row.get("game")))
         if not why:
             try:
                 expected = build_uid(row["game"], row["set_code"],

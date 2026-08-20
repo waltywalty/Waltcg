@@ -705,3 +705,272 @@ class TheKoreanDenominatorIsNotTheJapaneseCard(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TheNumberBridgeGoesOneWayOnly(unittest.TestCase):
+    """tcgdex sends `199`; the card says `199/165`; the labelled set records
+    what the card says. Deriving printed FROM bare is exact when you know the
+    set's official count.
+
+    THE REVERSE IS FORBIDDEN and there is deliberately no function for it.
+    Stripping `173/151` and `173/165` to `173` makes Simplified Chinese Pikachu
+    and its English counterpart one string -- the denominator is the ONLY thing
+    separating them, and discarding it recreates exactly the merge the blocking
+    failures exist to catch."""
+
+    def test_printed_is_derived_from_bare(self):
+        from resolve.identity import printed_from_bare
+        self.assertEqual(printed_from_bare("199", 165), "199/165")
+        self.assertEqual(printed_from_bare("95", 203), "095/203")
+        self.assertEqual(printed_from_bare("6", 165), "006/165")
+        self.assertEqual(printed_from_bare("83", 67), "083/067")
+
+    def test_an_already_printed_number_passes_through(self):
+        """Rewriting it around a supplied total would let a wrong total
+        overwrite a denominator the card itself supplied."""
+        from resolve.identity import printed_from_bare
+        self.assertEqual(printed_from_bare("199/165", 165), "199/165")
+        self.assertEqual(printed_from_bare("173/151", 999), "173/151")
+
+    def test_there_is_no_function_that_strips(self):
+        """The absence is the guarantee. A `bare_from_printed` would be used,
+        and using it once is the merge."""
+        import resolve.identity as identity
+        for name in dir(identity):
+            self.assertNotIn(
+                name.lower(),
+                ("bare_from_printed", "strip_denominator", "to_bare",
+                 "bare_number", "strip_total"),
+                f"{name} looks like it strips a printed number to bare")
+
+    def test_an_unknown_total_refuses_rather_than_falling_back(self):
+        """A refusal is a MISS. A bare-vs-bare match is a MERGE. Only one of
+        those is recoverable."""
+        from resolve.identity import CannotBridge, printed_from_bare
+        for total in (None, ""):
+            with self.assertRaises(CannotBridge):
+                printed_from_bare("199", total)
+
+    def test_the_refusal_says_why(self):
+        from resolve.identity import CannotBridge, printed_from_bare
+        with self.assertRaises(CannotBridge) as caught:
+            printed_from_bare("199", None)
+        self.assertIn("official card count is unknown", str(caught.exception))
+        self.assertIn("merge", str(caught.exception))
+
+    def test_a_number_with_no_index_refuses(self):
+        from resolve.identity import CannotBridge, printed_from_bare
+        with self.assertRaises(CannotBridge):
+            printed_from_bare("???", 165)
+
+
+class MatchingACatalogRowToALabelledRow(unittest.TestCase):
+    """Compared NUMERICALLY -- index, total, suffix, asterisk -- so a padding
+    convention cannot decide the answer."""
+
+    def test_bare_matches_its_printed_form(self):
+        from resolve.identity import numbers_denote_same_printing as same
+        self.assertTrue(same("199", "199/165", 165))
+        self.assertTrue(same("95", "095/203", 203))
+        self.assertTrue(same("6", "006/165", 165))
+
+    def test_the_denominator_still_separates_them(self):
+        """THE MERGE, in the form the bridge could have introduced. Pikachu AR
+        is 173/165 in English and 173/151 in Simplified Chinese. Both catalogs
+        would send `173`."""
+        from resolve.identity import numbers_denote_same_printing as same
+        self.assertTrue(same("173", "173/151", 151))
+        self.assertFalse(same("173", "173/165", 151))
+        self.assertTrue(same("173", "173/165", 165))
+        self.assertFalse(same("173", "173/151", 165))
+
+    def test_a_catalog_row_whose_set_has_no_official_count_cannot_match(self):
+        """THE ASSERTION. Without the count there is nothing to compare but
+        the index, and the index alone merges every printing that shares
+        one."""
+        from resolve.identity import CannotBridge
+        from resolve.identity import numbers_denote_same_printing as same
+        for labelled in ("173/151", "173/165", "199/165"):
+            with self.assertRaises(CannotBridge):
+                same("173", labelled, None)
+
+    def test_two_printed_numbers_need_no_total(self):
+        from resolve.identity import numbers_denote_same_printing as same
+        self.assertTrue(same("199/165", "199/165"))
+        self.assertFalse(same("199/165", "201/165"))
+        self.assertFalse(same("173/151", "173/165"))
+
+    def test_two_bare_numbers_are_never_compared_bare(self):
+        """Both sides bare and no total is the bare-vs-bare comparison the
+        whole design refuses. It must raise, not return True."""
+        from resolve.identity import CannotBridge
+        from resolve.identity import numbers_denote_same_printing as same
+        with self.assertRaises(CannotBridge):
+            same("173", "173", None)
+
+    def test_the_asterisk_survives_the_bridge(self):
+        from resolve.identity import numbers_denote_same_printing as same
+        self.assertFalse(same("303/298", "303*/298"))
+        self.assertTrue(same("303*/298", "303*/298"))
+        self.assertFalse(same("303", "303*/298", 298))
+        self.assertTrue(same("303", "303/298", 298))
+
+    def test_set_prefixed_numbers_compare_as_given(self):
+        """One Piece and Riftbound carry no denominator on either side, so
+        there is nothing to bridge -- and nothing to strip."""
+        from resolve.identity import numbers_denote_same_printing as same
+        self.assertTrue(same("OP01-025", "OP01-025"))
+        self.assertFalse(same("OP01-025", "OP01-024"))
+        self.assertFalse(same("OGN-030", "OGN-030A"))
+
+    def test_the_bridge_matches_the_real_catalog_once_totals_arrive(self):
+        """End to end against the committed catalog and labelled set, with the
+        counts the next Actions run will harvest. Three rows bridge; without
+        the totals all three refuse, which is the state today."""
+        import json
+        from resolve.identity import CannotBridge
+        from resolve.identity import numbers_denote_same_printing as same
+        repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(repo, "ingest", "targets.json"),
+                  encoding="utf-8") as handle:
+            catalog = json.load(handle)
+        rows = [c for k, v in catalog.items()
+                if not k.startswith("_") and isinstance(v, dict)
+                for c in (v.get("cards") or [])]
+        pairs = [("199", "199/165", 165), ("205", "205/165", 165),
+                 ("95", "095/203", 203)]
+        for bare, printed, total in pairs:
+            self.assertTrue(any(c["number"] == bare for c in rows),
+                            f"the catalog no longer holds {bare}")
+            self.assertTrue(same(bare, printed, total))
+            with self.assertRaises(CannotBridge):
+                same(bare, printed, None)
+
+
+class TheVariantVocabularyIsPerGame(unittest.TestCase):
+    """The third time this collision has appeared. Rarity letters, then the
+    band tables, now variants: One Piece `SR` is a RARITY BAND -- an ordinary
+    Super Rare -- and Pokemon `SR` is a PRINTING TREATMENT, a full-art textured
+    finish. A shared table has to pick one, and picking is guessing."""
+
+    def test_sr_is_pokemon_only(self):
+        from resolve.identity import is_variant
+        self.assertTrue(is_variant("sr", "pkmn"))
+        self.assertFalse(is_variant("sr", "optcg"))
+        self.assertFalse(is_variant("sr", "riftbound"))
+
+    def test_the_rejection_says_why_not_just_unknown(self):
+        """"unknown variant" sends you to guess. Naming the other game tells
+        you the row is wrong rather than the vocabulary."""
+        from resolve.identity import why_not_a_variant
+        message = why_not_a_variant("sr", "optcg")
+        self.assertIn("valid for `pkmn`", message)
+        self.assertIn("RARITY BAND", message)
+        self.assertIn("optcg", message)
+        # And it lists what WOULD be valid, so the next step is a choice
+        # rather than a search.
+        self.assertIn("manga_rare", message)
+
+    def test_a_token_no_game_has_says_so_differently(self):
+        from resolve.identity import why_not_a_variant
+        message = why_not_a_variant("shiny_special", "pkmn")
+        self.assertIn("not a token this project produces", message)
+        self.assertNotIn("valid for", message)
+
+    def test_each_game_keeps_its_own_treatments(self):
+        from resolve.identity import is_variant
+        self.assertTrue(is_variant("manga_rare", "optcg"))
+        self.assertFalse(is_variant("manga_rare", "pkmn"))
+        self.assertTrue(is_variant("treasure_rare", "optcg"))
+        self.assertTrue(is_variant("signature", "riftbound"))
+        self.assertFalse(is_variant("signature", "pkmn"))
+        self.assertTrue(is_variant("sp", "riftbound"))
+        self.assertFalse(is_variant("sp", "optcg"))
+
+    def test_shared_tokens_work_everywhere(self):
+        from resolve.identity import SHARED_VARIANTS, is_variant
+        for game in ("pkmn", "optcg", "riftbound"):
+            for token in SHARED_VARIANTS:
+                self.assertTrue(is_variant(token, game), f"{token}/{game}")
+
+    def test_the_eight_new_tokens_landed(self):
+        from resolve.identity import is_variant
+        for token in ("sr", "ur", "hr", "rainbow_secret", "gold_secret",
+                      "ssr", "holo"):
+            self.assertTrue(is_variant(token, "pkmn"), token)
+        self.assertTrue(is_variant("sp", "riftbound"))
+
+    def test_manga_was_renamed_not_added(self):
+        """`manga_rare` already existed. Adding `manga` beside it would give
+        one treatment two names and split its price series."""
+        from resolve.identity import VARIANTS, is_variant
+        self.assertIn("manga_rare", VARIANTS)
+        self.assertNotIn("manga", VARIANTS)
+        self.assertFalse(is_variant("manga", "optcg"))
+
+    def test_no_game_declares_a_token_the_shared_table_already_has(self):
+        """A token in both places would make `variants_for` depend on dict
+        ordering to say which meaning wins."""
+        from resolve.identity import GAME_VARIANTS, SHARED_VARIANTS
+        for game, tokens in GAME_VARIANTS.items():
+            overlap = set(tokens) & set(SHARED_VARIANTS)
+            self.assertEqual(overlap, set(),
+                             f"{game} redeclares shared token(s) {overlap}")
+
+    def test_a_game_agnostic_caller_accepts_everything(self):
+        """None means "we do not know the game", and refusing there would make
+        a game-agnostic caller reject valid rows."""
+        from resolve.identity import VARIANTS, is_variant
+        for token in VARIANTS:
+            self.assertTrue(is_variant(token))
+
+    def test_numbered_parallels_stay_per_game_too(self):
+        from resolve.identity import is_variant
+        self.assertTrue(is_variant("parallel2", "optcg"))
+        self.assertFalse(is_variant("parallel0", "optcg"))
+        self.assertFalse(is_variant("parallel1", "optcg"))
+
+    def test_every_variant_in_the_labelled_set_is_valid_for_its_game(self):
+        """The set is where a wrong token would actually do damage."""
+        import json
+        from resolve.identity import is_variant, why_not_a_variant
+        repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(repo, "tests", "fixtures",
+                               "labelled_200.json"), encoding="utf-8") as handle:
+            cards = json.load(handle)["cards"]
+        for card in cards:
+            self.assertTrue(
+                is_variant(card["variant"], card["game"]),
+                f"{card['card_uid']}: "
+                + why_not_a_variant(card["variant"], card["game"]))
+
+
+class TheParserDropsSetPrefixesAndTheBridgeMustNot(unittest.TestCase):
+    """`parse_collector_number("OGN-030")` reads index 30 and discards `OGN-`.
+    That is fine for banding, which only ever asks about one set at a time, and
+    it is a merge waiting to happen for a comparison across sets."""
+
+    def test_the_parser_really_does_drop_it(self):
+        from resolve.identity import parse_collector_number
+        left = parse_collector_number("OGN-030")
+        right = parse_collector_number("SFD-030")
+        self.assertEqual(left.index, right.index)
+        self.assertEqual(left.total, right.total)
+        self.assertEqual(left.suffix, right.suffix)
+
+    def test_the_bridge_compares_them_as_given(self):
+        """Two set-prefixed numbers are compared as STRINGS, because the
+        prefix is part of the number and the parse throws it away."""
+        from resolve.identity import numbers_denote_same_printing as same
+        self.assertFalse(same("OGN-030", "SFD-030"))
+        self.assertTrue(same("OGN-030", "OGN-030"))
+        self.assertTrue(same("OGN-030", "ogn-030"))
+
+    def test_a_set_prefix_against_a_denominator_refuses(self):
+        """Two different numbering schemes. Reconciling them would need a rule
+        nobody has written, and inventing one silently is how the last three
+        merges happened."""
+        from resolve.identity import CannotBridge
+        from resolve.identity import numbers_denote_same_printing as same
+        with self.assertRaises(CannotBridge):
+            same("OGN-030", "199/165", 165)

@@ -248,6 +248,11 @@ class CatalogBuilder:
         # asked three separate "where did the cards go" questions that the
         # output could not answer; this is the answer.
         self.stages = {}
+        # {set_code: official printed card count}, per language, harvested
+        # while the catalogs are walked. The number bridge cannot derive a
+        # printed number without it and must REFUSE where it is absent, so an
+        # empty table is a real answer rather than a missing feature.
+        self.set_totals = {}
 
     def attempt(self, combo, source):
         """Record that a request was actually ISSUED for this combination.
@@ -449,6 +454,12 @@ class CatalogBuilder:
             # Without this the summary can only count survivors, and "fetched
             # 7,436 and dropped 7,436 for want of a set code" is indis-
             # tinguishable from "fetched nothing".
+            try:
+                found_totals = adapter.set_totals(language)
+            except (AdapterGaveUp, RateLimited, AttributeError):
+                found_totals = {}
+            if found_totals:
+                self.set_totals.setdefault(language, {}).update(found_totals)
             self.stage(game, language, "provider_hits",
                        getattr(adapter, "hits_seen", 0))
             self.stage(game, language, "dropped_no_identity",
@@ -848,7 +859,8 @@ def _is_sealed_product(hit) -> bool:
 
 def to_targets(catalog, gaps, combo_status=None, endpoints=None,
                unmapped_rarities=None, unbandable=None,
-               stages=None, not_a_card=None, cache=None):
+               stages=None, not_a_card=None, cache=None,
+               set_totals=None):
     """The shape the daily runner reads. Card identities only -- no prices."""
     per_source = {name: {"cards": []} for name in
                   ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting",
@@ -912,6 +924,11 @@ def to_targets(catalog, gaps, combo_status=None, endpoints=None,
         "_unbandable_numbers": unbandable or {},
         "_not_a_card": not_a_card or {},
         "_stages": stages or {},
+        # Official printed card counts, per language and set. Card counts are
+        # not card data -- no price, no population, no provider payload -- and
+        # without them the number bridge has to refuse every comparison
+        # between a bare provider number and a printed one.
+        "_set_totals": set_totals or {},
         # WHEN EACH COMBINATION'S CATALOG WAS ACTUALLY BUILT. The card lists
         # below are grouped by source for the runner; this is the same data
         # asked the other question, and it is what `load_cached_catalog` reads
@@ -1488,7 +1505,8 @@ def main(argv=None):
                          {k: sorted(v)
                           for k, v in builder.unmapped_rarities.items()},
                          builder.unbandable_numbers, builder.stages,
-                         builder.not_a_card, cache=previous)
+                         builder.not_a_card, cache=previous,
+                         set_totals=builder.set_totals)
 
     total = sum(targets["_counts"].values())
     for combo, count in sorted(targets["_counts"].items()):

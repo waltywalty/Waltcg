@@ -2398,3 +2398,112 @@ alone. A guard nothing catches is decoration.
 
 19 new guards; every one mutation-tested against the measured baseline, and all
 19 caught.
+
+---
+
+## ADR-0035 — The verification backbone was unverified
+
+**2026-08-18.** Three things, and the first one is the one that matters.
+
+### How far the mutation lie reached
+
+Measured, not assumed. The suite's failure count at every commit on `main`:
+
+| commit | baseline |
+|---|---|
+| `eefa1c3` | 4 |
+| `ee81ce6` .. `0b2e7d3` (10 commits) | **6** |
+| `b6ad779` (run #11) | **7** |
+| `ca8008b` .. `a4c46dc` | 6 |
+| `045a3c2` | 5 |
+
+The harness compared each mutant against the literal `"failures=6)"`. That is
+**correct logic for a baseline of exactly `FAILED (failures=6)`**, which held
+for batches 1, 2 and 3 — the harness printed the measured baseline each run and
+it read `FAILED (failures=6)` on all three. Those results stand.
+
+**Batch 4 is where it broke, and it broke completely.** By then the baseline
+was `FAILED (failures=6, skipped=6)` — the confidence split had made
+`ResolverQuality` skip. The substring `failures=6)` does not appear in
+`failures=6, skipped=6`. So the check `"failures=6)" not in tail` was **true for
+every mutant that left the baseline unchanged**, and false only for the one
+mutant that genuinely changed it. The report was **inverted**: 13 reported
+CAUGHT were untested, and the single MISSED was the only real catch.
+
+Every batch has now been re-run against the measured baseline. **All 63 are
+caught.** The guards were sound; the report was worthless. That distinction is
+the whole finding — a verification backbone that cannot be re-run is a claim,
+not a check.
+
+`b6ad779` at 7 is a separate, smaller thing: `docs/OPEN_ISSUES.md` shipped
+without a `PROVENANCE.md` row and the undeclared-document gate failed on it.
+Fixed the same session. No mutation batch ran at that commit.
+
+### The harness now lives in the repository
+
+`audit/mutate.py` and `audit/mutants.py`, 87 catalogued mutants,
+`python -m audit.mutate`. It was a scratch file — unreviewable, un-re-runnable,
+and gone the moment the session ended, while "all mutations caught" was being
+treated as the backbone. Two rules are now enforced rather than remembered:
+
+- **The baseline is measured once, at the start of the run.** Never hardcoded.
+- **A stale anchor is a FAILURE, not a pass.** A mutant whose anchor no longer
+  matches is a guard that has silently stopped testing anything, which is the
+  same silence in a different costume. Two anchors had already drifted; the
+  harness caught both on its first run.
+
+### The number bridge, one direction only
+
+tcgdex sends `199`; the card says `199/165`. `printed_from_bare` derives the
+second from the first using the set's official card count.
+
+**There is deliberately no function for the reverse**, and a test asserts the
+absence by name. Stripping `173/151` and `173/165` to `173` makes Simplified
+Chinese Pikachu and its English counterpart one string — the denominator is the
+*only* thing separating them, and discarding it recreates precisely the merge
+the blocking failures exist to catch. A refusal is a miss; a bare-vs-bare match
+is a merge.
+
+Where the count is unknown the bridge raises `CannotBridge` rather than
+returning `False`, because "we could not tell" and "they are different cards"
+are both non-matches and only one of them is a fact.
+
+Two holes surfaced while testing it, both merges:
+
+- **Two naked indices.** `173` against `173` compared equal. Refused now.
+- **The parser drops set prefixes.** `parse_collector_number("OGN-030")` reads
+  index 30 and discards `OGN-`, so `OGN-030` and `SFD-030` compared equal.
+  Harmless for banding, which only ever asks about one set; a cross-set merge
+  here. Two numbers that both carry a prefix are now compared **as given**.
+
+`set_totals()` reads tcgdex's `cardCount.official` — the printed denominator,
+not `total`, which includes secret rares and would make every secret rare fail
+to bridge while looking like it worked. A set publishing no count is omitted,
+never defaulted: an absent entry makes the bridge refuse, and a guessed one
+makes it match the wrong card.
+
+### The variant vocabulary is per game, for the third time
+
+Rarity letters, then the band tables, now variants. One Piece `SR` is a
+**rarity band** — an ordinary Super Rare, one of the commonest cards worth
+tracking. Pokémon `SR` is a **printing treatment**, a full-art textured finish.
+A shared table has to pick one meaning, and picking is guessing.
+
+`SHARED_VARIANTS` for treatments that mean the same thing everywhere;
+`GAME_VARIANTS` for the rest. `is_variant("sr", "optcg")` is False, and
+`why_not_a_variant` says *why*:
+
+> variant `'sr'` is valid for `pkmn` but not for `optcg`. The same letters mean
+> different things per game — One Piece `SR` is a RARITY BAND, Pokemon `SR` is
+> a printing treatment — so either the row names the wrong game or it wants a
+> different token.
+
+"Unknown variant" sends you to guess. Naming the other game tells you the row
+is wrong rather than the vocabulary.
+
+Eight tokens extended (`sr` `ur` `hr` `ssr` `rainbow_secret` `gold_secret` to
+pkmn, `holo` shared, `sp` to riftbound); `manga` **renamed** to the existing
+`manga_rare` rather than added beside it, because one treatment with two names
+splits its price series.
+
+All 86 researched rows are now in: 57 `verified`, 29 `single_source`.

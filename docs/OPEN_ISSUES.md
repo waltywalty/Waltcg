@@ -81,55 +81,70 @@ Separately, `config/grading.yaml` declares four routes — `cgc_uk`, `psa_us`,
 unreachable from Model A regardless of their config: there is no route that
 gets a card to them and back.
 
+## S2 — 57 rows carry a `difficulty_class` the gate cannot read
+
+The 86 researched rows tag themselves `C1`..`C6` — 28 `C1`, 21 `C5`, 10 `C3`,
+10 `C6`, 4 `C4`, 2 `C2`. The gate counts `hard_case`, and requires four named
+kinds: `same_art_different_language`, `reprint`, `alt_art_variant`,
+`promo_vs_set`.
+
+So **1 of 57 verified rows counts as a hard case**, against a target of 60, and
+`test_every_hard_case_kind_is_covered` fails on three of the four kinds — while
+the set almost certainly contains examples of all four.
+
+**Not mapped, deliberately.** The notes suggest `C1` is same-art-across-
+languages and `C4` is promo-versus-set, but that is inference from a handful of
+annotations and the taxonomy is not documented here. Guessing a mapping is the
+same coercion this session refused for variant tokens, and it would put
+invented labels into the set that measures labelling.
+
+Needs one of: the C1–C6 definitions, so the mapping is a translation rather
+than a guess; or `hard_case` added to the rows at source.
+
 ## S2 — nine variant tokens are rejected and 18 rows are waiting on them
 
 The 86-row external research file uses 18 variant tokens. Nine are not in
 `resolve.identity.VARIANTS`, so 18 rows are held out of the set:
 
-| token | rows | note |
-|---|---:|---|
-| `sr` | 5 | Super Rare. Pokemon JP/CN printing; collides with One Piece's `SR` **rarity** |
-| `ur` | 3 | Ultra Rare / gold |
-| `hr` | 2 | Hyper Rare (rainbow), SM/SWSH-era JP |
-| `manga` | 2 | we already have `manga_rare` — a RENAME, not a new concept |
-| `rainbow_secret` | 2 | EN rainbow secret |
-| `gold_secret` | 1 | EN gold secret |
-| `ssr` | 1 | CN-S |
-| `holo` | 1 | CN-S |
-| `sp` | 1 | Riftbound Vendetta SP |
+**RESOLVED.** Eight extended, one renamed, and the vocabulary is now PER GAME
+— `SHARED_VARIANTS` plus `GAME_VARIANTS`, exactly like the rarity band tables.
+`sr` is valid for `pkmn` and invalid for `optcg`, where those two letters name
+a rarity band instead, and the rejection message says so rather than "unknown".
+All 86 rows are in.
 
-Not coerced, deliberately. Mapping `sr` to `parallel` because both are
-"special" would put two printings in one bucket, which is the merge everything
-else here exists to prevent. Awaiting a decision: extend the vocabulary, or
-rename the rows.
-
-## S3 — the catalog and the labelled set disagree about number format
+## S3 — the catalog carries no set totals yet, so the bridge refuses everything
 
 The catalog is tcgdex-derived and stores BARE collector numbers — `199`, `95`,
 `173`. The labelled set stores what is printed on the card — `199/165`,
 `095/203`, `173/165`. Neither is wrong and neither should change: the printed
 number is the identity, and tcgdex's `localId` is what the provider sends.
 
-But it means a labelled row cannot be matched to a catalog row by string
-equality, and nothing currently bridges them. That is a resolver problem, not
-a data problem, and it is not yet solved.
+`printed_from_bare` bridges them, one direction only, using the set's official
+card count. **The count is not in `targets.json` yet** — `set_totals()` was
+added to the tcgdex adapter this session and populates `_set_totals` on the
+next Actions run.
+
+Until then the bridge REFUSES every comparison, which is the designed
+behaviour: 10 refusals, 0 matches, 0 merges. With the counts simulated
+(`sv03.5` 165, `swsh7` 203) three rows bridge immediately — `199/165`
+Charizard ex, `205/165` Mew ex, `095/203` Umbreon VMAX.
 
 Set codes are bridged, for two sets, by `SET_CODE_ALIASES`. Nothing bridges
 the rest: `sv2a`, `s6a`, `s7R`, `151C`, `SV2aF`, `op01`, `op08`, `OGN`, `VEN`
 all have no counterpart in the current catalog — mostly because apitcg has been
 throttled and optcg/riftbound catalogs are empty, so there is nothing to
-reconcile against yet.
+reconcile against yet. 93 of 103 labelled rows have no candidate at all.
 
-## S3 — the labelled set is 85 rows, 51 of them ground truth
+## S3 — the labelled set is 103 rows, 57 of them ground truth
 
 `tests/test_resolver_gate.py` is deliberately red. Six failures in every run,
 and they are the only six. Candidates must be adjudicated by hand
 (`python -m resolve.label_cli propose`); generating them from the catalogs the
 resolver reads would make the precision score a measurement of the catalog.
 
-51 `verified`, 17 `single_source`, 12 `in_repo`, 5 `unstated`. Precision and
-recall are 1.0000 over the 51 — and that is a point estimate, not a passing
-gate. Zero errors at n=51 gives a 95% lower bound of **0.9430**, against a
+57 `verified`, 29 `single_source`, 12 `in_repo`, 5 `unstated`. Precision and
+recall are 1.0000 over the 57 — and that is a point estimate, not a passing
+gate. Zero errors at n=57 gives a 95% lower bound of **0.9488**, against a
 0.98 threshold. n=250 gives 0.9881 and survives one mistake, which is what
 ADR-0015 sized the set on.
 

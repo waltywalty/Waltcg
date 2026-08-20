@@ -29,6 +29,10 @@ from typing import Optional
 
 # -- internal vocabulary ---------------------------------------------------
 
+class IdentityError(ValueError):
+    """A provider vocabulary reached a place only internal codes may go."""
+
+
 GAMES = ("optcg", "pkmn", "riftbound")
 LANGUAGES = ("EN", "JP", "CN-S", "CN-T")
 
@@ -40,9 +44,89 @@ LANGUAGES = ("EN", "JP", "CN-S", "CN-T")
 # Four of these exist because the number alone does not identify the card:
 # `treasure_rare` and `serialized` are printed AT the base card's number, and
 # `ar`/`sar` are separate printings of art that also exists at a base number.
-VARIANTS = ("base", "parallel", "alt_art", "promo", "ar", "sar", "sir",
-            "manga_rare", "treasure_rare", "serialized", "overnumbered",
-            "signature", "reprint")
+# Tokens every game may use. A printing treatment that means the same thing
+# wherever it appears belongs here; anything whose meaning depends on the game
+# belongs in GAME_VARIANTS below, and the difference is not stylistic.
+SHARED_VARIANTS = ("base", "parallel", "alt_art", "promo", "serialized",
+                   "reprint", "holo")
+
+# PER GAME, exactly like the rarity band tables and for the third time the same
+# reason. `SR` is a RARITY BAND in One Piece -- an ordinary Super Rare, one of
+# the commonest cards worth tracking -- and a PRINTING TREATMENT in Pokemon,
+# where a Super Rare is a specific full-art textured finish. A shared table
+# would have to pick one meaning, and picking is guessing.
+#
+# The collisions this file has already survived say the same thing three times:
+#   `R`, `P`, `L`, `PR`, `LR` mean different things per game  (rarity letters)
+#   `Showcase` means nothing without a collector number       (band tables)
+#   `SR` is a band here and a printing there                  (this table)
+GAME_VARIANTS = {
+    "pkmn": (
+        # Japanese and Chinese printing tiers, as the market names them.
+        "ar",              # Illustration Rare
+        "sar",             # Special Illustration Rare, JP/CN convention
+        "sir",             # the same art, EN convention -- see _SIR_BY_LANGUAGE
+        "sr",              # Super Rare: full-art textured. NOT One Piece's SR
+        "ur",              # Ultra Rare, gold
+        "hr",              # Hyper Rare, rainbow. SM/SWSH era
+        "ssr",             # Simplified Chinese
+        "rainbow_secret",  # EN naming for the rainbow secret
+        "gold_secret",     # EN naming for the gold secret
+    ),
+    "optcg": (
+        "manga_rare",      # manga-panel alt art
+        "treasure_rare",   # TR
+    ),
+    "riftbound": (
+        "overnumbered",    # above the set size, no asterisk
+        "signature",       # asterisk
+        "sp",              # Vendetta SP
+    ),
+}
+
+#: Every token, for reporting. NOT the validity test -- `is_variant` is
+#: per-game, and a flat membership check is what let `sr` look valid for One
+#: Piece in the first place.
+VARIANTS = tuple(dict.fromkeys(
+    SHARED_VARIANTS + tuple(t for tokens in GAME_VARIANTS.values()
+                            for t in tokens)))
+
+
+def variants_for(game=None) -> tuple:
+    """Tokens valid for this game. Every token when `game` is None.
+
+    None means "we do not know the game", and that has to accept everything --
+    refusing would make a game-agnostic caller reject valid rows. Callers that
+    know the game must pass it.
+    """
+    if game is None:
+        return VARIANTS
+    return tuple(dict.fromkeys(SHARED_VARIANTS + GAME_VARIANTS.get(game, ())))
+
+
+def why_not_a_variant(token, game=None) -> str:
+    """Why this token was refused, in words that name the next action.
+
+    "unknown variant" sends you to guess. "`sr` is a Pokemon printing and this
+    is a One Piece card; One Piece SR is a RARITY, not a variant" tells you
+    the row is wrong rather than the vocabulary.
+    """
+    text = str(token or "")
+    if is_variant(text, game):
+        return ""
+    elsewhere = sorted(other for other, tokens in GAME_VARIANTS.items()
+                       if text in tokens and other != game)
+    if elsewhere:
+        return (f"variant {text!r} is valid for "
+                + ", ".join(f"`{g}`" for g in elsewhere)
+                + f" but not for `{game}`. The same letters mean different "
+                  "things per game -- One Piece `SR` is a RARITY BAND, "
+                  "Pokemon `SR` is a printing treatment -- so either the row "
+                  "names the wrong game or it wants a different token. "
+                  f"Valid for `{game}`: "
+                + ", ".join(f"`{t}`" for t in variants_for(game)))
+    return (f"variant {text!r} is not a token this project produces for "
+            f"`{game}`. Valid: " + ", ".join(f"`{t}`" for t in variants_for(game)))
 
 # A game may print the SAME collector number several times with different
 # treatments -- One Piece prints up to seven parallels of one card, all at
@@ -52,18 +136,21 @@ VARIANTS = ("base", "parallel", "alt_art", "promo", "ar", "sar", "sir",
 _NUMBERED_VARIANTS = ("parallel", "reprint")
 
 
-def is_variant(token) -> bool:
-    """Is this a variant token this project can produce?
+def is_variant(token, game=None) -> bool:
+    """Is this a variant token this project can produce FOR THIS GAME?
 
-    Not an equality test against VARIANTS, because the numbered treatments are
-    open-ended -- a set that ships an eighth parallel does not need a code
-    change to be identifiable, only to be understood.
+    Not an equality test against a flat vocabulary, for two reasons. The
+    numbered treatments are open-ended -- a set that ships an eighth parallel
+    needs no code change to be identifiable, only to be understood. And the
+    vocabulary is per game: `sr` is valid for Pokemon and invalid for One
+    Piece, where those two letters name a rarity band instead.
     """
     text = str(token or "")
-    if text in VARIANTS:
+    allowed = variants_for(game)
+    if text in allowed:
         return True
     stem = text.rstrip("0123456789")
-    return (stem in _NUMBERED_VARIANTS and stem != text
+    return (stem in _NUMBERED_VARIANTS and stem in allowed and stem != text
             and text[len(stem):] not in ("0", "1"))
 
 # Which languages each game actually ships in. Riftbound is English-only;
@@ -379,6 +466,121 @@ NUMBER_VARIANTS = {
 }
 
 
+class CannotBridge(IdentityError):
+    """The printed number could not be derived, so nothing may be concluded.
+
+    Raised rather than returning False so a caller cannot mistake "we could not
+    tell" for "they are different cards". Both are non-matches; only one of
+    them is a fact.
+    """
+
+
+def printed_from_bare(bare_number, set_total):
+    """A provider's bare `localId` -> the number PRINTED on the card.
+
+    ONE DIRECTION ONLY. tcgdex sends `199`; the card says `199/165`; the
+    labelled set records what the card says. Deriving printed from bare needs
+    the set's official card count and is exact when you have it.
+
+    THE REVERSE IS FORBIDDEN and there is deliberately no function for it.
+    Stripping `173/151` and `173/165` to `173` makes Simplified Chinese
+    Pikachu and its English counterpart the same string -- the denominator is
+    the ONLY thing separating them, and discarding it recreates precisely the
+    merge the blocking failures exist to catch. A miss costs a comp. A merge
+    costs the price series.
+
+    Raises `CannotBridge` when the total is unknown. Falling back to comparing
+    bare against bare would be that same merge, arrived at by giving up.
+    """
+    if set_total in (None, ""):
+        raise CannotBridge(
+            f"cannot derive a printed number for {bare_number!r}: the set's "
+            "official card count is unknown. Comparing bare against bare "
+            "instead would merge every printing that shares an index across "
+            "sets -- refusing is a miss, and a miss is the cheaper error.")
+    parsed = parse_collector_number(str(bare_number))
+    if parsed.index is None:
+        raise CannotBridge(
+            f"cannot derive a printed number for {bare_number!r}: no index "
+            "could be read from it.")
+    if parsed.total is not None:
+        # Already printed. Handing it back unchanged is right; rewriting it
+        # around `set_total` would let a wrong total overwrite a correct
+        # denominator that the card itself supplied.
+        return parsed.raw
+    # Zero-padded to the width of the total, which is how every printing in
+    # the labelled set writes it -- `95` in Evolving Skies is `095/203`.
+    # Compare NUMERICALLY wherever possible (`numbers_denote_same_printing`);
+    # this string form is for display and for round-tripping, and padding
+    # conventions are the sort of thing that varies by era.
+    total = int(set_total)
+    width = max(len(str(total)), 3)
+    star = "*" if parsed.starred else ""
+    return f"{parsed.index:0{width}d}{parsed.suffix}{star}/{total:0{width}d}"
+
+
+def numbers_denote_same_printing(catalog_number, labelled_number,
+                                 set_total=None) -> bool:
+    """Do a catalog row and a labelled row name the same printing?
+
+    Compared NUMERICALLY where both sides carry a denominator -- index, total,
+    suffix, asterisk -- so a padding convention cannot decide the answer. `95`
+    against `095/203` is a match when the set total is 203 and REFUSES when the
+    total is unknown.
+
+    Raises `CannotBridge` rather than returning False when the bridge cannot be
+    built. "We could not tell" and "they are different cards" are both
+    non-matches and only one of them is a fact.
+    """
+    left = parse_collector_number(str(catalog_number))
+    right = parse_collector_number(str(labelled_number))
+
+    # TWO NAKED INDICES. `173` against `173` says nothing: the denominator is
+    # the only thing separating Simplified Chinese Pikachu from the English
+    # one, and comparing indices is that merge with the evidence removed.
+    if left.kind == "bare" and right.kind == "bare":
+        raise CannotBridge(
+            f"{catalog_number!r} and {labelled_number!r} are both bare "
+            "indices with no denominator. Comparing them would merge every "
+            "printing that shares an index.")
+
+    if left.total is None and right.total is None:
+        # Both carry their set prefix -- `OP01-025`, `OGN-030A`. Nothing to
+        # bridge and nothing to strip, so compare AS GIVEN.
+        #
+        # As given, not by parsed index: the parser reads `OGN-030` as index 30
+        # and drops the `OGN-`, so an index comparison would make `OGN-030` and
+        # `SFD-030` the same card. The prefix is part of the number here.
+        return (str(catalog_number).strip().lower()
+                == str(labelled_number).strip().lower())
+
+    if left.total is not None and right.total is not None:
+        return (left.index == right.index and left.total == right.total
+                and left.suffix.lower() == right.suffix.lower()
+                and left.starred == right.starred)
+
+    # One side is bare. Derive UP, never strip down.
+    bare, printed = (left, right) if left.total is None else (right, left)
+    if bare.kind != "bare":
+        # A set-prefixed number against a printed one: two different schemes,
+        # and nothing here can reconcile them without inventing a rule.
+        raise CannotBridge(
+            f"{bare.raw!r} carries a set prefix and {printed.raw!r} carries a "
+            "denominator. These are different numbering schemes and no rule "
+            "here converts between them.")
+    if set_total in (None, ""):
+        raise CannotBridge(
+            f"{catalog_number!r} carries no denominator and the set's official "
+            "card count is unknown, so it cannot be compared with "
+            f"{labelled_number!r}. Matching on the index alone would merge "
+            "printings whose only difference is the denominator.")
+    if bare.index is None:
+        raise CannotBridge(f"no index could be read from {bare.raw!r}")
+    return (bare.index == printed.index and int(set_total) == printed.total
+            and bare.suffix.lower() == printed.suffix.lower()
+            and bare.starred == printed.starred)
+
+
 # Games whose collector number encodes the PRINTING TREATMENT. Riftbound only,
 # and the restriction is load-bearing rather than cautious: in Pokemon a number
 # above the set size is ORDINARY -- every secret rare is numbered that way, and
@@ -633,10 +835,6 @@ TCGAPI_KNOWN_SLUGS = (
 _ALL_EXTERNAL = frozenset(list(APITCG_SLUG.values()) + list(TCGAPI_GAME_ID.values()))
 AMBIGUOUS_TOKENS = frozenset(_ALL_EXTERNAL & frozenset(GAMES))
 PROVIDER_TOKENS = frozenset(_ALL_EXTERNAL - frozenset(GAMES))
-
-
-class IdentityError(ValueError):
-    """A provider vocabulary reached a place only internal codes may go."""
 
 
 def card_uid(game: str, set_code: str, number: str, variant: str, language: str) -> str:

@@ -2479,9 +2479,18 @@ class PreservationAndFreshnessAreDifferentQuestions(unittest.TestCase):
         self.assertIn("cache = {} if args.no_cache else previous", source)
         self.assertIn("preserve_from_cache(catalog, builder.combo_status, "
                       "previous)", source)
-        self.assertIn("cache=previous)", source,
+        # `build` legitimately takes the FRESHNESS cache; only `to_targets`,
+        # which writes the stamps, must take `previous`. Scoped to the one
+        # call rather than the whole function, or the assertion catches the
+        # correct line too.
+        call = source[source.index("to_targets("):]
+        call = call[:call.index("\n\n")]
+        self.assertIn("cache=previous", call,
                       "to_targets stamps from the freshness cache, so "
                       "--no-cache would write preserved combos undated")
+        self.assertNotIn("cache=cache", call)
+        self.assertIn("cache=cache", source,
+                      "builder.build no longer receives the freshness cache")
         # And the mechanism itself does not care which flag was passed.
         cat = {"optcg:EN": {"sources": [], "cards": []}}
         status = {"optcg:EN": {"status": "rate_limited"}}

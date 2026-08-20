@@ -21,7 +21,7 @@
       "verified"
     ]
   },
-  "_status": "INCOMPLETE -- 85 of 250",
+  "_status": "INCOMPLETE -- 103 of 250",
   "_needed": {
     "have": 21,
     "short_by": 229,
@@ -412,6 +412,33 @@
       "difficulty_class": "C1,C5"
     },
     {
+      "card_uid": "optcg:op01:OP01-120:manga_rare:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-120",
+      "variant": "manga_rare",
+      "language": "EN",
+      "name": "Shanks",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C6",
+      "note": "manga/alt-art SEC",
+      "variant_as_sourced": "manga"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-120:manga_rare:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-120",
+      "variant": "manga_rare",
+      "language": "JP",
+      "name": "Shanks",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1,C6",
+      "variant_as_sourced": "manga"
+    },
+    {
       "card_uid": "optcg:op01:OP01-121:base:EN",
       "game": "optcg",
       "set_code": "op01",
@@ -570,6 +597,28 @@
       "note": "SM-era Tag Team"
     },
     {
+      "card_uid": "pkmn:CSM1aC:168:ssr:CN-S",
+      "game": "pkmn",
+      "set_code": "CSM1aC",
+      "number": "168",
+      "variant": "ssr",
+      "language": "CN-S",
+      "name": "Charizard",
+      "source": "external_research",
+      "confidence": "single_source"
+    },
+    {
+      "card_uid": "pkmn:S7RF:076/067:sr:CN-T",
+      "game": "pkmn",
+      "set_code": "S7RF",
+      "number": "076/067",
+      "variant": "sr",
+      "language": "CN-T",
+      "name": "Rayquaza V",
+      "source": "external_research",
+      "confidence": "single_source"
+    },
+    {
       "card_uid": "pkmn:SM-P:070/SM-P:promo:JP",
       "game": "pkmn",
       "set_code": "SM-P",
@@ -594,6 +643,18 @@
       "confidence": "single_source",
       "difficulty_class": "C4",
       "note": "lottery promo"
+    },
+    {
+      "card_uid": "pkmn:SV1SF:106/078:ur:CN-T",
+      "game": "pkmn",
+      "set_code": "SV1SF",
+      "number": "106/078",
+      "variant": "ur",
+      "language": "CN-T",
+      "name": "Koraidon ex",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "gold"
     },
     {
       "card_uid": "pkmn:SV1VF:037/078:base:CN-T",
@@ -668,6 +729,17 @@
       "note": "matches EN/JP; SC differs"
     },
     {
+      "card_uid": "pkmn:SV2aF:195/165:sr:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "195/165",
+      "variant": "sr",
+      "language": "CN-T",
+      "name": "Mew ex",
+      "source": "external_research",
+      "confidence": "single_source"
+    },
+    {
       "card_uid": "pkmn:SV2aF:201/165:sar:CN-T",
       "game": "pkmn",
       "set_code": "SV2aF",
@@ -679,6 +751,73 @@
       "confidence": "verified",
       "difficulty_class": "C1",
       "note": "matches JP 201/165; EN is 199/165"
+    },
+    {
+      "card_uid": "pkmn:SV2aF:210/165:ur:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "210/165",
+      "variant": "ur",
+      "language": "CN-T",
+      "name": "Basic Psychic Energy",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "gold"
+    },
+    {
+      "card_uid": "pkmn:cs3aC:130/125:sr:CN-S",
+      "game": "pkmn",
+      "set_code": "cs3aC",
+      "number": "130/125",
+      "variant": "sr",
+      "language": "CN-S",
+      "name": "Venusaur V",
+      "source": "external_research",
+      "confidence": "single_source"
+    },
+    {
+      "card_uid": "pkmn:cs3aC:161/125:hr:CN-S",
+      "game": "pkmn",
+      "set_code": "cs3aC",
+      "number": "161/125",
+      "variant": "hr",
+      "language": "CN-S",
+      "name": "Venusaur VMAX",
+      "source": "external_research",
+      "confidence": "single_source"
+    },
+    {
+      "card_uid": "pkmn:cs3bC:129/122:sr:CN-S",
+      "game": "pkmn",
+      "set_code": "cs3bC",
+      "number": "129/122",
+      "variant": "sr",
+      "language": "CN-S",
+      "name": "Blastoise V",
+      "source": "external_research",
+      "confidence": "single_source"
+    },
+    {
+      "card_uid": "pkmn:cs3bC:160/122:hr:CN-S",
+      "game": "pkmn",
+      "set_code": "cs3bC",
+      "number": "160/122",
+      "variant": "hr",
+      "language": "CN-S",
+      "name": "Blastoise VMAX",
+      "source": "external_research",
+      "confidence": "single_source"
+    },
+    {
+      "card_uid": "pkmn:cs5aC:003/127:holo:CN-S",
+      "game": "pkmn",
+      "set_code": "cs5aC",
+      "number": "003/127",
+      "variant": "holo",
+      "language": "CN-S",
+      "name": "Charizard",
+      "source": "external_research",
+      "confidence": "single_source"
     },
     {
       "card_uid": "pkmn:csv10C:276/222:sar:CN-S",
@@ -852,6 +991,19 @@
       "set_code_as_sourced": "sv151"
     },
     {
+      "card_uid": "pkmn:sv03.5:205/165:ur:EN",
+      "game": "pkmn",
+      "set_code": "sv03.5",
+      "number": "205/165",
+      "variant": "ur",
+      "language": "EN",
+      "name": "Mew ex",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "set_code_as_sourced": "sv151"
+    },
+    {
       "card_uid": "pkmn:sv2a:006/165:base:JP",
       "game": "pkmn",
       "set_code": "sv2a",
@@ -862,6 +1014,17 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1"
+    },
+    {
+      "card_uid": "pkmn:sv2a:195/165:sr:JP",
+      "game": "pkmn",
+      "set_code": "sv2a",
+      "number": "195/165",
+      "variant": "sr",
+      "language": "JP",
+      "name": "Mew",
+      "source": "external_research",
+      "confidence": "verified"
     },
     {
       "card_uid": "pkmn:sv2a:201/165:sar:JP",
@@ -926,6 +1089,19 @@
       "set_code_as_sourced": "swsh07"
     },
     {
+      "card_uid": "pkmn:swsh7:214/203:rainbow_secret:EN",
+      "game": "pkmn",
+      "set_code": "swsh7",
+      "number": "214/203",
+      "variant": "rainbow_secret",
+      "language": "EN",
+      "name": "Umbreon VMAX",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C3",
+      "set_code_as_sourced": "swsh07"
+    },
+    {
       "card_uid": "pkmn:swsh7:215/203:alt_art:EN",
       "game": "pkmn",
       "set_code": "swsh7",
@@ -937,6 +1113,30 @@
       "confidence": "verified",
       "difficulty_class": "C1,C3",
       "note": "Moonbreon EN",
+      "set_code_as_sourced": "swsh07"
+    },
+    {
+      "card_uid": "pkmn:swsh7:225/203:rainbow_secret:EN",
+      "game": "pkmn",
+      "set_code": "swsh7",
+      "number": "225/203",
+      "variant": "rainbow_secret",
+      "language": "EN",
+      "name": "Zinnia's Resolve",
+      "source": "external_research",
+      "confidence": "single_source",
+      "set_code_as_sourced": "swsh07"
+    },
+    {
+      "card_uid": "pkmn:swsh7:227/203:gold_secret:EN",
+      "game": "pkmn",
+      "set_code": "swsh7",
+      "number": "227/203",
+      "variant": "gold_secret",
+      "language": "EN",
+      "name": "Inteleon VMAX",
+      "source": "external_research",
+      "confidence": "verified",
       "set_code_as_sourced": "swsh07"
     },
     {
@@ -1135,6 +1335,19 @@
       "confidence": "single_source",
       "difficulty_class": "C2,C5",
       "note": "reuses Origins name"
+    },
+    {
+      "card_uid": "riftbound:VEN:VEN-SP1/006:sp:EN",
+      "game": "riftbound",
+      "set_code": "VEN",
+      "number": "VEN-SP1/006",
+      "variant": "sp",
+      "language": "EN",
+      "name": "Kai'Sa, Survivor",
+      "source": "external_research",
+      "confidence": "single_source",
+      "difficulty_class": "C2,C4",
+      "note": "Vendetta SP of an Origins card"
     }
   ],
   "_confidence": {
