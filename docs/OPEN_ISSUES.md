@@ -129,6 +129,35 @@ disagreement stands:
 
 Neither is forced into a class, and a test asserts neither ever is.
 
+## S2 — the PRB reprints are not the shape Celebrations is
+
+The five One Piece originals carry `reprinted_in: prb01`/`prb02`. The PRB side
+is NOT represented, and the reason is a finding.
+
+apitcg's `prb01.json` confirms the rule emphatically — **317 of its 319 cards
+keep their original `OPxx-xxx`** and only 2 use the `PRB01-` scheme. But it
+also shows the reprints as `OP05-119_p3`, `_p4`, `_p5`: Bandai's *parallel*
+suffixes. So PRB-01 does not contain a plain reprint of OP05-119; it contains
+**new treatments** of it.
+
+That makes the pair `optcg:op05:OP05-119:base:EN` against
+`optcg:prb01:OP05-119:parallelN:EN` — differing in `set_code` **and**
+`variant`, which is neither `same_number_new_set` (set_code alone) nor C6
+(variant alone, same set). **The Celebrations analogy does not hold**, and I
+had tagged these `same_number_new_set` before checking. Backed out.
+
+Needs a decision: a fourth reprint shape, or C6 widened to "same printed
+number, different treatment, wherever the treatment lives". Until then the
+representation would be:
+
+```
+optcg:prb01:OP05-119:<variant>:EN     set = the product, number retained
+```
+
+and the variant is the one field no source here supplies — reading it from
+apitcg would make the row catalog-derived, which is the circularity the
+labelled set exists to avoid.
+
 ## RESOLVED — every required kind now has a verified example
 
 `reprint` 24 verified, `promo_vs_set` 13, `same_number_different_product` 8.

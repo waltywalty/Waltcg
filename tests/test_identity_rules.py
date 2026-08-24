@@ -966,11 +966,23 @@ class TheParserDropsSetPrefixesAndTheBridgeMustNot(unittest.TestCase):
         self.assertTrue(same("OGN-030", "OGN-030"))
         self.assertTrue(same("OGN-030", "ogn-030"))
 
-    def test_a_set_prefix_against_a_denominator_refuses(self):
-        """Two different numbering schemes. Reconciling them would need a rule
-        nobody has written, and inventing one silently is how the last three
-        merges happened."""
+    def test_a_set_prefix_against_a_denominator_is_reconciled_within_a_set(self):
+        """Riftbound writes both forms and marketplaces use both, so
+        `OGN-030A` and `OGN-030a/298` are one printing written two ways -- the
+        prefix and the denominator are REDUNDANT here, each naming the set.
+
+        A reconciliation, not a normalisation: neither form is rewritten, and
+        it holds only where the two sides can be shown to name the same set."""
+        from resolve.identity import numbers_denote_same_printing as same
+        self.assertTrue(same("OGN-030A", "OGN-030a/298"))
+        self.assertFalse(same("OGN-030A", "SFD-030a/298"))
+        self.assertFalse(same("OGN-030A", "OGN-031a/298"))
+        self.assertFalse(same("OGN-030A", "OGN-030a/221", 298))
+
+    def test_a_scheme_with_no_common_ground_still_refuses(self):
+        """A rune against a denominated number: nothing links them, and
+        inventing a rule silently is how the last three merges happened."""
         from resolve.identity import CannotBridge
         from resolve.identity import numbers_denote_same_printing as same
         with self.assertRaises(CannotBridge):
-            same("OGN-030", "199/165", 165)
+            same("R01a", "199/165", 165)

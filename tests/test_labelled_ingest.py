@@ -8,6 +8,7 @@ a verified one.
 
 from __future__ import annotations
 
+import collections
 import json
 import os
 import shutil
@@ -599,3 +600,214 @@ class TheCollapseDetectorDetectsACollapse(unittest.TestCase):
                         ("optcg:op01:OP01-025:base:EN",
                          "optcg:op01:OP01-025:parallel:EN"))
         self.assertIn("BLOCKING", str(caught.exception))
+
+
+class OneNumberCannotNameTwoCards(unittest.TestCase):
+    """THE CHECK THAT CAUGHT A TRANSCRIPTION SWAP.
+
+    Bandai runs one code system across English, Japanese and Simplified
+    Chinese, so `OP01-002` names one card in all three. Batch 2 had it as
+    Monkey D. Luffy in Chinese where English and Japanese had Trafalgar Law --
+    and nothing in either row was wrong on its own. The uid was right, the
+    number was right, and the name was a real card's name. Only the pairing
+    was wrong, and only across languages was it visible."""
+
+    def _cards(self, *rows):
+        return [dict({"game": "optcg", "set_code": "op01",
+                      "number": "OP01-002", "variant": "base"}, **r)
+                for r in rows]
+
+    def test_a_swap_is_caught(self):
+        from resolve.identity import cross_language_name_disagreements
+        found = cross_language_name_disagreements(self._cards(
+            {"card_uid": "a", "language": "EN", "name": "Trafalgar Law"},
+            {"card_uid": "b", "language": "CN-S", "name": "Monkey D. Luffy"}))
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0][2], "OP01-002")
+
+    def test_punctuation_is_not_a_disagreement(self):
+        """`Monkey.D.Luffy` and `Monkey D. Luffy` are one card written two
+        ways. Flagging that would bury the real ones in noise."""
+        from resolve.identity import cross_language_name_disagreements
+        self.assertEqual(cross_language_name_disagreements(self._cards(
+            {"card_uid": "a", "language": "EN", "name": "Monkey.D.Luffy"},
+            {"card_uid": "b", "language": "JP", "name": "Monkey D. Luffy"})), [])
+
+    def test_a_translation_is_not_a_disagreement(self):
+        """`路飞` IS `Monkey.D.Luffy`, and nothing here can know that -- it
+        would need a translation table this project does not have. So a
+        cross-script pair is NOT COMPARABLE, which is a third answer. Comparing
+        anyway would report every correctly-translated card as a
+        contradiction."""
+        from resolve.identity import cross_language_name_disagreements
+        self.assertEqual(cross_language_name_disagreements(self._cards(
+            {"card_uid": "a", "language": "EN", "name": "Monkey.D.Luffy"},
+            {"card_uid": "b", "language": "CN-S", "name": "路飞"},
+            {"card_uid": "c", "language": "JP", "name": "モンキー・D・ルフィ"})), [])
+
+    def test_pokemon_is_not_checked(self):
+        """`173/165` and `173/151` are different cards -- the whole CN-S
+        renumbering problem. Running this check there would report every
+        Simplified Chinese card as a contradiction."""
+        from resolve.identity import cross_language_name_disagreements
+        rows = [{"card_uid": "a", "game": "pkmn", "set_code": "sv2a",
+                 "number": "025/165", "variant": "base", "language": "JP",
+                 "name": "Pikachu"},
+                {"card_uid": "b", "game": "pkmn", "set_code": "151C",
+                 "number": "025/165", "variant": "base", "language": "CN-S",
+                 "name": "Something Else"}]
+        self.assertEqual(cross_language_name_disagreements(rows), [])
+
+    def test_set_code_case_does_not_hide_a_disagreement(self):
+        """The two defects met: uppercase and lowercase spellings of one set
+        put the rows in different buckets, so the name check could not see
+        across them."""
+        from resolve.identity import cross_language_name_disagreements
+        found = cross_language_name_disagreements([
+            {"card_uid": "a", "game": "optcg", "set_code": "OP01",
+             "number": "OP01-121", "variant": "base", "language": "EN",
+             "name": "Monkey.D.Luffy"},
+            {"card_uid": "b", "game": "optcg", "set_code": "op01",
+             "number": "OP01-121", "variant": "base", "language": "EN",
+             "name": "Yamato"}])
+        self.assertEqual(len(found), 1)
+
+    def test_the_committed_set_is_clean(self):
+        from resolve.identity import cross_language_name_disagreements
+        path = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
+        with open(path, encoding="utf-8") as handle:
+            cards = json.load(handle)["cards"]
+        found = cross_language_name_disagreements(cards)
+        self.assertEqual(found, [], f"one number names two cards: {found}")
+
+
+class EveryCorrectionIsLogged(unittest.TestCase):
+    """Cross-batch disagreement is the mechanism working, so the catches are
+    kept as events rather than quietly edited away. A correction with no record
+    is indistinguishable from data that was always right."""
+
+    def _data(self):
+        path = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+
+    def test_the_log_exists_and_has_the_three_events(self):
+        events = {e["event"] for e in self._data().get("_corrections", [])}
+        self.assertIn("batch2-name-swap", events)
+        self.assertIn("seed-named-the-wrong-card-at-OP01-121", events)
+        self.assertIn("one-piece-set-code-case", events)
+
+    def test_every_event_names_what_caught_it_and_the_evidence(self):
+        for entry in self._data().get("_corrections", []):
+            self.assertTrue(entry.get("caught_by"), entry["event"])
+            self.assertGreater(len(entry.get("evidence", "")), 60,
+                               entry["event"])
+            self.assertGreater(len(entry.get("what", "")), 60, entry["event"])
+
+    def test_every_corrected_row_carries_its_previous_value(self):
+        for card in self._data()["cards"]:
+            correction = card.get("corrected")
+            if not correction:
+                continue
+            self.assertIn("was", correction, card["card_uid"])
+            self.assertIn("caught_by", correction, card["card_uid"])
+            self.assertNotEqual(correction["was"],
+                                card.get(correction["field"]),
+                                card["card_uid"])
+
+    def test_a_dropped_duplicate_is_recorded_not_just_deleted(self):
+        entry = next(e for e in self._data()["_corrections"]
+                     if e["event"] == "one-piece-set-code-case")
+        self.assertEqual(len(entry["dropped_as_duplicate"]), 3)
+        for row in entry["dropped_as_duplicate"]:
+            self.assertEqual(row["confidence"], "in_repo",
+                             "a scored row was dropped as a duplicate")
+
+
+class NoTwoRowsShareAnIdentity(unittest.TestCase):
+    """Two rows at one card_uid double-count the combo and score one card
+    twice. Two rows differing only in set-code CASE are the same thing with
+    the collision hidden."""
+
+    def _cards(self):
+        path = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)["cards"]
+
+    def test_no_duplicate_card_uid(self):
+        seen = collections.Counter(c["card_uid"] for c in self._cards())
+        self.assertEqual([u for u, n in seen.items() if n > 1], [])
+
+    def test_no_identity_differs_only_by_set_code_case(self):
+        seen = collections.defaultdict(set)
+        for card in self._cards():
+            key = (card["game"], card["set_code"].lower(), card["number"],
+                   card["variant"], card["language"])
+            seen[key].add(card["set_code"])
+        split = {k: sorted(v) for k, v in seen.items() if len(v) > 1}
+        self.assertEqual(split, {},
+                         "one card exists under two set-code spellings")
+
+    def test_one_piece_set_codes_match_the_catalogs_casing(self):
+        """apitcg stores One Piece sets as `op01.json` and the catalog derives
+        the code from that filename."""
+        for card in self._cards():
+            if card["game"] != "optcg":
+                continue
+            self.assertEqual(card["set_code"], card["set_code"].lower(),
+                             card["card_uid"])
+
+
+class PromotionIsDeliberateAndNamed(unittest.TestCase):
+    """A re-import must never promote -- that is how a single-source row
+    quietly becomes ground truth because somebody sent the same file twice."""
+
+    def _seeded(self, confidence="single_source"):
+        path = os.path.join(tempfile.mkdtemp(), "labelled.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump({"cards": [row(confidence=confidence)]}, handle)
+        return path
+
+    def test_single_source_to_verified_is_the_only_upgrade(self):
+        from resolve.label_cli import UPGRADE_PATH
+        self.assertEqual(UPGRADE_PATH, {("single_source", "verified")})
+
+    def test_it_records_the_second_source(self):
+        from resolve.label_cli import upgrade
+        path = self._seeded()
+        card, why = upgrade(row()["card_uid"], "verified", "PriceCharting",
+                            labelled_path=path, date="2026-08-18")
+        self.assertEqual(why, "")
+        self.assertEqual(card["confidence"], "verified")
+        self.assertEqual(card["upgraded"]["second_source"], "PriceCharting")
+        self.assertEqual(card["upgraded"]["from"], "single_source")
+
+    def test_an_unnamed_source_is_refused(self):
+        """`verified` claims two independent sources agree. An unnamed second
+        source cannot be checked, so the claim would be unauditable."""
+        from resolve.label_cli import upgrade
+        card, why = upgrade(row()["card_uid"], "verified", None,
+                            labelled_path=self._seeded())
+        self.assertIsNone(card)
+        self.assertIn("second-source is required", why)
+
+    def test_other_confidences_are_not_a_lower_rung(self):
+        """`in_repo` and `unstated` are different PROVENANCE, not less of the
+        same thing. Promoting them would claim external corroboration that was
+        never gathered."""
+        from resolve.label_cli import upgrade
+        for confidence in ("in_repo", "unstated", "verified"):
+            card, why = upgrade(row()["card_uid"], "verified", "X",
+                                labelled_path=self._seeded(confidence))
+            self.assertIsNone(card, confidence)
+            self.assertIn("not a promotion", why)
+
+    def test_the_upgrade_that_happened_is_on_the_row(self):
+        path = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
+        with open(path, encoding="utf-8") as handle:
+            cards = json.load(handle)["cards"]
+        upgraded = [c for c in cards if c.get("upgraded")]
+        self.assertTrue(upgraded, "no upgrade recorded in the set")
+        for card in upgraded:
+            self.assertEqual(card["confidence"], card["upgraded"]["to"])
+            self.assertTrue(card["upgraded"]["second_source"])

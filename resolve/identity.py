@@ -334,6 +334,79 @@ def shares_numbering_with(language: str) -> Optional[str]:
     return NUMBERING_PARENT.get(language)
 
 
+# Games where ONE COLLECTOR NUMBER DENOTES ONE CARD IN EVERY LANGUAGE.
+#
+# One Piece prints `OP01-002` on the English, Japanese and Simplified Chinese
+# printings of the same card -- Bandai runs one code system across all three.
+# So a number that names Trafalgar Law in English cannot name Monkey D. Luffy
+# in Chinese, and if it does, one of the rows is wrong.
+#
+# NOT Pokemon: `173/165` is a different card from `173/151`, which is the whole
+# CN-S renumbering problem. Applying this check there would report every
+# Simplified Chinese card as a contradiction.
+SHARED_NUMBERING_GAMES = frozenset({"optcg"})
+
+
+def shares_numbering_across_languages(game) -> bool:
+    return game in SHARED_NUMBERING_GAMES
+
+
+def normalise_name(name) -> str:
+    """A name reduced to what survives translation of punctuation.
+
+    `Monkey.D.Luffy` and `Monkey D. Luffy` are one card written two ways; the
+    comparison must not care. `Trafalgar Law` and `Monkey D. Luffy` are two
+    cards, and it must.
+    """
+    return "".join(ch for ch in str(name or "").lower() if ch.isalnum())
+
+
+def is_latin_name(name) -> bool:
+    """Is this name written in the Latin script?
+
+    `モンキーdルフィ` and `路飞` are `Monkey.D.Luffy` in two other scripts, and
+    nothing here can tell you that -- it would need a translation table this
+    project does not have. So a cross-script pair is NOT COMPARABLE, which is
+    a third answer and not the same as agreeing or disagreeing. Comparing them
+    anyway would report every correctly-translated card as a contradiction and
+    bury the real one.
+    """
+    text = str(name or "")
+    letters = [ch for ch in text if ch.isalpha()]
+    return bool(letters) and all(ch.isascii() for ch in letters)
+
+
+def cross_language_name_disagreements(cards):
+    """Rows where one collector number names two different cards.
+
+    THE CHECK THAT CATCHES A TRANSCRIPTION SWAP. Batch 2 recorded
+    `OP01-002` as Monkey D. Luffy and `OP01-003` as Trafalgar Law in
+    Simplified Chinese; English and Japanese had them the other way round.
+    Nothing in a single row is wrong -- the uid is right, the number is right,
+    the name is a real card's name -- and it is only visible across languages.
+
+    Returns [(game, set_code, number, {normalised name: [card_uid, ...]}), ...].
+    Only for games in `SHARED_NUMBERING_GAMES`; anywhere else a differing name
+    at one number is expected rather than suspicious.
+    """
+    import collections as _collections
+    groups = _collections.defaultdict(lambda: _collections.defaultdict(list))
+    for card in cards:
+        game = card.get("game")
+        if not shares_numbering_across_languages(game):
+            continue
+        # LATIN ONLY. A Japanese or Chinese name for the same card is a
+        # translation, not a contradiction, and this cannot tell the two
+        # apart -- see `is_latin_name`.
+        if not is_latin_name(card.get("name")):
+            continue
+        key = (game, str(card.get("set_code") or "").lower(),
+               card.get("number"))
+        groups[key][normalise_name(card.get("name"))].append(card["card_uid"])
+    return [(key[0], key[1], key[2], dict(names))
+            for key, names in sorted(groups.items()) if len(names) > 1]
+
+
 # Games whose REPRINTS KEEP THE ORIGINAL COLLECTOR NUMBER.
 #
 # One Piece PRB-01 reprints of OP01-120, OP01-024, OP02-004, OP03-123 and
@@ -485,12 +558,17 @@ RIFTBOUND_SET_ALIASES = {
 class CollectorNumber:
     """A parsed collector number. Every field is `None` when unreadable."""
 
-    __slots__ = ("raw", "index", "total", "suffix", "starred", "kind")
+    __slots__ = ("raw", "index", "total", "suffix", "starred", "kind",
+                 "prefix")
 
     def __init__(self, raw, index=None, total=None, suffix="", starred=False,
-                 kind="card"):
+                 kind="card", prefix=""):
         self.raw, self.index, self.total = raw, index, total
         self.suffix, self.starred, self.kind = suffix, starred, kind
+        # The set prefix, where the number carried one. Kept because the
+        # parser used to discard it, which made `OGN-030` and `SFD-030`
+        # compare equal -- a cross-set merge.
+        self.prefix = prefix
 
     def above_set_size(self, set_size=None):
         """Is this numbered beyond the base set? None when unknowable.
@@ -514,6 +592,14 @@ _NUM_CARD = re.compile(r"^(\d+)([a-z]?)(\*?)\s*/\s*(\d+)$", re.I)
 _NUM_RUNE = re.compile(r"^R(\d+)([a-z]?)(\*?)$", re.I)
 _NUM_TOKEN = re.compile(r"^T(\d+)([a-z]?)$", re.I)
 _NUM_PREFIXED = re.compile(r"^[A-Z]{2,4}-(\d+)([a-z]?)(\*?)$", re.I)
+# A SET PREFIX AND A DENOMINATOR AT ONCE -- `OGN-030a/298`.
+#
+# Marketplaces write Riftbound numbers both ways and the parser read this one
+# as UNREADABLE, which meant a card offered in that form had no identity at
+# all. The prefix and the denominator are redundant with each other here: both
+# say which set, and either alone is enough.
+_NUM_PREFIXED_TOTAL = re.compile(
+    r"^([A-Z]{2,4})-(\d+)([a-z]?)(\*?)\s*/\s*(\d+)$", re.I)
 _NUM_BARE = re.compile(r"^(\d+)([a-z]?)(\*?)$", re.I)
 
 
@@ -541,10 +627,19 @@ def parse_collector_number(number) -> CollectorNumber:
     if hit:
         return CollectorNumber(raw, int(hit.group(1)), None,
                                hit.group(2).lower(), False, kind="token")
+    hit = _NUM_PREFIXED_TOTAL.match(raw)
+    if hit:
+        # Both halves kept. The denominator is real information and the prefix
+        # is what tells `numbers_denote_same_printing` this is the same scheme
+        # as a bare `OGN-030a`.
+        return CollectorNumber(raw, int(hit.group(2)), int(hit.group(5)),
+                               hit.group(3).lower(), bool(hit.group(4)),
+                               prefix=hit.group(1).upper())
     hit = _NUM_PREFIXED.match(raw)
     if hit:
         return CollectorNumber(raw, int(hit.group(1)), None,
-                               hit.group(2).lower(), bool(hit.group(3)))
+                               hit.group(2).lower(), bool(hit.group(3)),
+                               prefix=raw.split("-", 1)[0].upper())
     hit = _NUM_BARE.match(raw)
     if hit:
         return CollectorNumber(raw, int(hit.group(1)), None,
@@ -641,30 +736,53 @@ def numbers_denote_same_printing(catalog_number, labelled_number,
             "indices with no denominator. Comparing them would merge every "
             "printing that shares an index.")
 
+    def _same_card(a, b):
+        return (a.index == b.index and a.suffix.lower() == b.suffix.lower()
+                and a.starred == b.starred)
+
     if left.total is None and right.total is None:
         # Both carry their set prefix -- `OP01-025`, `OGN-030A`. Nothing to
         # bridge and nothing to strip, so compare AS GIVEN.
         #
-        # As given, not by parsed index: the parser reads `OGN-030` as index 30
-        # and drops the `OGN-`, so an index comparison would make `OGN-030` and
-        # `SFD-030` the same card. The prefix is part of the number here.
+        # As given, not by parsed index: `OGN-030` and `SFD-030` share an index
+        # and are different cards. The prefix is part of the number here.
         return (str(catalog_number).strip().lower()
                 == str(labelled_number).strip().lower())
 
     if left.total is not None and right.total is not None:
-        return (left.index == right.index and left.total == right.total
-                and left.suffix.lower() == right.suffix.lower()
-                and left.starred == right.starred)
+        # Where BOTH carry a prefix it must agree -- `OGN-030a/298` is not
+        # `SFD-030a/298`. Where only one does, the denominators still have to
+        # match, so nothing is lost by not comparing it.
+        if left.prefix and right.prefix and left.prefix != right.prefix:
+            return False
+        return _same_card(left, right) and left.total == right.total
 
-    # One side is bare. Derive UP, never strip down.
+    # One side has no denominator.
     bare, printed = (left, right) if left.total is None else (right, left)
+
+    if bare.prefix:
+        # A SET-PREFIXED NUMBER AGAINST A DENOMINATED ONE, in a game that
+        # writes both. `OGN-030A` and `OGN-030a/298` are one printing written
+        # two ways -- the prefix and the denominator are REDUNDANT here, each
+        # saying which set, and marketplaces use both.
+        #
+        # This is a reconciliation, not a normalisation: neither form is
+        # rewritten, and it holds only where the two sides can be shown to name
+        # the same set. Where the prefix belongs to a different set, or the
+        # denominator to a different set size, they are simply not the same
+        # card.
+        if printed.prefix and printed.prefix != bare.prefix:
+            return False
+        if set_total not in (None, "") and int(set_total) != printed.total:
+            return False
+        return _same_card(bare, printed)
+
     if bare.kind != "bare":
-        # A set-prefixed number against a printed one: two different schemes,
-        # and nothing here can reconcile them without inventing a rule.
+        # Neither a bare index nor a prefixed one: two different schemes, and
+        # nothing here can reconcile them without inventing a rule.
         raise CannotBridge(
-            f"{bare.raw!r} carries a set prefix and {printed.raw!r} carries a "
-            "denominator. These are different numbering schemes and no rule "
-            "here converts between them.")
+            f"{bare.raw!r} and {printed.raw!r} are written in different "
+            "numbering schemes and no rule here converts between them.")
     if set_total in (None, ""):
         raise CannotBridge(
             f"{catalog_number!r} carries no denominator and the set's official "

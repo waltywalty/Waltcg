@@ -2739,3 +2739,118 @@ Three failures left: total count, per-combo targets, and the 20-row floor.
 floor.
 
 100 mutants catalogued, all caught.
+
+---
+
+## ADR-0039 — Batch 3: a caught error, the error it uncovered, and the error that uncovered
+
+**2026-08-18.** 38 rows, 37 verified. What matters is not the rows.
+
+### Cross-batch disagreement, made a mechanism
+
+Batch 2 had `OP01-002` as Monkey D. Luffy and `OP01-003` as Trafalgar Law in
+Simplified Chinese; English, Japanese and apitcg all have them the other way
+round. A clean swap between two real cards at two real numbers — **nothing in
+either row was wrong on its own.** The uid was right, the number was right, the
+name was a real card's name. Only the pairing was wrong, and only across
+languages was it visible.
+
+So it became a check rather than a fix. Bandai runs one code system across EN,
+JP and CN-S, so `cross_language_name_disagreements` asserts that one number
+names one card, for games in `SHARED_NUMBERING_GAMES`.
+
+Three things it must not do, each of which would have buried the real finding:
+
+- **Not Pokémon.** `173/165` and `173/151` are different cards; running this
+  there would report every Simplified Chinese row as a contradiction.
+- **Not across scripts.** `路飞` *is* `Monkey.D.Luffy` and nothing here can
+  know that. A cross-script pair is NOT COMPARABLE — a third answer, and the
+  reason `is_latin_name` exists.
+- **Not on punctuation.** `Monkey.D.Luffy` and `Monkey D. Luffy` are one card
+  written two ways.
+
+### It immediately found a second error, in this repository
+
+Three `in_repo` rows named `OP01-121` as Monkey.D.Luffy. The card is **Yamato**
+— apitcg agrees, and `contracts/card_uid.md` names Monkey.D.Luffy at
+`OP05-119`, not `OP01-121`. The seeding attached the wrong example's name.
+These rows are `in_repo` and score nothing, so no gate was measuring them; the
+check found them anyway.
+
+### And fixing that uncovered a third
+
+Correcting the name removed the only thing distinguishing
+`optcg:OP01:OP01-121:base:EN` from `optcg:op01:OP01-121:base:EN` — **the same
+card under two set-code spellings.** The resolver went from picking the wrong
+one to picking neither, and `test_every_language_printing_resolves_to_its_own_uid`
+failed. A latent split, visible only once the name stopped hiding it.
+
+Ten One Piece rows used uppercase set codes where the catalog and the other 33
+use lowercase (apitcg stores them as `op01.json`). Re-cased; the three that
+then collided with a `verified` row were dropped, recorded, and the better
+provenance kept. Every correction is a logged event with its evidence and what
+caught it — a correction with no record is indistinguishable from data that was
+always right.
+
+### The PRB reprints are not the shape Celebrations is
+
+apitcg's `prb01.json` confirms the rule emphatically: **317 of 319 cards keep
+their original `OPxx-xxx`**, only 2 use the `PRB01-` scheme. But the reprints
+appear as `OP05-119_p3`, `_p4`, `_p5` — Bandai's *parallel* suffixes. PRB-01
+contains **new treatments**, not plain reprints.
+
+So the pair differs in `set_code` **and** `variant`, which is neither
+`same_number_new_set` nor C6. I had already tagged the five originals
+`same_number_new_set` by analogy before checking. **Backed out**, and recorded
+as an open question rather than resolved by widening a shape to fit.
+
+The PRB rows are not minted. The variant is the one field no source here
+supplies, and reading it from apitcg would make the row catalog-derived — the
+circularity the labelled set exists to avoid.
+
+### Riftbound writes its numbers two ways
+
+`OGN-030a/298` did not parse **at all** — a set prefix with a denominator was
+unreadable, so a card offered in that form had no identity. It parses now, and
+the prefix is kept rather than discarded.
+
+`numbers_denote_same_printing` reconciles the prefixed and denominated forms
+*within one set*: the prefix and the denominator are redundant here, each
+naming the set, and marketplaces use both. A reconciliation, not a
+normalisation — neither form is rewritten, `OGN-030A` against `SFD-030a/298`
+is False, and a scheme with no common ground still refuses.
+
+### The upgrade path
+
+`single_source` → `verified`, and nothing else. Not part of `ingest`: a
+re-import must never promote, or a single-source row becomes ground truth
+because somebody sent the same file twice. `--second-source` is required and
+recorded on the row — `verified` claims two independent sources agree, and an
+unnamed one cannot be checked.
+
+First upgrade: `pkmn:csv3C:155/130:sar:CN-S`, second source PriceCharting.
+
+### The interval test was passing for the wrong reason
+
+At n=170 with a clean sweep the 95% lower bound is **0.9825**, which clears
+0.98 — so the test asserting "the bound must not clear the threshold early"
+fired. It was right to fire and wrong in what it measured: ADR-0015 sized the
+set on the **error budget**, not the count. The question is whether ONE wrong
+match would still clear the threshold.
+
+Computing that exposed a worse bug: the bisection was **inverted** and returned
+`0.0` for every input — which passes an `assertLess` silently. A guard that
+returns zero is a guard that always agrees with you.
+
+Fixed, and pinned to ADR-0015's own arithmetic: 250 rows survive one error at
+0.9812, 200 at 0.9765, and 200 clean at 0.9851. All three reproduce exactly.
+At n=170 one error gives 0.9724, so the count is still the binding constraint.
+
+### Where the gate stands
+
+170 verified of 250. Precision and recall 1.0000. Hard cases **129 of 60**.
+All six required kinds have verified examples. Three failures: total count,
+per-combo targets, and the 20-row floor — `pkmn:EN` and `optcg:EN` and
+`pkmn:JP` have cleared the floor, `riftbound:EN` is 4 short of it.
+
+111 mutants catalogued, all caught.

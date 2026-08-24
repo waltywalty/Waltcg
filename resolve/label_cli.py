@@ -198,6 +198,53 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False,
     return accepted, rejected, report
 
 
+UPGRADE_PATH = {("single_source", "verified")}
+
+
+def upgrade(card_uid, to, second_source, labelled_path=LABELLED,
+            dry_run=False, date=None):
+    """Promote one row's confidence, naming the source that earned it.
+
+    NOT part of `ingest`. A re-import must never promote -- that is how a
+    single-source row quietly becomes ground truth because somebody sent the
+    same file twice. Promotion is a deliberate act with a name attached, and
+    the name is the whole point: `verified` is a claim that TWO INDEPENDENT
+    sources agree, so the second one has to be recorded or the claim is
+    unauditable.
+
+    Only single_source -> verified. Demotion is not an upgrade and does not
+    belong here; `in_repo` and `unstated` are different provenance rather than
+    a lower rung of the same ladder.
+    """
+    labelled = _load(labelled_path, {"cards": []})
+    card = next((c for c in labelled.get("cards", [])
+                 if c["card_uid"] == card_uid), None)
+    if card is None:
+        return None, f"{card_uid} is not in the set"
+    was = card.get("confidence")
+    if (was, to) not in UPGRADE_PATH:
+        return None, (f"{card_uid} is {was!r}; only "
+                      + " and ".join(f"{a} -> {b}" for a, b in
+                                     sorted(UPGRADE_PATH))
+                      + " is an upgrade. Anything else is a re-adjudication, "
+                        "not a promotion.")
+    if not second_source:
+        return None, ("--second-source is required: `verified` claims two "
+                      "independent sources agree, and an unnamed one cannot "
+                      "be checked")
+    card["confidence"] = to
+    card["upgraded"] = {"from": was, "to": to, "second_source": second_source,
+                        "date": date or _today()}
+    if not dry_run:
+        _save(labelled_path, labelled)
+    return card, ""
+
+
+def _today():
+    import datetime
+    return datetime.date.today().isoformat()
+
+
 def map_classes(labelled_path=LABELLED, dry_run=False):
     """Translate `difficulty_class` tags into `hard_cases` kinds.
 
@@ -508,7 +555,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="waft label")
     parser.add_argument("command",
                         choices=["propose", "review", "status", "ingest",
-                                 "map-classes"])
+                                 "map-classes", "upgrade"])
+    parser.add_argument("--card-uid", default=None,
+                        help="the row to upgrade")
+    parser.add_argument("--to", default="verified",
+                        help="the confidence to promote to")
+    parser.add_argument("--second-source", default=None,
+                        help="the independent source that earned the "
+                             "promotion. Required, and recorded on the row")
     parser.add_argument("--rows", default=None,
                         help="JSON file of externally-researched rows to "
                              "ingest. A list, or an object with a `cards` key. "
@@ -539,6 +593,19 @@ def main(argv=None):
             combos = tuple(tuple(c.split(":")) for c in args.combos.split(","))
         return propose(args.catalog, args.queue, source=args.source,
                        combos=combos)
+    if args.command == "upgrade":
+        if not args.card_uid:
+            parser.error("upgrade needs --card-uid")
+        card, why = upgrade(args.card_uid, args.to, args.second_source,
+                            dry_run=args.dry_run)
+        if card is None:
+            print(f"REFUSED: {why}")
+            return 1
+        print(f"{args.card_uid}: {card['upgraded']['from']} -> "
+              f"{card['upgraded']['to']}  (second source: "
+              f"{card['upgraded']['second_source']})"
+              + ("  [DRY RUN]" if args.dry_run else ""))
+        return 0
     if args.command == "map-classes":
         changed, unmapped, total = map_classes(dry_run=args.dry_run)
         print(f"{len(changed)} of {total} rows given hard_cases"

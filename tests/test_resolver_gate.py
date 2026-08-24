@@ -593,22 +593,99 @@ class PrecisionIsReportedWithItsInterval(unittest.TestCase):
     one mistake. Reporting the point estimate without the bound is how "1.00"
     gets read as "met"."""
 
+    @staticmethod
+    def _lower_bound(n, errors=0):
+        """One-sided 95% Clopper-Pearson lower bound on precision.
+
+        Zero errors collapses to `0.05 ** (1/n)`; one error needs the beta
+        quantile, and the difference between the two is the whole reason the
+        set is sized at 250 rather than at whatever clears the threshold
+        today.
+        """
+        if errors == 0:
+            return 0.05 ** (1.0 / n)
+        try:
+            from statistics import NormalDist            # noqa: F401
+            import math
+            # Beta(n - errors, errors + 1) 5th percentile, by bisection --
+            # exact enough here and it avoids a scipy dependency.
+            def cdf(x):
+                total = 0.0
+                for k in range(n - errors, n + 1):
+                    total += (math.comb(n, k) * x ** k * (1 - x) ** (n - k))
+                return total
+            # `cdf` is P(X >= n-errors | p), which INCREASES with p. We want
+            # the p where it equals 0.05, so a value above the target means
+            # the answer is lower. Getting this backwards returns 0.0 for
+            # every input -- and 0.0 passes a `assertLess(bound, threshold)`
+            # check, so the test goes green while measuring nothing.
+            lo, hi = 0.0, 1.0
+            for _ in range(200):
+                mid = (lo + hi) / 2
+                if cdf(mid) > 0.05:
+                    hi = mid
+                else:
+                    lo = mid
+            return lo
+        except Exception:                                # noqa: BLE001
+            return 0.0
+
+    def test_the_interval_arithmetic_matches_the_sizing_note(self):
+        """A guard on the guard. ADR-0015 sized the set by computing that 250
+        rows survive ONE error at 0.9812 and 200 do not (0.9765). If this
+        helper cannot reproduce those two numbers it is not measuring what the
+        gate is sized against -- and a broken bound returns 0.0, which passes
+        an `assertLess` silently."""
+        self.assertAlmostEqual(self._lower_bound(250, 1), 0.9812, places=3)
+        self.assertAlmostEqual(self._lower_bound(200, 1), 0.9765, places=3)
+        self.assertAlmostEqual(self._lower_bound(200, 0), 0.9851, places=3)
+        self.assertGreater(self._lower_bound(250, 1), 0.9,
+                           "the bound collapsed to zero -- the bisection is "
+                           "inverted and every comparison against it is "
+                           "passing for the wrong reason")
+
     def test_the_lower_bound_is_computable_and_reported(self):
-        import math
         data = load()
         n = len(scored_rows(data))
         if not n:
             self.skipTest("no scored rows")
-        # Clopper-Pearson, zero errors: the one-sided 95% lower bound is
-        # 0.05 ** (1/n). Only valid while the sweep is clean; a single wrong
-        # match needs the full beta quantile.
-        bound = 0.05 ** (1.0 / n)
         threshold = data["_gate"]["precision_threshold"]
-        self.assertGreater(bound, 0.0)
-        if n < data["_gate"]["required_cards"]:
+        clean = self._lower_bound(n)
+        self.assertGreater(clean, 0.0)
+        if n >= data["_gate"]["required_cards"]:
+            return
+        # THE SET IS SIZED ON THE ERROR BUDGET, NOT THE COUNT. ADR-0015:
+        # "250 survives one error (0.9812). The binding constraint is the
+        # error budget, not the sample size." So a clean sweep clearing the
+        # threshold early proves nothing -- the question is whether ONE wrong
+        # match would still clear it, and below the required count it must not.
+        one_error = self._lower_bound(n, errors=1)
+        self.assertLess(
+            one_error, threshold,
+            f"n={n} survives one error at {one_error:.4f}, which clears "
+            f"{threshold} below the required "
+            f"{data['_gate']['required_cards']}. If that holds, the required "
+            "count is larger than the error budget needs and ADR-0015 should "
+            "be revisited rather than the gate quietly left redundant.")
+
+    def test_a_clean_sweep_alone_does_not_justify_the_claim(self):
+        """The trap this guards. At n=170 with zero errors the bound is
+        0.9825 and clears 0.98 -- and one wrong match drops it below. Reading
+        the clean number as "the gate is met" is exactly the mistake the
+        sizing note was written to prevent."""
+        data = load()
+        n = len(scored_rows(data))
+        if not n or n >= data["_gate"]["required_cards"]:
+            self.skipTest("set is at or past its required count")
+        threshold = data["_gate"]["precision_threshold"]
+        clean = self._lower_bound(n)
+        one_error = self._lower_bound(n, errors=1)
+        self.assertLess(one_error, clean,
+                        "one error must lower the bound, or the arithmetic is "
+                        "wrong")
+        if clean >= threshold:
             self.assertLess(
-                bound, threshold,
-                f"n={n} gives a 95% lower bound of {bound:.4f}, which already "
-                f"clears {threshold} -- if that is true the gate's required "
-                "count is larger than the error budget needs and ADR-0015 "
-                "should be revisited.")
+                one_error, threshold,
+                f"n={n}: a clean sweep gives {clean:.4f} and one error gives "
+                f"{one_error:.4f}. Both clear {threshold}, so the count is no "
+                "longer the binding constraint.")

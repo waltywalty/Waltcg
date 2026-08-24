@@ -21,7 +21,7 @@
       "verified"
     ]
   },
-  "_status": "INCOMPLETE -- 178 of 250",
+  "_status": "INCOMPLETE -- 216 of 250",
   "_needed": {
     "have": 21,
     "short_by": 229,
@@ -44,135 +44,18 @@
   },
   "cards": [
     {
-      "card_uid": "optcg:OP01:OP01-013:treasure_rare:CN-S",
+      "card_uid": "optcg:eb01:EB01-012:base:EN",
       "game": "optcg",
-      "set_code": "OP01",
-      "number": "OP01-013",
-      "variant": "treasure_rare",
-      "language": "CN-S",
-      "name": "Sanji",
-      "foil": true,
-      "source": "external_research",
-      "hard_case": "same_number_different_rarity",
-      "note": "OP01-013 exists as an R and as a TR at the SAME number. Rarity and foil separate them; the number never can. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
-      "confidence": "unstated"
-    },
-    {
-      "card_uid": "optcg:OP01:OP01-078:parallel:JP",
-      "game": "optcg",
-      "set_code": "OP01",
-      "number": "OP01-078",
-      "variant": "parallel",
-      "language": "JP",
-      "name": "Boa Hancock",
-      "verified_from": "contracts/fixtures",
-      "hard_case": "alt_art_variant",
-      "note": "Parallel printing of a base card at the same number.",
-      "confidence": "in_repo"
-    },
-    {
-      "card_uid": "optcg:OP01:OP01-121:base:CN-S",
-      "game": "optcg",
-      "set_code": "OP01",
-      "number": "OP01-121",
-      "variant": "base",
-      "language": "CN-S",
-      "name": "路飞",
-      "verified_from": "contracts/card_uid.md",
-      "hard_case": "same_number_three_languages",
-      "note": "Simplified Chinese printing. No Western source carries it; manual tier.",
-      "confidence": "in_repo"
-    },
-    {
-      "card_uid": "optcg:OP01:OP01-121:base:EN",
-      "game": "optcg",
-      "set_code": "OP01",
-      "number": "OP01-121",
+      "set_code": "eb01",
+      "number": "EB01-012",
       "variant": "base",
       "language": "EN",
-      "name": "Monkey.D.Luffy",
-      "verified_from": "contracts/card_uid.md",
-      "hard_case": "same_number_three_languages",
-      "confidence": "in_repo"
-    },
-    {
-      "card_uid": "optcg:OP01:OP01-121:base:JP",
-      "game": "optcg",
-      "set_code": "OP01",
-      "number": "OP01-121",
-      "variant": "base",
-      "language": "JP",
-      "name": "モンキー・D・ルフィ",
-      "verified_from": "contracts/card_uid.md",
-      "hard_case": "same_number_three_languages",
-      "confidence": "in_repo"
-    },
-    {
-      "card_uid": "optcg:OP04:OP04-092:treasure_rare:CN-S",
-      "game": "optcg",
-      "set_code": "OP04",
-      "number": "OP04-092",
-      "variant": "treasure_rare",
-      "language": "CN-S",
-      "name": "Rebecca",
-      "foil": true,
-      "box_code": "OPC-07",
+      "name": "Cavendish",
       "source": "external_research",
-      "hard_case": "box_code_vs_card_number",
-      "note": "The box code OPC-07 and the printed number OP04-092 do not correspond. PSA slabs this card under the BOX code, so a comp that names OPC-07 is this card. Both are stored; only OP04 reaches the uid. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
-      "confidence": "unstated"
-    },
-    {
-      "card_uid": "optcg:OP05:OP05-119:manga_rare:EN",
-      "game": "optcg",
-      "set_code": "OP05",
-      "number": "OP05-119",
-      "variant": "manga_rare",
-      "language": "EN",
-      "name": "Monkey.D.Luffy",
-      "verified_from": "contracts/fixtures",
-      "confidence": "in_repo"
-    },
-    {
-      "card_uid": "optcg:OP07:OP07-046:treasure_rare:CN-S",
-      "game": "optcg",
-      "set_code": "OP07",
-      "number": "OP07-046",
-      "variant": "treasure_rare",
-      "language": "CN-S",
-      "name": "Sengoku",
-      "foil": true,
-      "source": "external_research",
-      "hard_case": "same_number_different_rarity",
-      "note": "Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
-      "confidence": "unstated"
-    },
-    {
-      "card_uid": "optcg:P:P-001:promo:EN",
-      "game": "optcg",
-      "set_code": "P",
-      "number": "P-001",
-      "variant": "promo",
-      "language": "EN",
-      "name": "Monkey.D.Luffy",
-      "verified_from": "contracts/fixtures",
-      "hard_case": "promo_vs_set",
-      "note": "Promo Luffy. Shares a name with OP05-119 and is a different card.",
-      "confidence": "in_repo"
-    },
-    {
-      "card_uid": "optcg:ST03:ST03-013:treasure_rare:CN-S",
-      "game": "optcg",
-      "set_code": "ST03",
-      "number": "ST03-013",
-      "variant": "treasure_rare",
-      "language": "CN-S",
-      "name": "Boa Hancock",
-      "foil": true,
-      "source": "external_research",
-      "hard_case": "same_number_different_rarity",
-      "note": "A starter-deck number carrying a Treasure Rare. Shares a name with optcg:OP01:OP01-078:parallel:JP and is a different card. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
-      "confidence": "unstated"
+      "confidence": "verified",
+      "note": "SR; retained in PRB02",
+      "reprinted_in": "prb02",
+      "reprint_shape_unresolved": "PRB printing is a new treatment (_p3/_p4/_p5 in apitcg), so this is not `same_number_new_set` -- see docs/OPEN_ISSUES.md"
     },
     {
       "card_uid": "optcg:op01:OP01-001:base:CN-S",
@@ -262,13 +145,53 @@
       "number": "OP01-002",
       "variant": "base",
       "language": "CN-S",
-      "name": "Monkey D. Luffy",
+      "name": "Trafalgar Law",
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "蒙奇·D·路飞; Leader",
+      "note": "特拉法尔加·罗; Leader",
       "hard_cases": [
         "same_art_different_language"
+      ],
+      "corrected": {
+        "field": "name",
+        "was": "Monkey D. Luffy",
+        "date": "2026-08-18",
+        "caught_by": "cross_language_name_disagreements"
+      }
+    },
+    {
+      "card_uid": "optcg:op01:OP01-002:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-002",
+      "variant": "base",
+      "language": "EN",
+      "name": "Trafalgar Law",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1,C5",
+      "note": "Leader",
+      "hard_cases": [
+        "same_art_different_language",
+        "name_is_not_unique"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-002:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-002",
+      "variant": "base",
+      "language": "JP",
+      "name": "Trafalgar Law",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1,C5",
+      "note": "トラファルガー・ロー; Leader",
+      "hard_cases": [
+        "same_art_different_language",
+        "name_is_not_unique"
       ]
     },
     {
@@ -278,14 +201,20 @@
       "number": "OP01-003",
       "variant": "base",
       "language": "CN-S",
-      "name": "Trafalgar Law",
+      "name": "Monkey.D.Luffy",
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "特拉法尔加·罗; Leader",
+      "note": "蒙奇·D·路飞; Leader",
       "hard_cases": [
         "same_art_different_language"
-      ]
+      ],
+      "corrected": {
+        "field": "name",
+        "was": "Trafalgar Law",
+        "date": "2026-08-18",
+        "caught_by": "cross_language_name_disagreements"
+      }
     },
     {
       "card_uid": "optcg:op01:OP01-003:base:EN",
@@ -364,6 +293,54 @@
       "note": "TR; Chinese-exclusive treatment"
     },
     {
+      "card_uid": "optcg:op01:OP01-013:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-013",
+      "variant": "base",
+      "language": "EN",
+      "name": "Sanji",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "R",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-013:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-013",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Sanji",
+      "foil": true,
+      "source": "external_research",
+      "hard_case": "same_number_different_rarity",
+      "note": "OP01-013 exists as an R and as a TR at the SAME number. Rarity and foil separate them; the number never can. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
+      "confidence": "unstated",
+      "corrected": {
+        "field": "set_code",
+        "was": "OP01",
+        "date": "2026-08-18",
+        "caught_by": "set_code_case_collision"
+      }
+    },
+    {
+      "card_uid": "optcg:op01:OP01-015:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-015",
+      "variant": "base",
+      "language": "EN",
+      "name": "Tony Tony.Chopper",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "C"
+    },
+    {
       "card_uid": "optcg:op01:OP01-016:alt_art:CN-S",
       "game": "optcg",
       "set_code": "op01",
@@ -387,6 +364,38 @@
       "confidence": "verified",
       "difficulty_class": "C1",
       "note": "娜美",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-016:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-016",
+      "variant": "base",
+      "language": "EN",
+      "name": "Nami",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "R",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-016:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-016",
+      "variant": "base",
+      "language": "JP",
+      "name": "Nami",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "ナミ",
       "hard_cases": [
         "same_art_different_language"
       ]
@@ -437,6 +446,22 @@
       "hard_cases": [
         "same_art_different_language",
         "name_is_not_unique"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-025:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-025",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Roronoa Zoro",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "罗罗诺亚·索隆; SR",
+      "hard_cases": [
+        "same_art_different_language"
       ]
     },
     {
@@ -522,6 +547,58 @@
       ]
     },
     {
+      "card_uid": "optcg:op01:OP01-029:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-029",
+      "variant": "base",
+      "language": "EN",
+      "name": "Radical Beam!!",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Event, UC"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-031:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-031",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Kouzuki Oden",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "光月御殿; Leader; SC name single-sourced"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-047:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-047",
+      "variant": "base",
+      "language": "EN",
+      "name": "Trafalgar Law",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C5",
+      "note": "SR; same name as OP01-002 Leader",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-051:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-051",
+      "variant": "base",
+      "language": "EN",
+      "name": "Eustass\"Captain\"Kid",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "SR"
+    },
+    {
       "card_uid": "optcg:op01:OP01-060:base:CN-S",
       "game": "optcg",
       "set_code": "op01",
@@ -570,6 +647,32 @@
       ]
     },
     {
+      "card_uid": "optcg:op01:OP01-070:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-070",
+      "variant": "base",
+      "language": "EN",
+      "name": "Dracule Mihawk",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "SR; retained in PRB01 with new treatment",
+      "reprinted_in": "prb01",
+      "reprint_shape_unresolved": "PRB printing is a new treatment (_p3/_p4/_p5 in apitcg), so this is not `same_number_new_set` -- see docs/OPEN_ISSUES.md"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-070:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-070",
+      "variant": "base",
+      "language": "JP",
+      "name": "Dracule Mihawk",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ジュラキュール・ミホーク"
+    },
+    {
       "card_uid": "optcg:op01:OP01-078:base:CN-S",
       "game": "optcg",
       "set_code": "op01",
@@ -584,6 +687,57 @@
       "hard_cases": [
         "same_art_different_language"
       ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-078:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-078",
+      "variant": "base",
+      "language": "EN",
+      "name": "Boa Hancock",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "SR",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-078:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-078",
+      "variant": "base",
+      "language": "JP",
+      "name": "Boa Hancock",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "ボア・ハンコック",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-078:parallel:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-078",
+      "variant": "parallel",
+      "language": "JP",
+      "name": "Boa Hancock",
+      "verified_from": "contracts/fixtures",
+      "hard_case": "alt_art_variant",
+      "note": "Parallel printing of a base card at the same number.",
+      "confidence": "in_repo",
+      "corrected": {
+        "field": "set_code",
+        "was": "OP01",
+        "date": "2026-08-18",
+        "caught_by": "set_code_case_collision"
+      }
     },
     {
       "card_uid": "optcg:op01:OP01-120:base:CN-S",
@@ -668,6 +822,28 @@
       ]
     },
     {
+      "card_uid": "optcg:op01:OP01-121:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-121",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Yamato",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "大和; SEC",
+      "hard_cases": [
+        "same_art_different_language"
+      ],
+      "superseded_rows": [
+        {
+          "confidence": "in_repo",
+          "provenance": "contracts/card_uid.md"
+        }
+      ]
+    },
+    {
       "card_uid": "optcg:op01:OP01-121:base:EN",
       "game": "optcg",
       "set_code": "op01",
@@ -677,7 +853,13 @@
       "name": "Yamato",
       "source": "external_research",
       "confidence": "verified",
-      "note": "SEC; illustrator Hitoshi Ariga"
+      "note": "SEC; illustrator Hitoshi Ariga",
+      "superseded_rows": [
+        {
+          "confidence": "in_repo",
+          "provenance": "contracts/card_uid.md"
+        }
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-121:base:JP",
@@ -692,7 +874,103 @@
       "difficulty_class": "C1",
       "hard_cases": [
         "same_art_different_language"
+      ],
+      "superseded_rows": [
+        {
+          "confidence": "in_repo",
+          "provenance": "contracts/card_uid.md"
+        }
       ]
+    },
+    {
+      "card_uid": "optcg:op02:OP02-013:base:EN",
+      "game": "optcg",
+      "set_code": "op02",
+      "number": "OP02-013",
+      "variant": "base",
+      "language": "EN",
+      "name": "Portgas.D.Ace",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "SR; retained in PRB01",
+      "reprinted_in": "prb01",
+      "reprint_shape_unresolved": "PRB printing is a new treatment (_p3/_p4/_p5 in apitcg), so this is not `same_number_new_set` -- see docs/OPEN_ISSUES.md"
+    },
+    {
+      "card_uid": "optcg:op04:OP04-092:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "op04",
+      "number": "OP04-092",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Rebecca",
+      "foil": true,
+      "box_code": "OPC-07",
+      "source": "external_research",
+      "hard_case": "box_code_vs_card_number",
+      "note": "The box code OPC-07 and the printed number OP04-092 do not correspond. PSA slabs this card under the BOX code, so a comp that names OPC-07 is this card. Both are stored; only OP04 reaches the uid. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
+      "confidence": "unstated",
+      "corrected": {
+        "field": "set_code",
+        "was": "OP04",
+        "date": "2026-08-18",
+        "caught_by": "set_code_case_collision"
+      }
+    },
+    {
+      "card_uid": "optcg:op05:OP05-119:base:EN",
+      "game": "optcg",
+      "set_code": "op05",
+      "number": "OP05-119",
+      "variant": "base",
+      "language": "EN",
+      "name": "Monkey.D.Luffy",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C5",
+      "note": "SEC; retained in PRB01",
+      "hard_cases": [
+        "name_is_not_unique"
+      ],
+      "reprinted_in": "prb01",
+      "reprint_shape_unresolved": "PRB printing is a new treatment (_p3/_p4/_p5 in apitcg), so this is not `same_number_new_set` -- see docs/OPEN_ISSUES.md"
+    },
+    {
+      "card_uid": "optcg:op05:OP05-119:manga_rare:EN",
+      "game": "optcg",
+      "set_code": "op05",
+      "number": "OP05-119",
+      "variant": "manga_rare",
+      "language": "EN",
+      "name": "Monkey.D.Luffy",
+      "verified_from": "contracts/fixtures",
+      "confidence": "in_repo",
+      "corrected": {
+        "field": "set_code",
+        "was": "OP05",
+        "date": "2026-08-18",
+        "caught_by": "set_code_case_collision"
+      }
+    },
+    {
+      "card_uid": "optcg:op07:OP07-046:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "op07",
+      "number": "OP07-046",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Sengoku",
+      "foil": true,
+      "source": "external_research",
+      "hard_case": "same_number_different_rarity",
+      "note": "Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
+      "confidence": "unstated",
+      "corrected": {
+        "field": "set_code",
+        "was": "OP07",
+        "date": "2026-08-18",
+        "caught_by": "set_code_case_collision"
+      }
     },
     {
       "card_uid": "optcg:op08:OP08-106:parallel:EN",
@@ -726,6 +1004,63 @@
         "same_art_different_language",
         "same_printed_number_different_treatment"
       ]
+    },
+    {
+      "card_uid": "optcg:op09:OP09-046:base:EN",
+      "game": "optcg",
+      "set_code": "op09",
+      "number": "OP09-046",
+      "variant": "base",
+      "language": "EN",
+      "name": "Crocodile",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C5",
+      "note": "SR; retained in PRB02",
+      "hard_cases": [
+        "name_is_not_unique"
+      ],
+      "reprinted_in": "prb02",
+      "reprint_shape_unresolved": "PRB printing is a new treatment (_p3/_p4/_p5 in apitcg), so this is not `same_number_new_set` -- see docs/OPEN_ISSUES.md"
+    },
+    {
+      "card_uid": "optcg:p:P-001:promo:EN",
+      "game": "optcg",
+      "set_code": "p",
+      "number": "P-001",
+      "variant": "promo",
+      "language": "EN",
+      "name": "Monkey.D.Luffy",
+      "verified_from": "contracts/fixtures",
+      "hard_case": "promo_vs_set",
+      "note": "Promo Luffy. Shares a name with OP05-119 and is a different card.",
+      "confidence": "in_repo",
+      "corrected": {
+        "field": "set_code",
+        "was": "P",
+        "date": "2026-08-18",
+        "caught_by": "set_code_case_collision"
+      }
+    },
+    {
+      "card_uid": "optcg:st03:ST03-013:treasure_rare:CN-S",
+      "game": "optcg",
+      "set_code": "st03",
+      "number": "ST03-013",
+      "variant": "treasure_rare",
+      "language": "CN-S",
+      "name": "Boa Hancock",
+      "foil": true,
+      "source": "external_research",
+      "hard_case": "same_number_different_rarity",
+      "note": "A starter-deck number carrying a Treasure Rare. Shares a name with optcg:OP01:OP01-078:parallel:JP and is a different card. Printed Chinese name not verified by the research; the reference name is recorded and the printed name is absent rather than guessed.",
+      "confidence": "unstated",
+      "corrected": {
+        "field": "set_code",
+        "was": "ST03",
+        "date": "2026-08-18",
+        "caught_by": "set_code_case_collision"
+      }
     },
     {
       "card_uid": "pkmn:151C:001/151:base:CN-S",
@@ -1617,6 +1952,18 @@
       "confidence": "single_source"
     },
     {
+      "card_uid": "pkmn:cs5aC:092/127:base:CN-S",
+      "game": "pkmn",
+      "set_code": "cs5aC",
+      "number": "092/127",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Radiant Eevee",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "焕彩伊布; Radiant/K"
+    },
+    {
       "card_uid": "pkmn:csv10C:276/222:sar:CN-S",
       "game": "pkmn",
       "set_code": "csv10C",
@@ -1636,7 +1983,13 @@
       "language": "CN-S",
       "name": "Arcanine ex",
       "source": "external_research",
-      "confidence": "single_source"
+      "confidence": "verified",
+      "upgraded": {
+        "from": "single_source",
+        "to": "verified",
+        "second_source": "PriceCharting",
+        "date": "2026-08-24"
+      }
     },
     {
       "card_uid": "pkmn:csv4C:158/129:sar:CN-S",
@@ -1840,6 +2193,30 @@
       "reprint_shape": "new_art_new_number"
     },
     {
+      "card_uid": "pkmn:s12a:013/172:base:JP",
+      "game": "pkmn",
+      "set_code": "s12a",
+      "number": "013/172",
+      "variant": "base",
+      "language": "JP",
+      "name": "Charizard V",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "リザードンV; RR"
+    },
+    {
+      "card_uid": "pkmn:s12a:014/172:base:JP",
+      "game": "pkmn",
+      "set_code": "s12a",
+      "number": "014/172",
+      "variant": "base",
+      "language": "JP",
+      "name": "Charizard VSTAR",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "リザードンVSTAR; RRR"
+    },
+    {
       "card_uid": "pkmn:s12a:015/172:base:JP",
       "game": "pkmn",
       "set_code": "s12a",
@@ -1856,6 +2233,30 @@
         "reprint"
       ],
       "reprint_shape": "new_art_new_number"
+    },
+    {
+      "card_uid": "pkmn:s12a:050/172:base:JP",
+      "game": "pkmn",
+      "set_code": "s12a",
+      "number": "050/172",
+      "variant": "base",
+      "language": "JP",
+      "name": "Mewtwo V",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ミュウツーV; RR"
+    },
+    {
+      "card_uid": "pkmn:s12a:051/172:base:JP",
+      "game": "pkmn",
+      "set_code": "s12a",
+      "number": "051/172",
+      "variant": "base",
+      "language": "JP",
+      "name": "Mewtwo VSTAR",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ミュウツーVSTAR; RRR"
     },
     {
       "card_uid": "pkmn:s6a:095/069:alt_art:JP",
@@ -2211,6 +2612,114 @@
       "hard_cases": [
         "same_art_different_language"
       ]
+    },
+    {
+      "card_uid": "pkmn:sv1S:083/078:ar:JP",
+      "game": "pkmn",
+      "set_code": "sv1S",
+      "number": "083/078",
+      "variant": "ar",
+      "language": "JP",
+      "name": "Ralts",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ラルトス; illustrator Tika Matsuno"
+    },
+    {
+      "card_uid": "pkmn:sv1S:084/078:ar:JP",
+      "game": "pkmn",
+      "set_code": "sv1S",
+      "number": "084/078",
+      "variant": "ar",
+      "language": "JP",
+      "name": "Kirlia",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "キルリア"
+    },
+    {
+      "card_uid": "pkmn:sv1S:102/078:sar:JP",
+      "game": "pkmn",
+      "set_code": "sv1S",
+      "number": "102/078",
+      "variant": "sar",
+      "language": "JP",
+      "name": "Great Tusk ex",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "イダイナキバex"
+    },
+    {
+      "card_uid": "pkmn:sv1S:105/078:sar:JP",
+      "game": "pkmn",
+      "set_code": "sv1S",
+      "number": "105/078",
+      "variant": "sar",
+      "language": "JP",
+      "name": "Penny",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ボタン"
+    },
+    {
+      "card_uid": "pkmn:sv1V:014/078:base:JP",
+      "game": "pkmn",
+      "set_code": "sv1V",
+      "number": "014/078",
+      "variant": "base",
+      "language": "JP",
+      "name": "Gyarados ex",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ギャラドスex; RR"
+    },
+    {
+      "card_uid": "pkmn:sv1V:081/078:ar:JP",
+      "game": "pkmn",
+      "set_code": "sv1V",
+      "number": "081/078",
+      "variant": "ar",
+      "language": "JP",
+      "name": "Wiglett",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ウミディグダ"
+    },
+    {
+      "card_uid": "pkmn:sv1V:090/078:ar:JP",
+      "game": "pkmn",
+      "set_code": "sv1V",
+      "number": "090/078",
+      "variant": "ar",
+      "language": "JP",
+      "name": "Starly",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ムックル"
+    },
+    {
+      "card_uid": "pkmn:sv1V:101/078:sar:JP",
+      "game": "pkmn",
+      "set_code": "sv1V",
+      "number": "101/078",
+      "variant": "sar",
+      "language": "JP",
+      "name": "Gardevoir ex",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "サーナイトex"
+    },
+    {
+      "card_uid": "pkmn:sv1V:103/078:sar:JP",
+      "game": "pkmn",
+      "set_code": "sv1V",
+      "number": "103/078",
+      "variant": "sar",
+      "language": "JP",
+      "name": "Koraidon ex",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "コライドンex"
     },
     {
       "card_uid": "pkmn:sv2a:001/165:base:JP",
@@ -2641,6 +3150,34 @@
       ]
     },
     {
+      "card_uid": "riftbound:OGN:OGN-037:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-037",
+      "variant": "base",
+      "language": "EN",
+      "name": "Immortal Phoenix",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Epic"
+    },
+    {
+      "card_uid": "riftbound:OGN:OGN-039:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-039",
+      "variant": "base",
+      "language": "EN",
+      "name": "Kai'Sa, Survivor",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C3",
+      "note": "Epic; base counterpart of OGN-039A alt_art",
+      "hard_cases": [
+        "alt_art_variant"
+      ]
+    },
+    {
       "card_uid": "riftbound:OGN:OGN-039A:alt_art:EN",
       "game": "riftbound",
       "set_code": "OGN",
@@ -2657,6 +3194,18 @@
       ]
     },
     {
+      "card_uid": "riftbound:OGN:OGN-042:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-042",
+      "variant": "base",
+      "language": "EN",
+      "name": "Calm Rune",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Common"
+    },
+    {
       "card_uid": "riftbound:OGN:OGN-042:signature:EN",
       "game": "riftbound",
       "set_code": "OGN",
@@ -2667,6 +3216,18 @@
       "verified_from": "contracts/fixtures",
       "note": "Set code unverified against a primary source.",
       "confidence": "in_repo"
+    },
+    {
+      "card_uid": "riftbound:OGN:OGN-043:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-043",
+      "variant": "base",
+      "language": "EN",
+      "name": "Charm",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Common"
     },
     {
       "card_uid": "riftbound:OGN:OGN-061:base:EN",
@@ -2786,5 +3347,117 @@
       "verified"
     ],
     "why": "A single-source identity is one transcription error away from being wrong, and a precision figure computed over it measures the source rather than the resolver. Both counts are reported so the size of the candidate pool is never hidden by the size of the ground truth."
-  }
+  },
+  "_corrections": [
+    {
+      "event": "batch2-name-swap",
+      "date": "2026-08-18",
+      "field": "name",
+      "what": "Two Simplified Chinese rows carried each other's names. The uids, the numbers and both names were individually correct; only the pairing was wrong, so nothing in either row looked out of place on its own.",
+      "evidence": "Batch 3's EN and JP rows for OP01-002 and OP01-003, and apitcg's op01.json, all agree the other way round. Three sources against one.",
+      "caught_by": "cross_language_name_disagreements",
+      "rows": [
+        {
+          "card_uid": "optcg:op01:OP01-002:base:CN-S",
+          "was": "Monkey D. Luffy",
+          "now": "Trafalgar Law"
+        },
+        {
+          "card_uid": "optcg:op01:OP01-003:base:CN-S",
+          "was": "Trafalgar Law",
+          "now": "Monkey.D.Luffy"
+        }
+      ]
+    },
+    {
+      "event": "seed-named-the-wrong-card-at-OP01-121",
+      "date": "2026-08-18",
+      "field": "name",
+      "what": "Three `in_repo` rows named OP01-121 as Monkey.D.Luffy (and 路飞 in Chinese). The card is Yamato. `contracts/card_uid.md` names Monkey.D.Luffy at OP05-119, not OP01-121 -- the seeding attached the wrong example's name.",
+      "evidence": "apitcg's op01.json has OP01-121 Yamato, and two externally-researched rows agree. Found while checking the batch 2 swap: not the error we were looking for, and these rows are `in_repo` so no gate was measuring them.",
+      "caught_by": "cross_language_name_disagreements",
+      "rows": [
+        {
+          "card_uid": "optcg:OP01:OP01-121:base:EN",
+          "was": "Monkey.D.Luffy",
+          "now": "Yamato"
+        },
+        {
+          "card_uid": "optcg:OP01:OP01-121:base:JP",
+          "was": "モンキー・D・ルフィ",
+          "now": "Yamato"
+        },
+        {
+          "card_uid": "optcg:OP01:OP01-121:base:CN-S",
+          "was": "路飞",
+          "now": "Yamato"
+        }
+      ]
+    },
+    {
+      "event": "one-piece-set-code-case",
+      "date": "2026-08-18",
+      "field": "set_code",
+      "what": "10 One Piece rows spelled their set code in uppercase where the catalog and every other row use lowercase, so the same card existed under two card_uids.",
+      "evidence": "apitcg stores One Piece sets as `op01.json` and the catalog derives the code from that filename; 33 of the 43 One Piece rows already used lowercase.",
+      "caught_by": "set_code_case_collision",
+      "found_while": "fixing the OP01-121 name. Correcting the name removed the only thing distinguishing the duplicate pairs, and the resolver went from picking the wrong one to picking neither -- which is how a latent split became visible.",
+      "rows": [
+        {
+          "was": "OP01",
+          "now": "optcg:op01:OP01-013:treasure_rare:CN-S"
+        },
+        {
+          "was": "OP01",
+          "now": "optcg:op01:OP01-078:parallel:JP"
+        },
+        {
+          "was": "OP01",
+          "now": "optcg:op01:OP01-121:base:CN-S"
+        },
+        {
+          "was": "OP01",
+          "now": "optcg:op01:OP01-121:base:EN"
+        },
+        {
+          "was": "OP01",
+          "now": "optcg:op01:OP01-121:base:JP"
+        },
+        {
+          "was": "OP04",
+          "now": "optcg:op04:OP04-092:treasure_rare:CN-S"
+        },
+        {
+          "was": "OP05",
+          "now": "optcg:op05:OP05-119:manga_rare:EN"
+        },
+        {
+          "was": "OP07",
+          "now": "optcg:op07:OP07-046:treasure_rare:CN-S"
+        },
+        {
+          "was": "P",
+          "now": "optcg:p:P-001:promo:EN"
+        },
+        {
+          "was": "ST03",
+          "now": "optcg:st03:ST03-013:treasure_rare:CN-S"
+        }
+      ],
+      "dropped_as_duplicate": [
+        {
+          "card_uid": "optcg:op01:OP01-121:base:CN-S",
+          "confidence": "in_repo"
+        },
+        {
+          "card_uid": "optcg:op01:OP01-121:base:EN",
+          "confidence": "in_repo"
+        },
+        {
+          "card_uid": "optcg:op01:OP01-121:base:JP",
+          "confidence": "in_repo"
+        }
+      ]
+    }
+  ]
 }
