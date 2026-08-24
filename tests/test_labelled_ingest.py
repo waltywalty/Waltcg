@@ -455,9 +455,30 @@ class TheSetCodeIsNormalisedToTheCatalog(unittest.TestCase):
         for key, entry in SET_CODE_ALIASES.items():
             self.assertTrue(entry.get("code"), key)
             self.assertTrue(entry.get("why"), key)
-            self.assertIn("targets.json", entry.get("verified_against", ""),
-                          f"{key} was aliased without naming what it was "
-                          "verified against")
+            checked = entry.get("verified_against", "")
+            # A source AND a card that was actually found in it. "probably
+            # sv151" is a guess; "sv03.5 holds 199 Charizard ex" is a check,
+            # and the difference is whether a name appears.
+            self.assertTrue(
+                any(src in checked for src in ("targets.json", "apitcg")),
+                f"{key} names no source it was verified against")
+            self.assertGreater(
+                len(checked), 60,
+                f"{key} was aliased without saying which cards confirmed it")
+
+    def test_a_code_we_could_not_verify_is_recorded_as_such(self):
+        """An unaliased code and an unverifiable one behave identically -- both
+        pass through -- and only one of them is a decision. Recording the
+        second is how you tell later that somebody looked."""
+        from resolve.identity import (SET_CODE_ALIASES, UNVERIFIED_SET_CODES,
+                                      canonical_set_code)
+        self.assertTrue(UNVERIFIED_SET_CODES)
+        for key, why in UNVERIFIED_SET_CODES.items():
+            self.assertNotIn(key, SET_CODE_ALIASES,
+                             f"{key} is both aliased and unverified")
+            self.assertGreater(len(why), 40, f"{key} has no reason recorded")
+            # And it must still pass through untouched.
+            self.assertEqual(canonical_set_code(*key)[0], key[2])
 
 
 class SupersedingAnUnstatedRow(unittest.TestCase):

@@ -234,6 +234,44 @@ SET_CODE_ALIASES = {
         "verified_against": "ingest/targets.json -- sv03.5 holds 199 Charizard "
                             "ex and 205 Mew ex, matching the rows",
     },
+    ("pkmn", "EN", "sv1"): {
+        "code": "sv01",
+        "why": "the catalog numbers Scarlet & Violet sets `sv01`..`sv10`",
+        "verified_against": "apitcg sv1.json holds 258 cards with 13 "
+                            "Sprigatito, 36 Fuecoco, 52 Quaxly, 60 Cetitan, "
+                            "120 Sandaconda and 122 Klawf -- the six rows; "
+                            "ingest/targets.json carries the same set as sv01",
+    },
+    ("pkmn", "EN", "cel"): {
+        "code": "cel25cc",
+        "why": "Celebrations splits into the main set and the Classic "
+               "Collection; these rows are the Classic Collection",
+        "verified_against": "apitcg cel25c.json holds 4 Charizard, 2 "
+                            "Blastoise, 8 Dark Gyarados and 17 Umbreon -- "
+                            "exactly the four rows; ingest/targets.json "
+                            "carries the Classic Collection as cel25cc. NOTE: "
+                            "tcgdex RENUMBERS it CC001.. so the catalog will "
+                            "not match these rows by number, and the bridge "
+                            "refuses rather than guessing.",
+    },
+    ("pkmn", "EN", "tr"): {
+        "code": "base5",
+        "why": "Team Rocket is the fifth Base-era set",
+        "verified_against": "apitcg base5.json holds 83 cards with 8 Dark "
+                            "Gyarados -- the row",
+    },
+    ("pkmn", "EN", "pgo"): {
+        "code": "swsh10.5",
+        "why": "Pokemon GO is SWSH10.5",
+        "verified_against": "ingest/targets.json holds swsh10.5 011 Radiant "
+                            "Charizard -- the row exactly, index and all",
+    },
+    ("pkmn", "EN", "crz"): {
+        "code": "swsh12.5",
+        "why": "Crown Zenith is SWSH12.5",
+        "verified_against": "ingest/targets.json holds swsh12.5 020 Radiant "
+                            "Charizard -- the row exactly, index and all",
+    },
     ("pkmn", "EN", "swsh07"): {
         "code": "swsh7",
         "why": "source said `SWSH07`; the catalog does not zero-pad",
@@ -241,6 +279,27 @@ SET_CODE_ALIASES = {
                             "95 Umbreon VMAX and 111 Rayquaza VMAX, which is "
                             "Evolving Skies",
     },
+}
+
+
+# Set codes a source spelled its own way that we could NOT reconcile, and why.
+#
+# Recorded rather than left silent: an unaliased code and an unverifiable one
+# look identical from the outside, and only one of them is a decision. These
+# pass through untouched, which is the same behaviour as any unknown code --
+# the difference is that somebody has now looked.
+UNVERIFIED_SET_CODES = {
+    ("pkmn", "EN", "mcd2023"): "McDonald's 2023. The apitcg snapshot on hand "
+                               "stops at mcd22 and the catalog tracks no "
+                               "McDonald's set, so there is nothing to check "
+                               "the spelling against.",
+    ("pkmn", "JP", "s10b"): "Japanese Pokemon GO. The catalog's Japanese set "
+                            "codes come from a different scheme entirely "
+                            "(SM10, SM12a, SV11B), and the local snapshot "
+                            "holds English only.",
+    ("pkmn", "JP", "s12a"): "VSTAR Universe. Same reason as s10b -- the "
+                            "catalog's Japanese codes are a different scheme "
+                            "and the local snapshot is English only.",
 }
 
 
@@ -273,6 +332,44 @@ def shares_numbering_with(language: str) -> Optional[str]:
     renumbers -- `renumbers(language)` is the separate question.
     """
     return NUMBERING_PARENT.get(language)
+
+
+# Games whose REPRINTS KEEP THE ORIGINAL COLLECTOR NUMBER.
+#
+# One Piece PRB-01 reprints of OP01-120, OP01-024, OP02-004, OP03-123 and
+# OP04-044 all retain their `OPxx-xxx`. `PRB01-xxx` numbers are used ONLY for
+# that set's new cards. So a One Piece reprint produces NO new identifier: it
+# is the same number in a different product with a new treatment, and the only
+# field separating the two rows is the set code.
+#
+# Structurally identical to Celebrations Classic Collection retaining Base Set
+# numbering -- which is why both carry the kind
+# `same_number_different_product` rather than each getting a game-specific one.
+REPRINTS_KEEP_THEIR_NUMBER = frozenset({"optcg"})
+
+
+def reprint_keeps_its_number(game) -> bool:
+    return game in REPRINTS_KEEP_THEIR_NUMBER
+
+
+# Languages whose set code is DERIVED from a parent language's, and the suffix.
+#
+# CN-T only, and the restriction is the point. Traditional Chinese mirrors the
+# Japanese set exactly -- `sv2a` -> `SV2aF`, same collector numbers -- so its
+# code can be derived. SIMPLIFIED CHINESE CANNOT: `151C` is not a suffixed
+# `sv2a`. It is its own scheme, in National Pokedex order, 192 cards with a
+# printed denominator of /151, so Pikachu is `025/165` in JP/EN/TC and
+# `025/151` in SC.
+#
+# Deriving a CN-S code by suffixing a JP one would invent a set that does not
+# exist and then fail to find any of its cards -- and `renumbers("CN-S")` is
+# True precisely because the numbers do not carry across either.
+DERIVED_SET_CODE_LANGUAGES = frozenset(SET_CODE_SUFFIX)
+
+
+def set_code_is_derivable(language) -> bool:
+    """Can this printing's set code be derived from its parent's?"""
+    return language in DERIVED_SET_CODE_LANGUAGES
 
 
 def traditional_chinese_set_code(japanese_set_code) -> str:

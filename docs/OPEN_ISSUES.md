@@ -129,12 +129,34 @@ disagreement stands:
 
 Neither is forced into a class, and a test asserts neither ever is.
 
-## S2 — `reprint` has no verified example, and the gate is right to fail
+## RESOLVED — every required kind now has a verified example
 
-Two rows carry it and both are `single_source`: the PRB01 Shanks reprint number
-could not be second-sourced. **Left failing deliberately.** A required kind
-with no verified example is exactly what the gate exists to catch — the
-alternative is a gate that passes while the class it names is untested.
+`reprint` 24 verified, `promo_vs_set` 13, `same_number_different_product` 8.
+Batch 2 filled both gaps. Verified rows carrying a hard case: **116 of 60** —
+the hard-case gate passes.
+
+## S3 — tcgdex renumbers the Celebrations Classic Collection
+
+The printed card says `4/102`. tcgdex calls it `CC002`. Both describe the same
+Charizard, and the printed number is the identity, so the labelled row keeps
+`4/102` and the catalog keeps `CC002`.
+
+The consequence: `cel` aliases to `cel25cc` correctly and the rows still cannot
+match a catalog row, because the numbering schemes have nothing in common. The
+bridge refuses rather than guessing, which is right — but it means the
+`same_number_new_set` pairs, the hardest of the three reprint shapes, have no
+catalog counterpart to be tested against.
+
+## S3 — three set codes could not be verified
+
+`mcd2023`, `s10b`, `s12a`. Recorded in `UNVERIFIED_SET_CODES` with the reason
+and passed through untouched. The local apitcg snapshot stops at `mcd22` and
+holds English only, and the catalog's Japanese set codes come from a different
+scheme entirely (`SM10`, `SM12a`, `SV11B`).
+
+An unaliased code and an unverifiable one behave identically — both pass
+through — and only one of them is a decision. This is how you tell later that
+somebody looked.
 
 ## S3 — 57 rows carry a `difficulty_class` the gate cannot read
 

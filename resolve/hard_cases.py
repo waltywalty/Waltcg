@@ -113,6 +113,74 @@ KINDS_WITH_NO_CLASS = {
 }
 
 
+# THREE SHAPES OF REPRINT, and the resolver must not treat them alike.
+#
+# All three are C2 -- same card, one language, two sets -- and they fail in
+# three different ways, so the general kind `reprint` is not enough on its own.
+#
+# Declared here from the research, and CROSS-CHECKED against the rows: a pair
+# claiming `same_number_new_set` must actually share a number, and the other
+# two must not. A declaration nothing verifies is a comment.
+REPRINT_SHAPES = {
+    "same_art_new_number": {
+        "what": "Different set, different number, SAME art. SV1 013/198 "
+                "Sprigatito against McDonald's 001/015.",
+        "risk": "Two identifiers for one picture. Matching on art or name "
+                "merges them; matching on number alone never finds the pair "
+                "at all.",
+        "shares_number": False,
+    },
+    "same_number_new_set": {
+        "what": "SAME number, different set, near-identical art. Base Set "
+                "4/102 Charizard against Celebrations Classic Collection "
+                "4/102 -- the Classic Collection RETAINS the original "
+                "numbering, so only the set code separates them.",
+        "risk": "THE HARD ONE. Two rows differing in a single field, and it "
+                "is the field most likely to be dropped, defaulted or "
+                "normalised on the way in. Everything else about them is "
+                "identical.",
+        "shares_number": True,
+        "kind": "same_number_different_product",
+    },
+    "new_art_new_number": {
+        "what": "Different set, different number, DIFFERENT art. Radiant "
+                "Charizard PGO 011/078 (Negishi) against CRZ 020/159 "
+                "(Saitou).",
+        "risk": "The inverse mistake: these share a NAME and nothing else, "
+                "so treating the name as evidence of one card merges two "
+                "genuinely different printings with different comps.",
+        "shares_number": False,
+    },
+}
+
+#: Pair tag (from a row's note) -> which of the three shapes it is.
+#: Sourced from the research, verified against the rows by
+#: `tests/test_hard_cases.py`.
+REPRINT_PAIR_SHAPES = {
+    "MCD": "same_art_new_number",
+    "CEL": "same_number_new_set",
+    "RAD-EN": "new_art_new_number",
+    "RAD-JP": "new_art_new_number",
+}
+
+
+def reprint_pair_of(card):
+    """The pair tag a row's note declares, e.g. `MCD-1` -> `MCD`."""
+    note = str(card.get("note") or "")
+    if "pair " not in note:
+        return None
+    tag = note.split("pair ", 1)[1].split(";")[0].strip()
+    for prefix in sorted(REPRINT_PAIR_SHAPES, key=len, reverse=True):
+        if tag == prefix or tag.startswith(prefix + "-"):
+            return prefix
+    return tag or None
+
+
+def reprint_shape_of(card):
+    """Which of the three shapes this row's reprint pair is, or None."""
+    return REPRINT_PAIR_SHAPES.get(reprint_pair_of(card) or "")
+
+
 def hard_cases_of(card) -> tuple:
     """Every hard-case kind this row carries.
 
@@ -137,8 +205,14 @@ def classes_of(card) -> tuple:
     return tuple(part.strip() for part in raw.split(",") if part.strip())
 
 
-def kinds_for_classes(classes):
-    """(kinds, unmapped_classes). Unmapped is a finding, not an error."""
+def kinds_for_classes(classes, card=None):
+    """(kinds, unmapped_classes). Unmapped is a finding, not an error.
+
+    `card` adds the kinds a class alone cannot supply. C2 is `reprint`, but a
+    C2 pair that keeps its number is ALSO
+    `same_number_different_product` -- the same narrower-kind-alongside-the-
+    general-one pattern `same_number_three_languages` follows under C1.
+    """
     kinds, unmapped = [], []
     for name in classes:
         entry = CLASS_TO_KIND.get(name)
@@ -148,4 +222,9 @@ def kinds_for_classes(classes):
             unmapped.append(name)
         elif entry["kind"] not in kinds:
             kinds.append(entry["kind"])
+    if card is not None:
+        shape = REPRINT_SHAPES.get(reprint_shape_of(card) or "", {})
+        narrower = shape.get("kind")
+        if narrower and narrower not in kinds:
+            kinds.append(narrower)
     return tuple(kinds), tuple(unmapped)

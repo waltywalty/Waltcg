@@ -208,7 +208,8 @@ def map_classes(labelled_path=LABELLED, dry_run=False):
 
     Returns (changed, unmapped, report).
     """
-    from resolve.hard_cases import classes_of, hard_cases_of, kinds_for_classes
+    from resolve.hard_cases import (classes_of, hard_cases_of,
+                                    kinds_for_classes, reprint_shape_of)
 
     labelled = _load(labelled_path, {"cards": []})
     changed, unmapped = [], collections.Counter()
@@ -216,7 +217,7 @@ def map_classes(labelled_path=LABELLED, dry_run=False):
         classes = classes_of(card)
         if not classes:
             continue
-        kinds, missing = kinds_for_classes(classes)
+        kinds, missing = kinds_for_classes(classes, card)
         for name in missing:
             unmapped[name] += 1
         # `hard_cases` is DERIVED and fully recomputed, never merged into.
@@ -225,8 +226,15 @@ def map_classes(labelled_path=LABELLED, dry_run=False):
         # gate requirement it no longer satisfies. `hard_case`, the legacy
         # hand-set field, is never touched -- `hard_cases_of` unions the two.
         before = tuple(card.get("hard_cases") or ())
-        if tuple(kinds) != before:
+        shape = reprint_shape_of(card)
+        if tuple(kinds) != before or shape != card.get("reprint_shape"):
             card["hard_cases"] = list(kinds)
+            if shape:
+                # WHICH of the three reprint shapes, on the row. `reprint`
+                # alone says two sets printed one card; it does not say
+                # whether the number moved, and that is the difference
+                # between a miss and a merge.
+                card["reprint_shape"] = shape
             changed.append((card["card_uid"], classes, tuple(kinds), before))
     if changed and not dry_run:
         _save(labelled_path, labelled)

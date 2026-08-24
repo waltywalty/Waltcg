@@ -305,3 +305,244 @@ class TheKindsAreTheSchemaAndTheClassesWereAnInput(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ThreeShapesOfReprint(unittest.TestCase):
+    """All three are C2 -- same card, one language, two sets -- and they fail
+    three different ways, so the general kind is not enough on its own.
+
+    The shapes are DECLARED from the research and CROSS-CHECKED against the
+    rows: a pair claiming `same_number_new_set` must actually share a number,
+    and the other two must not. A declaration nothing verifies is a comment."""
+
+    def _pairs(self):
+        from resolve.hard_cases import reprint_pair_of
+        pairs = collections.defaultdict(list)
+        for card in labelled():
+            tag = reprint_pair_of(card)
+            if tag:
+                note = str(card.get("note") or "")
+                full = note.split("pair ", 1)[1].split(";")[0].strip()
+                pairs[full].append(card)
+        return pairs
+
+    def test_all_three_shapes_are_declared(self):
+        from resolve.hard_cases import REPRINT_SHAPES
+        self.assertEqual(set(REPRINT_SHAPES),
+                         {"same_art_new_number", "same_number_new_set",
+                          "new_art_new_number"})
+        for name, entry in REPRINT_SHAPES.items():
+            self.assertGreater(len(entry["what"]), 60, name)
+            self.assertGreater(len(entry["risk"]), 60, name)
+
+    def test_the_shape_declaration_matches_the_numbers(self):
+        """THE CROSS-CHECK. `same_number_new_set` claims the pair shares a
+        collector number; the other two claim it does not. If a pair was
+        mis-declared this fails, and the declaration is worth exactly as much
+        as this test."""
+        from resolve.hard_cases import REPRINT_SHAPES, reprint_shape_of
+        checked = 0
+        for tag, cards in self._pairs().items():
+            if len(cards) < 2:
+                continue
+            shape = reprint_shape_of(cards[0])
+            if shape is None:
+                continue
+            declared = REPRINT_SHAPES[shape]["shares_number"]
+            actual = len({c["number"] for c in cards}) == 1
+            self.assertEqual(
+                actual, declared,
+                f"pair {tag} is declared {shape} (shares_number="
+                f"{declared}) but the rows "
+                + ("share" if actual else "do not share")
+                + f" a number: {[c['number'] for c in cards]}")
+            checked += 1
+        self.assertGreater(checked, 4, "too few pairs to be checking anything")
+
+    def test_every_pair_has_two_halves(self):
+        """A reprint pair with one row in the set exercises nothing -- the
+        collision needs both sides present to be a collision."""
+        for tag, cards in self._pairs().items():
+            self.assertGreaterEqual(len(cards), 2,
+                                    f"pair {tag} has only {len(cards)} row(s)")
+
+    def test_the_hard_shape_differs_in_exactly_one_field(self):
+        """Base 4/102 against Celebrations 4/102: game, number, variant,
+        language and name all identical, and ONLY `set_code` separates them.
+        That is the field most likely to be dropped, defaulted or normalised
+        on the way in."""
+        for tag, cards in self._pairs().items():
+            from resolve.hard_cases import reprint_shape_of
+            if reprint_shape_of(cards[0]) != "same_number_new_set":
+                continue
+            self.assertEqual(len(cards), 2, tag)
+            left, right = cards
+            differing = [f for f in ("game", "number", "variant", "language",
+                                     "name", "set_code")
+                         if left[f] != right[f]]
+            self.assertEqual(differing, ["set_code"],
+                             f"pair {tag} differs in {differing}, not set_code "
+                             "alone -- it is not this shape")
+
+    def test_the_hard_shape_carries_its_own_kind(self):
+        from resolve.hard_cases import hard_cases_of, reprint_shape_of
+        rows = [c for c in labelled()
+                if reprint_shape_of(c) == "same_number_new_set"]
+        self.assertEqual(len(rows), 8)
+        for card in rows:
+            self.assertIn("same_number_different_product", hard_cases_of(card),
+                          card["card_uid"])
+            self.assertIn("reprint", hard_cases_of(card), card["card_uid"])
+
+    def test_the_other_two_shapes_do_not(self):
+        """`same_number_different_product` means the number was KEPT. A pair
+        whose number moved must not claim it, or the kind stops meaning
+        anything."""
+        from resolve.hard_cases import hard_cases_of, reprint_shape_of
+        for card in labelled():
+            shape = reprint_shape_of(card)
+            if shape in (None, "same_number_new_set"):
+                continue
+            self.assertNotIn("same_number_different_product",
+                             hard_cases_of(card), card["card_uid"])
+
+    def test_the_shape_is_recorded_on_the_row(self):
+        from resolve.hard_cases import reprint_shape_of
+        for card in labelled():
+            shape = reprint_shape_of(card)
+            if shape:
+                self.assertEqual(card.get("reprint_shape"), shape,
+                                 card["card_uid"])
+
+    def test_all_three_shapes_are_present_in_the_set(self):
+        from resolve.hard_cases import reprint_shape_of
+        found = collections.Counter(reprint_shape_of(c) for c in labelled()
+                                    if reprint_shape_of(c))
+        self.assertEqual(set(found), {"same_art_new_number",
+                                      "same_number_new_set",
+                                      "new_art_new_number"},
+                         f"only {sorted(found)} present")
+
+
+class AMulticlassRowFillsEveryClassItCarries(unittest.TestCase):
+    """The McDonald's rows are BOTH C2 and C4. A mapping that took the first
+    class only would fill `reprint` and leave `promo_vs_set` short again --
+    which is the bug the plural field exists to prevent, arriving from the
+    other end."""
+
+    def test_the_mcdonalds_rows_carry_both_kinds(self):
+        from resolve.hard_cases import classes_of, hard_cases_of
+        rows = [c for c in labelled() if classes_of(c) == ("C2", "C4")]
+        self.assertGreaterEqual(len(rows), 12)
+        for card in rows:
+            kinds = hard_cases_of(card)
+            self.assertIn("reprint", kinds, card["card_uid"])
+            self.assertIn("promo_vs_set", kinds, card["card_uid"])
+
+    def test_order_does_not_decide_which_one_survives(self):
+        from resolve.hard_cases import kinds_for_classes
+        forwards, _ = kinds_for_classes(("C2", "C4"))
+        backwards, _ = kinds_for_classes(("C4", "C2"))
+        self.assertEqual(set(forwards), set(backwards))
+        self.assertEqual(len(forwards), 2)
+
+
+class SimplifiedChineseIsNotASuffixedJapaneseSet(unittest.TestCase):
+    """TC `SV2aF` mirrors JP `sv2a` exactly -- same collector numbers -- so its
+    set code can be derived. SC `151C` cannot: it is its own scheme, National
+    Pokedex order, 192 cards with a printed denominator of /151.
+
+    Pikachu is `025/165` in JP, EN and TC, and `025/151` in SC. Deriving a CN-S
+    code by suffixing a JP one would invent a set that does not exist and then
+    fail to find any of its cards."""
+
+    def test_only_traditional_chinese_derives_its_code(self):
+        from resolve.identity import set_code_is_derivable
+        self.assertTrue(set_code_is_derivable("CN-T"))
+        self.assertFalse(set_code_is_derivable("CN-S"))
+        self.assertFalse(set_code_is_derivable("EN"))
+        self.assertFalse(set_code_is_derivable("JP"))
+
+    def test_a_simplified_chinese_code_is_not_a_suffixed_japanese_one(self):
+        from resolve.identity import japanese_set_code_of
+        self.assertIsNone(japanese_set_code_of("151C"))
+        self.assertIsNone(japanese_set_code_of("csv3C"))
+        self.assertIsNone(japanese_set_code_of("CSM1aC"))
+
+    def test_simplified_chinese_renumbers_and_traditional_does_not(self):
+        from resolve.identity import renumbers, shares_parent_numbering
+        self.assertTrue(renumbers("CN-S"))
+        self.assertFalse(renumbers("CN-T"))
+        self.assertTrue(shares_parent_numbering("CN-T"))
+        self.assertFalse(shares_parent_numbering("CN-S"))
+
+    def test_pikachu_has_the_same_index_and_a_different_denominator(self):
+        """The assertion, in the set rather than in the abstract."""
+        rows = {c["language"]: c for c in labelled()
+                if c["game"] == "pkmn" and c["name"] == "Pikachu"
+                and c["variant"] == "base"
+                and c["number"].startswith("025")}
+        for language in ("JP", "EN", "CN-T", "CN-S"):
+            self.assertIn(language, rows, f"no base Pikachu 025 for {language}")
+        self.assertEqual(rows["JP"]["number"], "025/165")
+        self.assertEqual(rows["EN"]["number"], "025/165")
+        self.assertEqual(rows["CN-T"]["number"], "025/165")
+        self.assertEqual(rows["CN-S"]["number"], "025/151")
+        self.assertEqual(len({c["card_uid"] for c in rows.values()}), 4)
+
+    def test_the_simplified_chinese_set_follows_national_pokedex_order(self):
+        """The evidence for "its own scheme". Two independently sourced
+        batches, no overlapping numbers, and every index matching the National
+        Pokedex."""
+        DEX = {1: "Bulbasaur", 2: "Ivysaur", 3: "Venusaur", 4: "Charmander",
+               5: "Charmeleon", 6: "Charizard", 7: "Squirtle", 8: "Wartortle",
+               9: "Blastoise", 10: "Caterpie", 24: "Arbok", 25: "Pikachu",
+               26: "Raichu", 34: "Nidoking", 38: "Ninetales"}
+        checked = 0
+        for card in labelled():
+            if card["set_code"] != "151C" or card["variant"] != "base":
+                continue
+            index = int(card["number"].split("/")[0])
+            if index not in DEX:
+                continue
+            self.assertEqual(card["name"].replace(" ex", ""), DEX[index],
+                             f"{card['card_uid']} breaks Pokedex order")
+            checked += 1
+        self.assertGreaterEqual(checked, 15)
+
+
+class OnePieceReprintsKeepTheirNumber(unittest.TestCase):
+    """PRB-01 reprints of OP01-120, OP01-024, OP02-004, OP03-123 and OP04-044
+    all retain their `OPxx-xxx`. `PRB01-xxx` is used ONLY for that set's new
+    cards.
+
+    So a One Piece reprint produces NO new identifier: the same number in a
+    different product, with only the set code separating the two rows --
+    structurally identical to Celebrations retaining Base Set numbering, which
+    is why both carry `same_number_different_product` rather than each getting
+    a game-specific kind."""
+
+    def test_the_rule_is_recorded_and_scoped(self):
+        from resolve.identity import reprint_keeps_its_number
+        self.assertTrue(reprint_keeps_its_number("optcg"))
+        self.assertFalse(reprint_keeps_its_number("pkmn"))
+        self.assertFalse(reprint_keeps_its_number("riftbound"))
+
+    def test_it_shares_a_kind_with_the_pokemon_case(self):
+        """One rule, two games. A game-specific kind would have split one
+        failure mode into two and hidden that they are the same shape."""
+        from resolve.hard_cases import REPRINT_SHAPES
+        self.assertEqual(REPRINT_SHAPES["same_number_new_set"]["kind"],
+                         "same_number_different_product")
+
+    def test_no_row_in_the_set_uses_a_prb01_number_for_a_reprint(self):
+        """The rule read as a check. A row carrying `PRB01-xxx` for a card that
+        exists as `OPxx-xxx` would be the invented identifier this rule says
+        does not exist."""
+        prb = [c for c in labelled()
+               if c["game"] == "optcg" and c["number"].upper().startswith("PRB")]
+        others = {c["number"] for c in labelled() if c["game"] == "optcg"}
+        for card in prb:
+            self.assertNotIn(
+                card["number"].upper().replace("PRB01-", "OP01-"), others,
+                f"{card['card_uid']} numbers a reprint in the PRB-01 scheme")

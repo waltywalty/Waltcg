@@ -2647,3 +2647,95 @@ Verified rows with a hard case: **51 of 60**. Four of the five required kinds
 present.
 
 94 mutants catalogued, all caught.
+
+---
+
+## ADR-0038 — 75 verified rows, three shapes of reprint, and a set code that cannot be derived
+
+**2026-08-18.** Batch 2: 75 rows, all `verified`, two named independent sources
+per collector number. **75 accepted, 0 rejected.**
+
+### The pre-ingest check
+
+Asked for, and it found nothing to stop the ingest. No shared `card_uid`
+between the batches. One flag on `(op01, OP01-016, CN-S)` — batch 1 has Nami as
+`alt_art`, batch 2 as `base` — which is not a disagreement but two printings of
+one card, and they carry different uids.
+
+On 151C specifically the two batches are **disjoint and consistent**: batch 1
+holds 170–173/151 (Pikachu ARs), batch 2 holds 1–38/151 (base), no overlapping
+numbers, same `/151` denominator. And every one of batch 2's fifteen indices
+matches the National Pokédex exactly — independent corroboration of the "own
+scheme" claim rather than a restatement of it.
+
+### Three shapes of reprint, declared and then verified
+
+All three are C2 and they fail three different ways:
+
+- **`same_art_new_number`** — SV1 013/198 Sprigatito against McDonald's
+  001/015. Two identifiers for one picture: matching on art merges them,
+  matching on number never finds the pair.
+- **`same_number_new_set`** — Base 4/102 Charizard against Celebrations
+  4/102. **The hard one.** Two rows differing in a single field, and it is
+  `set_code`, the field most likely to be dropped or normalised on the way in.
+- **`new_art_new_number`** — Radiant Charizard PGO 011/078 (Negishi) against
+  CRZ 020/159 (Saitou). The inverse mistake: they share a name and nothing
+  else.
+
+The shapes are **declared** from the research and **cross-checked** against the
+rows — a pair claiming `same_number_new_set` must actually share a number and
+the other two must not. A declaration nothing verifies is a comment. One test
+asserts the hard shape differs in `set_code` **and nothing else**.
+
+### `same_number_different_product`, and One Piece
+
+Added, and required by the gate. Same argument as C6's kind: it is the shape
+where two rows differ in exactly one field. C6 differs by `variant`; this
+differs by `set_code`; both are one edit from a merge.
+
+It is also the answer to the One Piece question. PRB-01 reprints of OP01-120,
+OP01-024, OP02-004, OP03-123 and OP04-044 all keep their `OPxx-xxx`, and
+`PRB01-xxx` is used only for that set's new cards — so a One Piece reprint
+produces **no new identifier**, exactly like Celebrations retaining Base Set
+numbering. One kind for both rather than a game-specific one, because a
+game-specific kind would have split one failure mode in two and hidden that
+they are the same shape.
+
+### Simplified Chinese cannot be derived from Japanese
+
+`set_code_is_derivable` is True for CN-T and **False for CN-S**. TC mirrors JP
+exactly, so `sv2a` → `SV2aF` works. SC has its own scheme: National Pokédex
+order, 192 cards, printed denominator `/151`. Pikachu is `025/165` in JP, EN
+and TC and `025/151` in SC — asserted against four real rows in the set, four
+distinct uids.
+
+### Set codes: five aliased on evidence, three refused
+
+Aliased with the cards that confirmed them: `sv1` → `sv01`, `cel` → `cel25cc`,
+`tr` → `base5`, `pgo` → `swsh10.5`, `crz` → `swsh12.5`. The last two are the
+strongest — the catalog holds `swsh10.5:011` and `swsh12.5:020` both named
+Radiant Charizard, matching the rows index for index.
+
+`base1` and `pop5` needed no alias; the catalog already uses them.
+
+`mcd2023`, `s10b` and `s12a` could **not** be verified and are recorded in
+`UNVERIFIED_SET_CODES` rather than guessed. An unaliased code and an
+unverifiable one behave identically; recording the second is how you tell later
+that somebody looked.
+
+**And a finding: tcgdex renumbers the Classic Collection.** The card says
+`4/102`; tcgdex says `CC002`. The printed number is the identity, so the row
+keeps `4/102` — which means the hardest reprint shape has no catalog
+counterpart to be tested against, and the bridge refuses rather than guessing.
+
+### Where the gate stands
+
+132 verified of 250. Precision and recall 1.0000; the 95% lower bound at n=132
+is **0.9776**, just under the 0.98 threshold. Hard cases **116 of 60** — that
+gate now passes. All six required kinds have verified examples.
+
+Three failures left: total count, per-combo targets, and the 20-row floor.
+`pkmn:EN` is 2 rows short of its target and is the first combo to clear the
+floor.
+
+100 mutants catalogued, all caught.

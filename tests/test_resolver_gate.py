@@ -248,9 +248,15 @@ class TheLabelledSetIsComplete(unittest.TestCase):
         # `same_printed_number_different_treatment` is REQUIRED because C6 is
         # one of the three blocking failures, and a gate that does not demand a
         # case for it is missing the class it most needs to measure.
+        # `same_number_different_product` is REQUIRED for the same reason as
+        # C6's kind: it is the shape where two rows differ in exactly ONE
+        # field, and here that field is `set_code` -- the one most likely to be
+        # dropped, defaulted or normalised on the way in. C6 differs by
+        # `variant`; this differs by `set_code`; both are one edit from a merge.
         for required in ("same_art_different_language", "reprint",
                          "alt_art_variant", "promo_vs_set",
-                         "same_printed_number_different_treatment"):
+                         "same_printed_number_different_treatment",
+                         "same_number_different_product"):
             self.assertIn(required, kinds, f"no {required} case in the set")
 
 
