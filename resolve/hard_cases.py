@@ -66,21 +66,51 @@ CLASS_TO_KIND = {
         "note": "",
     },
     "C6": {
-        "kind": None,
+        "kind": "same_printed_number_different_treatment",
         "definition": "Two or more printings that print the SAME collector "
                       "number and are distinguished only by treatment. "
                       "OP01-025 base SR and OP01-025 alt-art SR.",
-        "note": "NO KIND EXISTS. Not folded into `alt_art_variant`, which is "
-                "C3 and requires the numbers to DIFFER -- the identical number "
-                "is the whole difficulty here, and it is one of the three "
-                "blocking failures. Needs a kind name before these rows can "
-                "count toward the gate.",
+        "note": "Verbose on purpose: it names the thing that matters and "
+                "cannot be mistaken for `alt_art_variant`, which is C3 and "
+                "requires the numbers to DIFFER. REQUIRED by the gate, "
+                "because C6 is one of the three blocking failures and a gate "
+                "that does not demand a case for it is missing the class it "
+                "most needs to measure.\n\n"
+                "Riftbound's `303/298` against `303*/298` is C6 even though "
+                "the asterisk is printed INSIDE the number. The relationship "
+                "is C6's -- two printings of one card, treatment the only "
+                "difference -- and where the discriminator sits is a notation "
+                "detail. Riftbound writes the treatment into the number; One "
+                "Piece writes it nowhere and leaves it to an image filename. "
+                "Same relationship, two conventions.",
     },
 }
 
-#: Kinds this repository uses that no C class describes. The gap in the other
-#: direction, named for the same reason.
-KINDS_WITH_NO_CLASS = ("same_number_different_rarity", "box_code_vs_card_number")
+# WHICH VOCABULARY IS THE SCHEMA.
+#
+# `hard_case` kinds are. The C classes were an INPUT -- a research taxonomy
+# built to decide what to go and collect -- and the kinds were derived from the
+# failure modes this repository has actually hit. Where the two disagree, the
+# disagreement is RECORDED rather than reconciled: forcing a kind into a class
+# it does not fit would make the taxonomy tidier and the record worse.
+#
+# These two kinds have no C class. They are not gaps in the mapping to be
+# closed; they are places where the repository knows something the research
+# pass was not looking for.
+KINDS_WITH_NO_CLASS = {
+    "same_number_different_rarity": (
+        "Two printings at one collector number whose RARITY STRINGS differ. "
+        "Adjacent to C6 and not the same: C6 is distinguished only by "
+        "treatment, and an OP01-025 base SR and its parallel both read `SR`. "
+        "Here the provider itself reports two different rarities at one "
+        "number, which is a different question -- whether the rarity can be "
+        "trusted as a discriminator at all."),
+    "box_code_vs_card_number": (
+        "A product or box code arriving where a collector number is expected. "
+        "Not a printing relationship at all, which is why no C class covers "
+        "it: it is a parsing failure mode, found by ingest rather than by "
+        "research."),
+}
 
 
 def hard_cases_of(card) -> tuple:

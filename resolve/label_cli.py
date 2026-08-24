@@ -219,11 +219,15 @@ def map_classes(labelled_path=LABELLED, dry_run=False):
         kinds, missing = kinds_for_classes(classes)
         for name in missing:
             unmapped[name] += 1
-        existing = hard_cases_of(card)
-        merged = list(existing) + [k for k in kinds if k not in existing]
-        if tuple(merged) != existing:
-            card["hard_cases"] = merged
-            changed.append((card["card_uid"], classes, tuple(merged)))
+        # `hard_cases` is DERIVED and fully recomputed, never merged into.
+        # Merging would make a re-tag additive: correcting a row from C5 to C6
+        # would leave the C5 kind behind, and the row would go on claiming a
+        # gate requirement it no longer satisfies. `hard_case`, the legacy
+        # hand-set field, is never touched -- `hard_cases_of` unions the two.
+        before = tuple(card.get("hard_cases") or ())
+        if tuple(kinds) != before:
+            card["hard_cases"] = list(kinds)
+            changed.append((card["card_uid"], classes, tuple(kinds), before))
     if changed and not dry_run:
         _save(labelled_path, labelled)
     return changed, unmapped, len(labelled.get("cards", []))
@@ -531,8 +535,11 @@ def main(argv=None):
         changed, unmapped, total = map_classes(dry_run=args.dry_run)
         print(f"{len(changed)} of {total} rows given hard_cases"
               + ("  (DRY RUN, nothing written)" if args.dry_run else ""))
-        for uid, classes, kinds in changed:
-            print(f"  {uid:46} {','.join(classes):8} -> {', '.join(kinds)}")
+        for uid, classes, kinds, before in changed:
+            dropped = [k for k in before if k not in kinds]
+            note = f"   (dropped {', '.join(dropped)})" if dropped else ""
+            print(f"  {uid:46} {','.join(classes):8} -> "
+                  f"{', '.join(kinds) or '(none)'}{note}")
         if unmapped:
             print("\nCLASSES WITH NO KIND -- named, not folded into the "
                   "nearest one:")

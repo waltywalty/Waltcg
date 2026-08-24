@@ -81,48 +81,60 @@ Separately, `config/grading.yaml` declares four routes — `cgc_uk`, `psa_us`,
 unreachable from Model A regardless of their config: there is no route that
 gets a card to them and back.
 
-## S2 — C6 has no `hard_case` kind, and 10 rows are waiting on one
+## RESOLVED — C6 has a kind, and the gate requires it
 
-The C1–C6 taxonomy is now translated into `hard_case` kinds
-(`resolve/hard_cases.py`, each entry quoting the definition it came from).
-Five of six map exactly:
+`same_printed_number_different_treatment`. Verbose on purpose: it names the
+thing that matters and cannot be mistaken for `alt_art_variant`, which is C3
+and requires the numbers to DIFFER. **Added to the gate's required kinds**,
+because C6 is one of the three blocking failures and a gate that does not
+demand a case for it is missing the class it most needs to measure.
 
-| class | kind |
-|---|---|
-| C1 same artwork across languages | `same_art_different_language` |
-| C2 reprint within one language | `reprint` |
-| C3 alternate art vs base, numbers differ | `alt_art_variant` |
-| C4 promo vs main-set | `promo_vs_set` |
-| C5 name collision | `name_is_not_unique` |
-| **C6 parallel sharing one printed number** | **NONE** |
+14 rows carry it — 10 One Piece base-vs-parallel pairs plus the 4 re-tagged
+Riftbound rows below — and all 14 are `verified`.
 
-**C6 is not folded into `alt_art_variant`.** C3 is two printings whose numbers
-DIFFER; C6 is two printings at the IDENTICAL number, distinguished only by
-treatment. That identity is the whole difficulty, and it is one of the three
-blocking failures — mapping it to C3's kind would lose the distinction while
-making the gate look satisfied.
+## RESOLVED — the four Riftbound rows were re-tagged C5 → C6
 
-Ten rows carry C6 and count toward no gate requirement until it has a name.
-All ten are One Piece base-vs-parallel pairs at one printed number.
+`299/298`, `299*/298`, `303/298`, `303*/298`. C5 is cards that share a name and
+are genuinely different cards; these are two printings of ONE card, treatment
+the only difference. The asterisk being printed INSIDE the number is a notation
+detail, not a different class — Riftbound writes the treatment into the number,
+One Piece writes it nowhere and leaves it to an image filename. Same
+relationship, two conventions.
 
-Two kinds run the other way and no C class describes them:
-`same_number_different_rarity` (3 rows) and `box_code_vs_card_number` (1).
+Each row records `reclassified_from` and a note saying why, because a re-tag
+with no trace is indistinguishable from data that was always that way. The
+guard test is inverted rather than deleted: it asserted C5 while they were
+mis-tagged and asserts C6 now, so the next person to change them hits the same
+wall.
 
-## S3 — four Riftbound rows contradict their own C5 tag
+`map-classes` recomputes `hard_cases` rather than merging into it, so the
+re-tag **dropped** the stale `name_is_not_unique`. Merging would have left the
+four claiming a gate requirement they no longer meet.
 
-`299*/298`, `299/298`, `303*/298` and `303/298` are tagged C5 — "cards sharing
-an identical printed name that are genuinely different cards … NOT printings of
-one card". Their own notes say "asterisk only difference from 299/298" and
-"same art/rules as 303/298". They are printings of one card, so by the C5
-definition they cannot be C5.
+## RECORDED, NOT RECONCILED — two kinds no C class covers
 
-**Flagged, not fixed.** Reclassifying somebody's research from the outside is
-the coercion this session has refused four times over. A test asserts the rows
-are still tagged C5, so the contradiction fails loudly the moment they are
-re-tagged rather than being quietly forgotten.
+`hard_case` kinds are the schema. The C classes were an **input** — a research
+taxonomy built to decide what to collect — and the kinds were derived from
+failure modes this repository has actually hit. Where they disagree, the
+disagreement stands:
 
-They are also the case the C6 definition set aside as "C1-adjacent — your call".
-That call is still open, and it depends on the C6 kind name.
+- **`same_number_different_rarity`** (3 rows). Adjacent to C6 and not the same:
+  C6 is distinguished only by treatment, and an OP01-025 base SR and its
+  parallel both read `SR`. Here the provider reports two different rarities at
+  one number, which asks a different question — whether rarity can be trusted
+  as a discriminator at all.
+- **`box_code_vs_card_number`** (1 row). Not a printing relationship at all,
+  which is why no class covers it: a parsing failure mode, found by ingest
+  rather than by research.
+
+Neither is forced into a class, and a test asserts neither ever is.
+
+## S2 — `reprint` has no verified example, and the gate is right to fail
+
+Two rows carry it and both are `single_source`: the PRB01 Shanks reprint number
+could not be second-sourced. **Left failing deliberately.** A required kind
+with no verified example is exactly what the gate exists to catch — the
+alternative is a gate that passes while the class it names is untested.
 
 ## S3 — 57 rows carry a `difficulty_class` the gate cannot read
 
@@ -131,16 +143,16 @@ The 86 researched rows tag themselves `C1`..`C6` — 28 `C1`, 21 `C5`, 10 `C3`,
 kinds: `same_art_different_language`, `reprint`, `alt_art_variant`,
 `promo_vs_set`.
 
-**RESOLVED** by the definitions above. 47 of 57 verified rows now carry a hard
-case, against a target of 60.
+**RESOLVED** by the definitions above. **51 of 57** verified rows now carry a
+hard case, against a target of 60.
 
 `hard_case` had to become plural to do it: 18 of the 57 rows carry two classes
 (`C1,C6`, `C3,C5`, `C2,C4`), and a single-valued field has to drop one —
 silently deciding which gate requirement goes unmet. `hard_cases_of()` reads
 both fields so nothing already recorded is lost.
 
-`reprint` (C2) is the one required kind still absent from verified rows: two
-rows carry it and both are `single_source`.
+`reprint` (C2) is the one required kind still absent from verified rows — see
+above; that gate failure is deliberate.
 
 ## S2 — nine variant tokens are rejected and 18 rows are waiting on them
 

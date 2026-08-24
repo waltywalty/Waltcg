@@ -218,7 +218,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C6",
-      "note": "same printed number as base"
+      "note": "same printed number as base",
+      "hard_cases": [
+        "same_printed_number_different_treatment"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-001:parallel:JP",
@@ -232,7 +235,8 @@
       "confidence": "verified",
       "difficulty_class": "C1,C6",
       "hard_cases": [
-        "same_art_different_language"
+        "same_art_different_language",
+        "same_printed_number_different_treatment"
       ]
     },
     {
@@ -278,7 +282,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C6",
-      "note": "same printed number as base"
+      "note": "same printed number as base",
+      "hard_cases": [
+        "same_printed_number_different_treatment"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-003:parallel:JP",
@@ -292,7 +299,8 @@
       "confidence": "verified",
       "difficulty_class": "C1,C6",
       "hard_cases": [
-        "same_art_different_language"
+        "same_art_different_language",
+        "same_printed_number_different_treatment"
       ]
     },
     {
@@ -396,7 +404,8 @@
       "difficulty_class": "C3,C6",
       "note": "alt art; illustrator AKIRA EGAWA",
       "hard_cases": [
-        "alt_art_variant"
+        "alt_art_variant",
+        "same_printed_number_different_treatment"
       ]
     },
     {
@@ -411,7 +420,8 @@
       "confidence": "verified",
       "difficulty_class": "C1,C6",
       "hard_cases": [
-        "same_art_different_language"
+        "same_art_different_language",
+        "same_printed_number_different_treatment"
       ]
     },
     {
@@ -474,7 +484,10 @@
       "confidence": "verified",
       "difficulty_class": "C6",
       "note": "manga/alt-art SEC",
-      "variant_as_sourced": "manga"
+      "variant_as_sourced": "manga",
+      "hard_cases": [
+        "same_printed_number_different_treatment"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-120:manga_rare:JP",
@@ -489,7 +502,8 @@
       "difficulty_class": "C1,C6",
       "variant_as_sourced": "manga",
       "hard_cases": [
-        "same_art_different_language"
+        "same_art_different_language",
+        "same_printed_number_different_treatment"
       ]
     },
     {
@@ -532,7 +546,8 @@
       "difficulty_class": "C3,C6",
       "note": "illustrator POKImari",
       "hard_cases": [
-        "alt_art_variant"
+        "alt_art_variant",
+        "same_printed_number_different_treatment"
       ]
     },
     {
@@ -547,7 +562,8 @@
       "confidence": "verified",
       "difficulty_class": "C1,C6",
       "hard_cases": [
-        "same_art_different_language"
+        "same_art_different_language",
+        "same_printed_number_different_treatment"
       ]
     },
     {
@@ -571,7 +587,6 @@
         "hard_case"
       ],
       "hard_cases": [
-        "name_is_not_unique",
         "same_art_different_language"
       ]
     },
@@ -594,6 +609,9 @@
       "inherited_fields": [
         "artist",
         "hard_case"
+      ],
+      "hard_cases": [
+        "name_is_not_unique"
       ]
     },
     {
@@ -615,6 +633,9 @@
       "inherited_fields": [
         "artist",
         "hard_case"
+      ],
+      "hard_cases": [
+        "name_is_not_unique"
       ]
     },
     {
@@ -638,8 +659,8 @@
         "hard_case"
       ],
       "hard_cases": [
-        "name_is_not_unique",
-        "same_art_different_language"
+        "same_art_different_language",
+        "name_is_not_unique"
       ]
     },
     {
@@ -1284,11 +1305,13 @@
       "name": "Kai'Sa, Daughter of the Void",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C5",
+      "difficulty_class": "C6",
       "note": "asterisk only difference from 299/298",
       "hard_cases": [
-        "name_is_not_unique"
-      ]
+        "same_printed_number_different_treatment"
+      ],
+      "reclassified_from": "C5",
+      "reclassification_note": "C5 -> C6, corrected at source. C5 is cards that share a name and are genuinely different cards; these are two printings of ONE card, treatment the only difference. The asterisk is printed inside the number, which is a notation detail rather than a different class."
     },
     {
       "card_uid": "riftbound:OGN:299/298:overnumbered:EN",
@@ -1299,7 +1322,13 @@
       "language": "EN",
       "name": "Kai'Sa, Daughter of the Void",
       "source": "external_research",
-      "confidence": "verified"
+      "confidence": "verified",
+      "difficulty_class": "C6",
+      "reclassified_from": null,
+      "reclassification_note": "Tagged C6 at source; it carried no class before. Two printings of one card, treatment the only difference.",
+      "hard_cases": [
+        "same_printed_number_different_treatment"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:303*/298:signature:EN",
@@ -1311,11 +1340,13 @@
       "name": "Ahri, Nine-Tailed Fox",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C5",
+      "difficulty_class": "C6",
       "note": "same art/rules as 303/298; illustrator Airi Pan",
       "hard_cases": [
-        "name_is_not_unique"
-      ]
+        "same_printed_number_different_treatment"
+      ],
+      "reclassified_from": "C5",
+      "reclassification_note": "C5 -> C6, corrected at source. C5 is cards that share a name and are genuinely different cards; these are two printings of ONE card, treatment the only difference. The asterisk is printed inside the number, which is a notation detail rather than a different class."
     },
     {
       "card_uid": "riftbound:OGN:303/298:overnumbered:EN",
@@ -1327,10 +1358,12 @@
       "name": "Ahri, Nine-Tailed Fox",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C5",
+      "difficulty_class": "C6",
       "hard_cases": [
-        "name_is_not_unique"
-      ]
+        "same_printed_number_different_treatment"
+      ],
+      "reclassified_from": "C5",
+      "reclassification_note": "C5 -> C6, corrected at source. C5 is cards that share a name and are genuinely different cards; these are two printings of ONE card, treatment the only difference. The asterisk is printed inside the number, which is a notation detail rather than a different class."
     },
     {
       "card_uid": "riftbound:OGN:OGN-001:base:EN",

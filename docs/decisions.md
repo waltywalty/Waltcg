@@ -2575,3 +2575,75 @@ They are also the rows the C6 definition set aside as "C1-adjacent — your
 call", and that call depends on the C6 kind name.
 
 92 mutants catalogued, all caught.
+
+---
+
+## ADR-0037 — C6 gets a name, four rows get corrected, two kinds keep their disagreement
+
+**2026-08-18.** Four decisions, all the user's.
+
+### `same_printed_number_different_treatment`
+
+Verbose, and that is the point: it names the thing that matters and cannot be
+mistaken for `alt_art_variant`. **Added to the gate's required kinds**, because
+C6 is one of the three blocking failures and a gate that does not demand a case
+for it is missing the class it most needs to measure.
+
+Carrying it as a named GAP for one session was what made this possible. Had it
+been folded into `alt_art_variant` when the mapping was first written, the gate
+would have gone green on the requirement it was least able to meet, and nothing
+would have said so.
+
+14 rows carry it, all `verified`.
+
+### The four Riftbound rows were mis-tagged, and the fix is recorded on them
+
+`299/298`, `299*/298`, `303/298`, `303*/298` were C5 — "cards that share a name
+and are genuinely different cards". They are two printings of ONE card,
+treatment the only difference; their own notes said so. Re-tagged C6.
+
+**The asterisk being printed inside the number is a notation detail, not a
+different class.** Riftbound writes the treatment into the number; One Piece
+writes it nowhere and leaves it to an image filename. Same relationship, two
+conventions — and a taxonomy that split on where the discriminator happens to
+sit would be describing the notation rather than the cards.
+
+Each row carries `reclassified_from` and a note. A re-tag with no trace is
+indistinguishable from data that was always that way.
+
+**The guard test was inverted, not deleted.** It asserted C5 while the rows
+were mis-tagged and asserts C6 now, so the next person to change them hits the
+same wall and has to say why.
+
+That correction surfaced a bug in `map-classes`: it MERGED into `hard_cases`,
+so a re-tag would have left `name_is_not_unique` behind and the four rows would
+have gone on satisfying a gate requirement they no longer meet. `hard_cases` is
+now fully recomputed from `difficulty_class` — derived, idempotent, and
+re-runnable — while `hard_case`, the legacy hand-set field, is never touched.
+
+### The kinds are the schema; the classes were an input
+
+Where the two vocabularies disagree the disagreement is **recorded, not
+reconciled**. The C classes were built to decide what research to collect; the
+kinds were derived from failure modes this repository has actually hit.
+
+- `same_number_different_rarity` is C6's nearest neighbour and not the same
+  thing: C6 is distinguished only by treatment, and an OP01-025 base SR and its
+  parallel both read `SR`. A differing rarity at one number asks whether rarity
+  can be trusted as a discriminator at all.
+- `box_code_vs_card_number` is not a printing relationship — a parsing failure
+  mode, found by ingest rather than by research.
+
+Neither is forced into a class, and a test asserts neither ever is.
+
+### `reprint` stays red
+
+Two rows carry it, both `single_source`, because the PRB01 Shanks reprint
+number could not be second-sourced. Left failing: a required kind with no
+verified example is exactly what the gate exists to catch. The alternative is
+a gate that passes while the class it names is untested.
+
+Verified rows with a hard case: **51 of 60**. Four of the five required kinds
+present.
+
+94 mutants catalogued, all caught.

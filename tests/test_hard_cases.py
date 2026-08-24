@@ -38,15 +38,17 @@ class EveryClassMapsOrIsNamed(unittest.TestCase):
         self.assertEqual(CLASS_TO_KIND["C4"]["kind"], "promo_vs_set")
         self.assertEqual(CLASS_TO_KIND["C5"]["kind"], "name_is_not_unique")
 
-    def test_c6_is_a_named_gap_not_a_fold(self):
+    def test_c6_has_its_own_kind_rather_than_c3s(self):
         """C6 is two printings at the IDENTICAL collector number. C3 is two
-        printings whose numbers DIFFER. Folding C6 into `alt_art_variant`
-        would lose exactly the distinction that makes it a blocking failure --
-        and it would do so while making the gate look satisfied."""
-        self.assertIsNone(CLASS_TO_KIND["C6"]["kind"])
+        printings whose numbers DIFFER. It was carried as a named GAP until it
+        had a kind of its own, precisely so it could never be folded into
+        `alt_art_variant` -- which would have lost the distinction that makes
+        it a blocking failure, while making the gate look satisfied."""
+        self.assertEqual(CLASS_TO_KIND["C6"]["kind"],
+                         "same_printed_number_different_treatment")
         self.assertNotEqual(CLASS_TO_KIND["C6"]["kind"],
                             CLASS_TO_KIND["C3"]["kind"])
-        self.assertIn("NO KIND EXISTS", CLASS_TO_KIND["C6"]["note"])
+        self.assertIn("cannot be mistaken for", CLASS_TO_KIND["C6"]["note"])
 
     def test_every_entry_quotes_the_definition_it_came_from(self):
         """A mapping with no definition beside it is a mapping somebody has to
@@ -56,10 +58,18 @@ class EveryClassMapsOrIsNamed(unittest.TestCase):
             self.assertTrue(entry.get("definition"), name)
             self.assertGreater(len(entry["definition"]), 60, name)
 
-    def test_a_class_with_no_kind_is_reported_not_dropped(self):
-        kinds, unmapped = kinds_for_classes(("C1", "C6"))
+    def test_every_defined_class_now_has_a_kind(self):
+        """C6 was the last one without. If a class is ever added without a
+        kind, this fails and the gap gets named rather than absorbed."""
+        for name, entry in CLASS_TO_KIND.items():
+            self.assertIsNotNone(entry["kind"], f"{name} maps to nothing")
+
+    def test_a_class_with_no_kind_would_be_reported_not_dropped(self):
+        """The mechanism, kept alive with a synthetic class now that no real
+        one exercises it. A tag that maps nowhere must surface as a finding."""
+        kinds, unmapped = kinds_for_classes(("C1", "C99"))
         self.assertEqual(kinds, ("same_art_different_language",))
-        self.assertEqual(unmapped, ("C6",))
+        self.assertEqual(unmapped, ("C99",))
 
     def test_an_unknown_class_is_reported_too(self):
         """A tag nobody has defined is a finding. Silently ignoring it would
@@ -136,23 +146,23 @@ class TheTranslationWasApplied(unittest.TestCase):
                               f"{card['card_uid']} is {name} but carries no "
                               f"{expected}")
 
-    def test_no_c6_row_was_given_a_kind_it_does_not_have(self):
-        """The fold that must not have happened. A C6-only row must carry no
-        kind at all rather than the nearest plausible one."""
+    def test_a_c6_only_row_carries_exactly_its_own_kind(self):
+        """Exactly one kind, and not C3's. A C6-only row picking up
+        `alt_art_variant` would be the fold arriving by the back door."""
         for card in labelled():
-            classes = classes_of(card)
-            if classes != ("C6",):
+            if classes_of(card) != ("C6",):
                 continue
-            self.assertEqual(
-                hard_cases_of(card), (),
-                f"{card['card_uid']} is C6-only and was given a kind anyway")
+            kinds = set(hard_cases_of(card))
+            self.assertIn("same_printed_number_different_treatment", kinds,
+                          card["card_uid"])
+            self.assertNotIn("alt_art_variant", kinds, card["card_uid"])
 
-    def test_c6_rows_exist_and_are_counted(self):
-        """Ten rows are waiting on a kind name. If this ever reads zero the
-        gap has been closed or the rows have gone missing, and both need
-        knowing."""
+    def test_c6_rows_are_counted(self):
+        """Ten One Piece base-vs-parallel pairs plus the four re-tagged
+        Riftbound rows. If this ever drops, rows have gone missing or been
+        re-tagged, and both need knowing."""
         c6 = [c for c in labelled() if "C6" in classes_of(c)]
-        self.assertEqual(len(c6), 10)
+        self.assertEqual(len(c6), 14)
 
     def test_the_gate_reads_the_plural_field(self):
         import inspect
@@ -164,43 +174,133 @@ class TheTranslationWasApplied(unittest.TestCase):
                          "row with two classes only counts once")
 
 
-class TheRiftboundAsteriskRowsContradictTheirOwnClass(unittest.TestCase):
-    """FLAGGED, NOT FIXED.
+class TheRiftboundAsteriskRowsAreC6(unittest.TestCase):
+    """`299*/298`, `299/298`, `303*/298` and `303/298` were tagged C5 and were
+    re-tagged C6 at source.
 
-    `299*/298`, `299/298`, `303*/298` and `303/298` are tagged C5. C5 is
-    defined as "cards sharing an identical printed name that are genuinely
-    different cards -- different set, different art, different effect. NOT
-    printings of one card."
+    C5 is cards that share a name and are GENUINELY DIFFERENT CARDS. These are
+    two printings of ONE card, treatment the only difference -- their own notes
+    say "asterisk only difference from 299/298" and "same art/rules as
+    303/298". That is C6's shape exactly.
 
-    These four are printings of one card: the rows' own notes say "asterisk
-    only difference from 299/298" and "same art/rules as 303/298". By the C5
-    definition they cannot be C5.
+    The asterisk being printed INSIDE the number is a notation detail, not a
+    different class. Riftbound writes the treatment into the number; One Piece
+    writes it nowhere and leaves it to an image filename. Same relationship,
+    two conventions.
 
-    Left alone because reclassifying somebody's research from the outside is
-    exactly the coercion this session has refused four times. The test exists
-    so the contradiction cannot be forgotten -- it will fail the moment the
-    rows are re-tagged, which is the point.
+    THIS TEST IS A WALL ON PURPOSE. It failed loudly while the rows were
+    mis-tagged and it fails loudly if they are ever tagged back, so the next
+    person to change them has to change this too and say why.
     """
+
+    STARRED_PAIRS = ("299", "303")
 
     def _rows(self):
         return [c for c in labelled()
-                if c["game"] == "riftbound" and "*" in c["number"]]
+                if c["game"] == "riftbound"
+                and any(c["number"].startswith(n) for n in self.STARRED_PAIRS)]
 
-    def test_the_asterisk_rows_are_still_tagged_c5(self):
+    def test_all_four_are_present(self):
         rows = self._rows()
-        self.assertTrue(rows, "no starred Riftbound rows in the set")
-        for card in rows:
-            self.assertIn(
-                "C5", classes_of(card),
-                f"{card['card_uid']} is no longer C5 -- if it was re-tagged, "
-                "update or delete this test and the OPEN_ISSUES entry with it")
+        self.assertEqual(len(rows), 4,
+                         f"expected four rows, found {[c['card_uid'] for c in rows]}")
 
-    def test_their_notes_say_they_are_one_card(self):
-        """The evidence for the contradiction, asserted rather than asserted
-        about."""
+    def test_all_four_are_c6(self):
+        for card in self._rows():
+            self.assertEqual(
+                classes_of(card), ("C6",),
+                f"{card['card_uid']} is no longer C6. If that is deliberate, "
+                "say why here and in docs/OPEN_ISSUES.md -- these four were "
+                "re-tagged from C5 because they are printings of ONE card, "
+                "and C5 is explicitly not that.")
+
+    def test_none_of_them_still_claims_c5s_kind(self):
+        """The stale-kind check. `map-classes` recomputes `hard_cases` rather
+        than merging into it, so a re-tag DROPS the kind the old class implied.
+        Merging would leave these four claiming `name_is_not_unique` and
+        satisfying a gate requirement they do not meet."""
+        for card in self._rows():
+            self.assertNotIn(
+                "name_is_not_unique", card.get("hard_cases") or [],
+                f"{card['card_uid']} kept C5's kind through a re-tag")
+
+    def test_they_carry_the_c6_kind(self):
+        for card in self._rows():
+            self.assertIn("same_printed_number_different_treatment",
+                          hard_cases_of(card), card["card_uid"])
+
+    def test_the_correction_is_recorded_on_the_row(self):
+        """Not silently rewritten. Each row says what it was and why it moved,
+        because a re-tag with no trace is indistinguishable from data that was
+        always that way."""
+        for card in self._rows():
+            self.assertIn("reclassification_note", card, card["card_uid"])
+            self.assertIn("one card",
+                          card["reclassification_note"].lower())
+
+    def test_their_notes_still_say_they_are_one_card(self):
+        """The evidence for the reclassification, asserted rather than
+        asserted about. If these notes ever change, the reclassification loses
+        its basis."""
         notes = " ".join(str(c.get("note") or "") for c in self._rows())
         self.assertIn("only difference", notes)
         self.assertIn("same art", notes)
+
+
+class C6IsRequiredByTheGate(unittest.TestCase):
+    """A gate that does not demand a case for C6 is missing the class it most
+    needs to measure -- it is one of the three blocking failures."""
+
+    def test_the_kind_is_in_the_required_list(self):
+        import inspect
+        import tests.test_resolver_gate as gate
+        source = inspect.getsource(
+            gate.TheLabelledSetIsComplete.test_every_hard_case_kind_is_covered)
+        self.assertIn("same_printed_number_different_treatment", source)
+
+    def test_the_set_can_satisfy_it(self):
+        """Requiring a kind no row carries would make the gate unsatisfiable
+        rather than demanding. Ten One Piece rows plus the four Riftbound ones
+        carry it."""
+        carrying = [c for c in labelled()
+                    if "same_printed_number_different_treatment"
+                    in hard_cases_of(c)]
+        self.assertGreaterEqual(len(carrying), 14)
+
+    def test_it_is_not_alt_art_variant(self):
+        """The fold that must never happen. C3's numbers DIFFER; C6's are
+        IDENTICAL, and that identity is the whole difficulty."""
+        self.assertNotEqual(CLASS_TO_KIND["C6"]["kind"],
+                            CLASS_TO_KIND["C3"]["kind"])
+
+
+class TheKindsAreTheSchemaAndTheClassesWereAnInput(unittest.TestCase):
+    """Where the two vocabularies disagree the disagreement is RECORDED, not
+    reconciled. The C classes were built for a research pass; the kinds were
+    derived from failure modes this repository has actually hit. Forcing a kind
+    into a class it does not fit would make the taxonomy tidier and the record
+    worse."""
+
+    def test_the_two_unmatched_kinds_are_kept_and_explained(self):
+        for kind in ("same_number_different_rarity", "box_code_vs_card_number"):
+            self.assertIn(kind, KINDS_WITH_NO_CLASS)
+            self.assertGreater(len(KINDS_WITH_NO_CLASS[kind]), 80,
+                               f"{kind} is listed with no explanation of why "
+                               "no class covers it")
+
+    def test_neither_was_forced_into_a_class(self):
+        mapped = {entry["kind"] for entry in CLASS_TO_KIND.values()}
+        for kind in KINDS_WITH_NO_CLASS:
+            self.assertNotIn(kind, mapped,
+                             f"{kind} was forced into a C class")
+
+    def test_same_number_different_rarity_is_distinguished_from_c6(self):
+        """The nearest neighbour, and the reason it is not the same thing: an
+        OP01-025 base SR and its parallel both read `SR`, so a differing rarity
+        is a different question entirely."""
+        why = KINDS_WITH_NO_CLASS["same_number_different_rarity"]
+        self.assertIn("C6", why)
+        self.assertIn("SR", why)
 
 
 if __name__ == "__main__":

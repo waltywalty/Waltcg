@@ -245,8 +245,12 @@ class TheLabelledSetIsComplete(unittest.TestCase):
     def test_every_hard_case_kind_is_covered(self):
         from resolve.hard_cases import hard_cases_of
         kinds = {k for c in self.cards for k in hard_cases_of(c)}
+        # `same_printed_number_different_treatment` is REQUIRED because C6 is
+        # one of the three blocking failures, and a gate that does not demand a
+        # case for it is missing the class it most needs to measure.
         for required in ("same_art_different_language", "reprint",
-                         "alt_art_variant", "promo_vs_set"):
+                         "alt_art_variant", "promo_vs_set",
+                         "same_printed_number_different_treatment"):
             self.assertIn(required, kinds, f"no {required} case in the set")
 
 
