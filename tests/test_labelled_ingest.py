@@ -811,3 +811,105 @@ class PromotionIsDeliberateAndNamed(unittest.TestCase):
         for card in upgraded:
             self.assertEqual(card["confidence"], card["upgraded"]["to"])
             self.assertTrue(card["upgraded"]["second_source"])
+
+
+class TheMutantCountIsSealed(unittest.TestCase):
+    """A run that discovers half the catalogue and reports every one of them
+    CAUGHT looks exactly like a clean run. So the discovered count is asserted
+    against a checked-in number before anything else happens, and a
+    silently-skipped subset reads as FAILURE rather than as green.
+
+    Same instrument as the ledger seal, pointed at the auditor."""
+
+    def _seal(self):
+        path = os.path.join(REPO, "audit", "mutant_seal.json")
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+
+    def test_the_seal_matches_the_catalogue(self):
+        from audit.mutants import MUTANTS
+        self.assertEqual(len(MUTANTS), self._seal()["expected_mutants"],
+                         "the catalogue and its seal disagree. Raise "
+                         "`expected_mutants` in the SAME commit that adds "
+                         "mutants -- a seal updated afterwards to match a "
+                         "broken run is not a seal.")
+
+    def test_the_seal_says_why_it_exists(self):
+        note = self._seal()["_note"]
+        self.assertIn("silently-skipped", note)
+        self.assertIn("same commit", note)
+
+    def test_a_wrong_count_fails(self):
+        from audit.mutate import check_seal
+        self.assertFalse(check_seal(1))
+        self.assertFalse(check_seal(self._seal()["expected_mutants"] - 1))
+        self.assertTrue(check_seal(self._seal()["expected_mutants"]))
+
+    def test_a_missing_seal_fails_rather_than_passes(self):
+        """A missing seal is exactly what a deleted catalogue looks like."""
+        import audit.mutate as harness
+        import pathlib
+        original = harness.SEAL
+        try:
+            harness.SEAL = pathlib.Path("/nonexistent/mutant_seal.json")
+            self.assertFalse(harness.check_seal(111))
+        finally:
+            harness.SEAL = original
+
+
+class TheFullMutationRunHappensSomewhereUnskippable(unittest.TestCase):
+    """Filtered local subsets are fine -- they are how the harness is actually
+    used -- as long as the whole catalogue runs somewhere nobody can quietly
+    not run it."""
+
+    def _workflow(self):
+        import yaml
+        path = os.path.join(REPO, ".github", "workflows", "mutate.yml")
+        with open(path, encoding="utf-8") as handle:
+            return yaml.safe_load(handle)
+
+    def _steps(self):
+        return self._workflow()["jobs"]["full-run"]["steps"]
+
+    def test_it_runs_weekly_and_on_a_change_to_the_auditor(self):
+        workflow = self._workflow()
+        triggers = workflow.get("on", workflow.get(True))
+        self.assertIn("schedule", triggers)
+        self.assertIn("push", triggers)
+        paths = triggers["push"]["paths"]
+        self.assertIn("audit/**", paths,
+                      "the harness is the one thing that must be re-verified "
+                      "after it is edited")
+
+    def test_the_seal_is_checked_before_the_run(self):
+        names = [s.get("name", "") for s in self._steps()]
+        seal = names.index("Mutant-count seal")
+        run = names.index("Full mutation run")
+        self.assertLess(seal, run,
+                        "an hour of mutants over an unsealed catalogue proves "
+                        "nothing")
+
+    def test_the_run_is_not_filtered(self):
+        step = next(s for s in self._steps()
+                    if s.get("name") == "Full mutation run")
+        self.assertNotIn("--only", step["run"],
+                         "the unskippable run is filtered, which is the thing "
+                         "it exists to compensate for")
+
+    def test_the_seal_step_can_fail_the_job(self):
+        """`continue-on-error` here would make the seal decorative."""
+        for name in ("Mutant-count seal", "Full mutation run"):
+            step = next(s for s in self._steps() if s.get("name") == name)
+            self.assertFalse(step.get("continue-on-error"), name)
+
+    def test_the_report_survives_a_failed_run(self):
+        step = next(s for s in self._steps()
+                    if s.get("name") == "Upload the report")
+        self.assertEqual(step.get("if"), "always()")
+
+    def test_no_step_embeds_a_heredoc(self):
+        """Runs #4 and #7 were both shell logic in YAML that no test could
+        reach."""
+        offenders = [s.get("name") for s in self._steps()
+                     if "<<" in (s.get("run") or "")]
+        self.assertEqual(offenders, [])

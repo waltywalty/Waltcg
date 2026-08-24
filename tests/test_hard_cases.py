@@ -307,9 +307,9 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class ThreeShapesOfReprint(unittest.TestCase):
-    """All three are C2 -- same card, one language, two sets -- and they fail
-    three different ways, so the general kind is not enough on its own.
+class FourShapesOfReprint(unittest.TestCase):
+    """All four are C2 -- same card, one language, two sets -- and they fail
+    four different ways, so the general kind is not enough on its own.
 
     The shapes are DECLARED from the research and CROSS-CHECKED against the
     rows: a pair claiming `same_number_new_set` must actually share a number,
@@ -326,10 +326,11 @@ class ThreeShapesOfReprint(unittest.TestCase):
                 pairs[full].append(card)
         return pairs
 
-    def test_all_three_shapes_are_declared(self):
+    def test_all_four_shapes_are_declared(self):
         from resolve.hard_cases import REPRINT_SHAPES
         self.assertEqual(set(REPRINT_SHAPES),
                          {"same_art_new_number", "same_number_new_set",
+                          "same_number_new_set_new_variant",
                           "new_art_new_number"})
         for name, entry in REPRINT_SHAPES.items():
             self.assertGreater(len(entry["what"]), 60, name)
@@ -414,14 +415,64 @@ class ThreeShapesOfReprint(unittest.TestCase):
                 self.assertEqual(card.get("reprint_shape"), shape,
                                  card["card_uid"])
 
-    def test_all_three_shapes_are_present_in_the_set(self):
-        from resolve.hard_cases import reprint_shape_of
+    def test_the_shapes_present_in_the_set_are_named(self):
+        """Three of the four have rows. `same_number_new_set_new_variant` does
+        not yet -- the PRB pairs need their treatment names sourced -- and
+        that absence is a finding rather than a silent zero."""
+        from resolve.hard_cases import REPRINT_SHAPES, reprint_shape_of
         found = collections.Counter(reprint_shape_of(c) for c in labelled()
                                     if reprint_shape_of(c))
         self.assertEqual(set(found), {"same_art_new_number",
                                       "same_number_new_set",
                                       "new_art_new_number"},
-                         f"only {sorted(found)} present")
+                         f"shapes present changed: {sorted(found)}")
+        missing = set(REPRINT_SHAPES) - set(found)
+        self.assertEqual(missing, {"same_number_new_set_new_variant"},
+                         f"an unexercised shape appeared or disappeared: "
+                         f"{missing}")
+
+    def test_the_fourth_shape_is_required_by_the_gate(self):
+        """Required even though nothing carries it yet -- that is the point.
+        A gate that only demands what it already has measures nothing, and the
+        PRB pairs are precisely the case a set-only and a variant-only test
+        both miss."""
+        import inspect
+        import tests.test_resolver_gate as gate
+        source = inspect.getsource(
+            gate.TheLabelledSetIsComplete.test_every_hard_case_kind_is_covered)
+        self.assertIn("same_number_new_set_new_variant", source)
+        self.assertIn("same_number_different_product", source,
+                      "the set-only shape stopped being required")
+
+    def test_c6_was_not_widened_to_absorb_the_fourth_shape(self):
+        """A widened C6 would read "variant differs, set may or may not" -- a
+        DISJUNCTION, and disjunctive kinds are how C6 itself nearly got buried
+        inside `alt_art_variant`. A kind that means two things measures
+        neither."""
+        from resolve.hard_cases import CLASS_TO_KIND, REPRINT_SHAPES
+        self.assertNotEqual(
+            CLASS_TO_KIND["C6"]["kind"],
+            REPRINT_SHAPES["same_number_new_set_new_variant"]["kind"])
+        self.assertIn("DISJUNCTION", open(
+            os.path.join(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))), "resolve", "hard_cases.py"),
+            encoding="utf-8").read())
+
+    def test_the_note_parser_is_gone(self):
+        """A shape derived from prose is a shape a reworded note can drop, and
+        the cross-check catches a WRONG shape rather than a missing one."""
+        from resolve.hard_cases import reprint_pair_of, reprint_shape_of
+        self.assertIsNone(reprint_shape_of({"note": "pair CEL-1"}))
+        self.assertIsNone(reprint_pair_of({"note": "pair CEL-1"}))
+        self.assertEqual(reprint_pair_of({"pair_id": "CEL-1"}), "CEL-1")
+        source = open(os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "resolve", "hard_cases.py"),
+            encoding="utf-8").read()
+        self.assertNotIn('note.split("pair "', source)
+
+    def test_an_unknown_shape_value_is_refused(self):
+        from resolve.hard_cases import reprint_shape_of
+        self.assertIsNone(reprint_shape_of({"reprint_shape": "nonsense"}))
 
 
 class AMulticlassRowFillsEveryClassItCarries(unittest.TestCase):

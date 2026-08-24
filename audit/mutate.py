@@ -52,6 +52,36 @@ class AlreadyRunning(RuntimeError):
     """
 
 
+SEAL = ROOT / "audit" / "mutant_seal.json"
+
+
+def check_seal(discovered) -> bool:
+    """Is the catalogue the size it is sealed at?
+
+    The ledger seal exists because a store you cannot verify is a store you
+    are trusting. Same argument, pointed at the auditor: "all mutations
+    caught" over a catalogue that silently halved is a sentence with no
+    content, and it looks identical to the real thing.
+    """
+    import json
+    try:
+        expected = json.loads(SEAL.read_text())["expected_mutants"]
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"SEAL UNREADABLE: {SEAL} ({exc}). A missing seal is a failure, "
+              "not a pass -- it is exactly what a deleted catalogue looks "
+              "like.")
+        return False
+    if discovered != expected:
+        print(f"SEAL BROKEN: {discovered} mutants discovered, {expected} "
+              f"expected. If mutants were added, raise `expected_mutants` in "
+              f"{SEAL.name} IN THE SAME COMMIT -- a seal updated afterwards to "
+              "match a broken run is not a seal. If they vanished, find out "
+              "why before trusting any result below.")
+        return False
+    print(f"seal intact: {discovered} mutants")
+    return True
+
+
 def clear_bytecode():
     for cached in ROOT.rglob("__pycache__"):
         shutil.rmtree(cached, ignore_errors=True)
@@ -71,10 +101,21 @@ def main(argv=None) -> int:
                         help="run only mutants whose label contains this")
     parser.add_argument("--list", action="store_true",
                         help="print the catalogue and stop")
+    parser.add_argument("--check-seal", action="store_true",
+                        help="assert the catalogue is the size the seal says "
+                             "and stop. Exit 1 on a mismatch")
     args = parser.parse_args(argv)
+
+    if args.check_seal:
+        return 0 if check_seal(len(MUTANTS)) else 1
 
     wanted = [m for m in MUTANTS
               if not args.only or args.only.lower() in m[0].lower()]
+    if not args.only and not check_seal(len(MUTANTS)):
+        # A FULL RUN THAT IS QUIETLY SHORT IS THE FAILURE THIS GUARDS. Every
+        # mutant reported CAUGHT and half the catalogue never loaded reads
+        # exactly like a clean run.
+        return 1
     if args.list:
         for label, path, _old, _new in wanted:
             print(f"  {label}   [{path}]")

@@ -1,0 +1,103 @@
+name: mutate
+
+# THE FULL MUTATION RUN, SOMEWHERE UNSKIPPABLE.
+#
+# Filtered local subsets (`python -m audit.mutate --only cache`) are how the
+# harness is actually used day to day, and they are fine -- as long as the
+# whole catalogue runs somewhere nobody can quietly not run it. That is this.
+#
+# WHAT THIS EXISTS TO PREVENT. "All mutations caught" was load-bearing for
+# weeks while the harness lived in a scratch file, compared against a hardcoded
+# failure count the baseline had moved past, and reported CAUGHT for fourteen
+# mutants it had never tested. The guards were sound; the report was worthless.
+# A verification backbone that cannot be re-run by someone else is a claim, not
+# a check.
+#
+# THE SEAL is the other half. A run that discovers half the catalogue and
+# reports every one of them CAUGHT looks exactly like a clean run, so the
+# discovered count is asserted against `audit/mutant_seal.json` before anything
+# else happens. A silently-skipped subset reads as FAILURE, not as green --
+# the same instrument as the ledger seal, pointed at the auditor.
+
+on:
+  schedule:
+    # 04:40 UTC on Mondays. Off the hour, like the ingest job.
+    - cron: "40 4 * * 1"
+  workflow_dispatch:
+  push:
+    # Any change to the auditor or to what it audits. The harness cannot be
+    # the one thing that is never re-verified after it is edited.
+    paths:
+      - "audit/**"
+      - ".github/workflows/mutate.yml"
+  pull_request:
+    paths:
+      - "audit/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-run:
+    runs-on: ubuntu-latest
+    # ~110 mutants x a full suite each. Generous: a timeout that kills the run
+    # halfway would leave a sabotaged tree behind, which is what the harness's
+    # own `finally` exists to prevent and there is no reason to lean on it.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      # FIRST, and on its own. If the catalogue is not the size it is sealed
+      # at, nothing below this line means anything and the run should say so
+      # before spending an hour proving it.
+      - name: Mutant-count seal
+        run: python -m audit.mutate --check-seal
+
+      # Every anchor must still match its file. This is the cheap half of a
+      # mutation run -- it executes nothing -- and it catches the drift that
+      # turns a mutant into a guard that has silently stopped testing anything.
+      - name: Every anchor still matches
+        run: |
+          python -m unittest \
+            tests.test_labelled_ingest.TheMutationHarnessIsInTheRepository -v
+
+      - name: Full mutation run
+        run: python -m audit.mutate | tee mutation-report.txt
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-${{ github.run_id }}
+          path: mutation-report.txt
+          retention-days: 90
+          if-no-files-found: warn
+
+      # The report is the deliverable and it is uploaded above whatever
+      # happened, so this can fail the job without hiding anything.
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Mutation run"
+            echo
+            if [ -s mutation-report.txt ]; then
+              echo '```'
+              tail -40 mutation-report.txt
+              echo '```'
+            else
+              echo "**No report was produced.** The run did not reach its"
+              echo "reporting step -- see the step log above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

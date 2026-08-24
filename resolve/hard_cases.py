@@ -65,6 +65,10 @@ CLASS_TO_KIND = {
                       "art, different effect. NOT printings of one card.",
         "note": "",
     },
+    # NOT WIDENED to cover `same_number_new_set_new_variant`. A widened C6
+    # would read "variant differs, set may or may not" -- a DISJUNCTION, and
+    # disjunctive kinds are how C6 itself nearly got buried inside
+    # `alt_art_variant`. A kind that means two things measures neither.
     "C6": {
         "kind": "same_printed_number_different_treatment",
         "definition": "Two or more printings that print the SAME collector "
@@ -142,6 +146,19 @@ REPRINT_SHAPES = {
         "shares_number": True,
         "kind": "same_number_different_product",
     },
+    "same_number_new_set_new_variant": {
+        "what": "SAME number, different set, AND a different treatment. One "
+                "Piece PRB-01 reprints of OP05-119 and OP01-070 keep their "
+                "`OPxx-xxx` and arrive as new parallels -- apitcg shows "
+                "`OP05-119_p3`, `_p4`, `_p5`.",
+        "risk": "BOTH AXES MOVE AT ONCE. A resolver can pass `set_code`-only "
+                "(Celebrations 4/102) and `variant`-only (OP01-025 base "
+                "against its parallel) and still mishandle the two together, "
+                "because each of those tests holds one axis fixed. This is "
+                "the case neither of them exercises.",
+        "shares_number": True,
+        "kind": "same_number_new_set_new_variant",
+    },
     "new_art_new_number": {
         "what": "Different set, different number, DIFFERENT art. Radiant "
                 "Charizard PGO 011/078 (Negishi) against CRZ 020/159 "
@@ -153,32 +170,22 @@ REPRINT_SHAPES = {
     },
 }
 
-#: Pair tag (from a row's note) -> which of the three shapes it is.
-#: Sourced from the research, verified against the rows by
-#: `tests/test_hard_cases.py`.
-REPRINT_PAIR_SHAPES = {
-    "MCD": "same_art_new_number",
-    "CEL": "same_number_new_set",
-    "RAD-EN": "new_art_new_number",
-    "RAD-JP": "new_art_new_number",
-}
-
-
 def reprint_pair_of(card):
-    """The pair tag a row's note declares, e.g. `MCD-1` -> `MCD`."""
-    note = str(card.get("note") or "")
-    if "pair " not in note:
-        return None
-    tag = note.split("pair ", 1)[1].split(";")[0].strip()
-    for prefix in sorted(REPRINT_PAIR_SHAPES, key=len, reverse=True):
-        if tag == prefix or tag.startswith(prefix + "-"):
-            return prefix
-    return tag or None
+    """The pair this row belongs to, from its `pair_id` field.
+
+    THE NOTE PARSER IS GONE. It read `"pair MCD-1"` out of free prose, which
+    meant a note reworded at source silently dropped the shape -- and the
+    cross-check catches a WRONG shape, not a missing one. `pair_id` and
+    `reprint_shape` are real fields now; the prose-derived values were
+    migrated once and the parser deleted the same day.
+    """
+    return card.get("pair_id") or None
 
 
 def reprint_shape_of(card):
-    """Which of the three shapes this row's reprint pair is, or None."""
-    return REPRINT_PAIR_SHAPES.get(reprint_pair_of(card) or "")
+    """Which of the four shapes this row's reprint pair is, or None."""
+    shape = card.get("reprint_shape")
+    return shape if shape in REPRINT_SHAPES else None
 
 
 def hard_cases_of(card) -> tuple:

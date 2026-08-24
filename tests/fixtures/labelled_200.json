@@ -21,26 +21,22 @@
       "verified"
     ]
   },
-  "_status": "INCOMPLETE -- 216 of 250",
+  "_status": "INCOMPLETE -- 234 of 250 verified (285 rows in the pool)",
   "_needed": {
-    "have": 21,
-    "short_by": 229,
-    "why": "Every row is an identity established outside the resolver's own catalogs -- either elsewhere in this repository (`verified_from`) or from external research (`source: external_research`). The remainder is not invented: generating candidates from the catalogs the resolver reads would make the precision score a measurement of the catalog rather than of the resolver. Use `python -m resolve.label_cli propose` and adjudicate. CLAUDE.md: when a source cannot supply a field, delete it rather than stub it -- the same applies to a test set.",
-    "externally_researched": 9,
-    "combos_with_zero_cards": [
-      "pkmn:CN-T"
-    ],
-    "combos_thin": {
-      "pkmn:EN": 1,
-      "pkmn:JP": 2,
-      "optcg:EN": 3,
-      "optcg:JP": 2,
-      "optcg:CN-S": 5,
-      "pkmn:CN-S": 5,
-      "riftbound:EN": 3
+    "have_verified": 234,
+    "rows_in_pool": 285,
+    "short_by": 16,
+    "short_per_combo": {
+      "optcg:CN-S": 16,
+      "optcg:JP": 1,
+      "pkmn:EN": 2
     },
-    "hard_cases_present": 16,
-    "hard_cases_short_by": 44
+    "below_detection_floor": [
+      "optcg:CN-S"
+    ],
+    "hard_cases": 129,
+    "hard_cases_short_by": 0,
+    "why": "Only `verified` rows count -- two independent external sources agreeing. Single-source rows are candidates and are reported separately."
   },
   "cards": [
     {
@@ -281,6 +277,145 @@
       ]
     },
     {
+      "card_uid": "optcg:op01:OP01-004:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-004",
+      "variant": "base",
+      "language": "EN",
+      "name": "Usopp",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-004:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-004",
+      "variant": "base",
+      "language": "JP",
+      "name": "Usopp",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ウソップ"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-005:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-005",
+      "variant": "base",
+      "language": "EN",
+      "name": "Uta",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-005:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-005",
+      "variant": "base",
+      "language": "JP",
+      "name": "Uta",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ウタ"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-006:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-006",
+      "variant": "base",
+      "language": "EN",
+      "name": "Otama",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-006:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-006",
+      "variant": "base",
+      "language": "JP",
+      "name": "Otama",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "お玉"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-007:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-007",
+      "variant": "base",
+      "language": "EN",
+      "name": "Caribou",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-007:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-007",
+      "variant": "base",
+      "language": "JP",
+      "name": "Caribou",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "カリブー"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-008:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-008",
+      "variant": "base",
+      "language": "EN",
+      "name": "Cavendish",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "illustrator BISAI"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-008:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-008",
+      "variant": "base",
+      "language": "JP",
+      "name": "Cavendish",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "キャベンディッシュ; 2nd source marketplace-tier"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-011:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-011",
+      "variant": "base",
+      "language": "EN",
+      "name": "Gordon",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-011:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-011",
+      "variant": "base",
+      "language": "JP",
+      "name": "Gordon",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ゴードン"
+    },
+    {
       "card_uid": "optcg:op01:OP01-013:alt_art:CN-S",
       "game": "optcg",
       "set_code": "op01",
@@ -307,6 +442,18 @@
       "hard_cases": [
         "same_art_different_language"
       ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-013:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-013",
+      "variant": "base",
+      "language": "JP",
+      "name": "Sanji",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "サンジ"
     },
     {
       "card_uid": "optcg:op01:OP01-013:treasure_rare:CN-S",
@@ -399,6 +546,75 @@
       "hard_cases": [
         "same_art_different_language"
       ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-017:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-017",
+      "variant": "base",
+      "language": "EN",
+      "name": "Nico Robin",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-017:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-017",
+      "variant": "base",
+      "language": "JP",
+      "name": "Nico Robin",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ニコ・ロビン"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-018:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-018",
+      "variant": "base",
+      "language": "EN",
+      "name": "Hajrudin",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-018:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-018",
+      "variant": "base",
+      "language": "JP",
+      "name": "Hajrudin",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ハイルディン"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-019:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-019",
+      "variant": "base",
+      "language": "EN",
+      "name": "Bartolomeo",
+      "source": "external_research",
+      "confidence": "verified"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-019:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-019",
+      "variant": "base",
+      "language": "JP",
+      "name": "Bartolomeo",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "バルトロメオ"
     },
     {
       "card_uid": "optcg:op01:OP01-024:base:CN-S",
@@ -571,6 +787,66 @@
       "note": "光月御殿; Leader; SC name single-sourced"
     },
     {
+      "card_uid": "optcg:op01:OP01-032:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-032",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Ashura Doji",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "阿修罗童子; 2nd source is shared Bandai numbering — number-only"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-033:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-033",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Izo",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "以藏; number-only 2nd source"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-034:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-034",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Inuarashi",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "犬岚; number-only 2nd source"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-035:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-035",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Okiku",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "阿菊; number-only 2nd source"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-036:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-036",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Otsuru",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "阿鹤; number-only 2nd source"
+    },
+    {
       "card_uid": "optcg:op01:OP01-047:base:EN",
       "game": "optcg",
       "set_code": "op01",
@@ -587,6 +863,18 @@
       ]
     },
     {
+      "card_uid": "optcg:op01:OP01-049:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-049",
+      "variant": "base",
+      "language": "JP",
+      "name": "Bepo",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ベポ; 2nd source marketplace-tier"
+    },
+    {
       "card_uid": "optcg:op01:OP01-051:base:EN",
       "game": "optcg",
       "set_code": "op01",
@@ -597,6 +885,18 @@
       "source": "external_research",
       "confidence": "verified",
       "note": "SR"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-054:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-054",
+      "variant": "base",
+      "language": "JP",
+      "name": "X.Drake",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "X・ドレーク"
     },
     {
       "card_uid": "optcg:op01:OP01-060:base:CN-S",
@@ -615,6 +915,18 @@
       ]
     },
     {
+      "card_uid": "optcg:op01:OP01-060:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-060",
+      "variant": "base",
+      "language": "JP",
+      "name": "Donquixote Doflamingo",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ドンキホーテ・ドフラミンゴ; Leader"
+    },
+    {
       "card_uid": "optcg:op01:OP01-061:base:CN-S",
       "game": "optcg",
       "set_code": "op01",
@@ -631,6 +943,30 @@
       ]
     },
     {
+      "card_uid": "optcg:op01:OP01-061:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-061",
+      "variant": "base",
+      "language": "EN",
+      "name": "Kaido",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Leader"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-061:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-061",
+      "variant": "base",
+      "language": "JP",
+      "name": "Kaido",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "カイドウ; Leader"
+    },
+    {
       "card_uid": "optcg:op01:OP01-062:base:CN-S",
       "game": "optcg",
       "set_code": "op01",
@@ -645,6 +981,90 @@
       "hard_cases": [
         "same_art_different_language"
       ]
+    },
+    {
+      "card_uid": "optcg:op01:OP01-062:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-062",
+      "variant": "base",
+      "language": "JP",
+      "name": "Crocodile",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "クロコダイル; Leader"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-063:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-063",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Arlong",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "阿龙; number-only 2nd source"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-063:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-063",
+      "variant": "base",
+      "language": "JP",
+      "name": "Arlong",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "アーロン"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-064:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-064",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Alvida",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "阿尔丽塔; number-only 2nd source"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-064:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-064",
+      "variant": "base",
+      "language": "JP",
+      "name": "Alvida",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "アルビダ"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-065:base:CN-S",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-065",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Vergo",
+      "source": "external_research",
+      "confidence": "single_source",
+      "note": "维尔戈; number-only 2nd source"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-065:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-065",
+      "variant": "base",
+      "language": "JP",
+      "name": "Vergo",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ヴェルゴ"
     },
     {
       "card_uid": "optcg:op01:OP01-070:base:EN",
@@ -740,6 +1160,30 @@
       }
     },
     {
+      "card_uid": "optcg:op01:OP01-112:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-112",
+      "variant": "base",
+      "language": "EN",
+      "name": "Page One",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "illustrator Koushi Rokushiro"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-112:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-112",
+      "variant": "base",
+      "language": "JP",
+      "name": "Page One",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ページワン"
+    },
+    {
       "card_uid": "optcg:op01:OP01-120:base:CN-S",
       "game": "optcg",
       "set_code": "op01",
@@ -802,7 +1246,8 @@
       "variant_as_sourced": "manga",
       "hard_cases": [
         "same_printed_number_different_treatment"
-      ]
+      ],
+      "disputed": "set_code may be wrong: OP01-120 has six printings across op01 and prb01, and nothing available says which is the manga one. See _disputes."
     },
     {
       "card_uid": "optcg:op01:OP01-120:manga_rare:JP",
@@ -819,7 +1264,8 @@
       "hard_cases": [
         "same_art_different_language",
         "same_printed_number_different_treatment"
-      ]
+      ],
+      "disputed": "set_code may be wrong: OP01-120 has six printings across op01 and prb01, and nothing available says which is the manga one. See _disputes."
     },
     {
       "card_uid": "optcg:op01:OP01-121:base:CN-S",
@@ -1207,6 +1653,162 @@
       "note": "绿毛虫"
     },
     {
+      "card_uid": "pkmn:151C:011/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "011/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Metapod",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "铁甲蛹"
+    },
+    {
+      "card_uid": "pkmn:151C:012/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "012/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Butterfree",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "巴大蝶"
+    },
+    {
+      "card_uid": "pkmn:151C:013/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "013/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Weedle",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "独角虫"
+    },
+    {
+      "card_uid": "pkmn:151C:014/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "014/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Kakuna",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "铁壳蛹"
+    },
+    {
+      "card_uid": "pkmn:151C:015/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "015/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Beedrill",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "大针蜂"
+    },
+    {
+      "card_uid": "pkmn:151C:016/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "016/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Pidgey",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "波波"
+    },
+    {
+      "card_uid": "pkmn:151C:017/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "017/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Pidgeotto",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "比比鸟"
+    },
+    {
+      "card_uid": "pkmn:151C:018/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "018/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Pidgeot",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "大比鸟"
+    },
+    {
+      "card_uid": "pkmn:151C:019/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "019/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Rattata",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "小拉达"
+    },
+    {
+      "card_uid": "pkmn:151C:020/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "020/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Raticate",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "拉达"
+    },
+    {
+      "card_uid": "pkmn:151C:021/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "021/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Spearow",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "烈雀"
+    },
+    {
+      "card_uid": "pkmn:151C:022/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "022/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Fearow",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "大嘴雀"
+    },
+    {
+      "card_uid": "pkmn:151C:023/151:base:CN-S",
+      "game": "pkmn",
+      "set_code": "151C",
+      "number": "023/151",
+      "variant": "base",
+      "language": "CN-S",
+      "name": "Ekans",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "阿柏蛇"
+    },
+    {
       "card_uid": "pkmn:151C:024/151:base:CN-S",
       "game": "pkmn",
       "set_code": "151C",
@@ -1497,6 +2099,18 @@
       ]
     },
     {
+      "card_uid": "pkmn:SV2aF:002/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "002/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Ivysaur",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "妙蛙草"
+    },
+    {
       "card_uid": "pkmn:SV2aF:004/165:base:CN-T",
       "game": "pkmn",
       "set_code": "SV2aF",
@@ -1575,6 +2189,66 @@
       ]
     },
     {
+      "card_uid": "pkmn:SV2aF:157/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "157/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Safety Goggles",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "安全護目鏡; retailer-tier 2nd source"
+    },
+    {
+      "card_uid": "pkmn:SV2aF:158/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "158/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Air Balloon",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "大氣球; retailer-tier 2nd source"
+    },
+    {
+      "card_uid": "pkmn:SV2aF:159/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "159/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Rigid Band",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "硬硬束帶; retailer-tier 2nd source"
+    },
+    {
+      "card_uid": "pkmn:SV2aF:160/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "160/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Leftovers",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "吃剩的東西; retailer-tier 2nd source"
+    },
+    {
+      "card_uid": "pkmn:SV2aF:161/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "161/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Erika's Invitation",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "莉佳的招待; retailer-tier 2nd source"
+    },
+    {
       "card_uid": "pkmn:SV2aF:162/165:base:CN-T",
       "game": "pkmn",
       "set_code": "SV2aF",
@@ -1585,6 +2259,30 @@
       "source": "external_research",
       "confidence": "verified",
       "note": "坂木的領導力; Supporter"
+    },
+    {
+      "card_uid": "pkmn:SV2aF:163/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "163/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Nanami's Assistance",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "奈奈美的幫助; retailer-tier 2nd source"
+    },
+    {
+      "card_uid": "pkmn:SV2aF:164/165:base:CN-T",
+      "game": "pkmn",
+      "set_code": "SV2aF",
+      "number": "164/165",
+      "variant": "base",
+      "language": "CN-T",
+      "name": "Masaki's Delivery",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "正輝的輸送; retailer-tier 2nd source"
     },
     {
       "card_uid": "pkmn:SV2aF:165/165:base:CN-T",
@@ -1781,7 +2479,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-2"
     },
     {
       "card_uid": "pkmn:base1:4/102:holo:EN",
@@ -1799,7 +2498,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-1"
     },
     {
       "card_uid": "pkmn:base5:8/82:holo:EN",
@@ -1818,7 +2518,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-3"
     },
     {
       "card_uid": "pkmn:cel25cc:17/17:base:EN",
@@ -1837,7 +2538,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-4"
     },
     {
       "card_uid": "pkmn:cel25cc:2/102:holo:EN",
@@ -1856,7 +2558,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-2"
     },
     {
       "card_uid": "pkmn:cel25cc:4/102:holo:EN",
@@ -1875,7 +2578,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-1"
     },
     {
       "card_uid": "pkmn:cel25cc:8/82:holo:EN",
@@ -1894,7 +2598,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-3"
     },
     {
       "card_uid": "pkmn:cs3aC:130/125:sr:CN-S",
@@ -2064,7 +2769,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-1"
     },
     {
       "card_uid": "pkmn:mcd2023:002/015:promo:EN",
@@ -2082,7 +2788,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-2"
     },
     {
       "card_uid": "pkmn:mcd2023:003/015:promo:EN",
@@ -2100,7 +2807,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-3"
     },
     {
       "card_uid": "pkmn:mcd2023:005/015:promo:EN",
@@ -2118,7 +2826,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-4"
     },
     {
       "card_uid": "pkmn:mcd2023:010/015:promo:EN",
@@ -2136,7 +2845,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-5"
     },
     {
       "card_uid": "pkmn:mcd2023:011/015:promo:EN",
@@ -2154,7 +2864,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-6"
     },
     {
       "card_uid": "pkmn:pop5:17/17:base:EN",
@@ -2172,7 +2883,8 @@
         "reprint",
         "same_number_different_product"
       ],
-      "reprint_shape": "same_number_new_set"
+      "reprint_shape": "same_number_new_set",
+      "pair_id": "CEL-4"
     },
     {
       "card_uid": "pkmn:s10b:011:base:JP",
@@ -2190,7 +2902,8 @@
         "same_art_different_language",
         "reprint"
       ],
-      "reprint_shape": "new_art_new_number"
+      "reprint_shape": "new_art_new_number",
+      "pair_id": "RAD-JP"
     },
     {
       "card_uid": "pkmn:s12a:013/172:base:JP",
@@ -2232,7 +2945,8 @@
         "same_art_different_language",
         "reprint"
       ],
-      "reprint_shape": "new_art_new_number"
+      "reprint_shape": "new_art_new_number",
+      "pair_id": "RAD-JP"
     },
     {
       "card_uid": "pkmn:s12a:050/172:base:JP",
@@ -2322,7 +3036,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-1"
     },
     {
       "card_uid": "pkmn:sv01:036/198:base:EN",
@@ -2341,7 +3056,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-2"
     },
     {
       "card_uid": "pkmn:sv01:052/198:base:EN",
@@ -2360,7 +3076,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-3"
     },
     {
       "card_uid": "pkmn:sv01:060/198:base:EN",
@@ -2379,7 +3096,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-4"
     },
     {
       "card_uid": "pkmn:sv01:120/198:base:EN",
@@ -2398,7 +3116,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-5"
     },
     {
       "card_uid": "pkmn:sv01:122/198:base:EN",
@@ -2417,7 +3136,8 @@
         "reprint",
         "promo_vs_set"
       ],
-      "reprint_shape": "same_art_new_number"
+      "reprint_shape": "same_art_new_number",
+      "pair_id": "MCD-6"
     },
     {
       "card_uid": "pkmn:sv03.5:001/165:base:EN",
@@ -2738,6 +3458,18 @@
       ]
     },
     {
+      "card_uid": "pkmn:sv2a:002/165:base:JP",
+      "game": "pkmn",
+      "set_code": "sv2a",
+      "number": "002/165",
+      "variant": "base",
+      "language": "JP",
+      "name": "Ivysaur",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "フシギソウ"
+    },
+    {
       "card_uid": "pkmn:sv2a:003/165:base:JP",
       "game": "pkmn",
       "set_code": "sv2a",
@@ -2768,6 +3500,18 @@
       "hard_cases": [
         "same_art_different_language"
       ]
+    },
+    {
+      "card_uid": "pkmn:sv2a:005/165:base:JP",
+      "game": "pkmn",
+      "set_code": "sv2a",
+      "number": "005/165",
+      "variant": "base",
+      "language": "JP",
+      "name": "Charmeleon",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "リザード"
     },
     {
       "card_uid": "pkmn:sv2a:006/165:base:JP",
@@ -2801,6 +3545,18 @@
       ]
     },
     {
+      "card_uid": "pkmn:sv2a:008/165:base:JP",
+      "game": "pkmn",
+      "set_code": "sv2a",
+      "number": "008/165",
+      "variant": "base",
+      "language": "JP",
+      "name": "Wartortle",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "カメール"
+    },
+    {
       "card_uid": "pkmn:sv2a:009/165:base:JP",
       "game": "pkmn",
       "set_code": "sv2a",
@@ -2815,6 +3571,42 @@
       "hard_cases": [
         "same_art_different_language"
       ]
+    },
+    {
+      "card_uid": "pkmn:sv2a:010/165:base:JP",
+      "game": "pkmn",
+      "set_code": "sv2a",
+      "number": "010/165",
+      "variant": "base",
+      "language": "JP",
+      "name": "Caterpie",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "キャタピー"
+    },
+    {
+      "card_uid": "pkmn:sv2a:011/165:base:JP",
+      "game": "pkmn",
+      "set_code": "sv2a",
+      "number": "011/165",
+      "variant": "base",
+      "language": "JP",
+      "name": "Metapod",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "トランセル"
+    },
+    {
+      "card_uid": "pkmn:sv2a:012/165:base:JP",
+      "game": "pkmn",
+      "set_code": "sv2a",
+      "number": "012/165",
+      "variant": "base",
+      "language": "JP",
+      "name": "Butterfree",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "バタフリー"
     },
     {
       "card_uid": "pkmn:sv2a:025/165:base:JP",
@@ -2930,7 +3722,8 @@
       "hard_cases": [
         "reprint"
       ],
-      "reprint_shape": "new_art_new_number"
+      "reprint_shape": "new_art_new_number",
+      "pair_id": "RAD-EN"
     },
     {
       "card_uid": "pkmn:swsh12.5:020/159:base:EN",
@@ -2948,7 +3741,8 @@
       "hard_cases": [
         "reprint"
       ],
-      "reprint_shape": "new_art_new_number"
+      "reprint_shape": "new_art_new_number",
+      "pair_id": "RAD-EN"
     },
     {
       "card_uid": "pkmn:swsh7:095/203:base:EN",
@@ -3106,6 +3900,18 @@
       "confidence": "verified"
     },
     {
+      "card_uid": "riftbound:OGN:OGN-002:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-002",
+      "variant": "base",
+      "language": "EN",
+      "name": "Brazen Buccaneer",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Common"
+    },
+    {
       "card_uid": "riftbound:OGN:OGN-007:base:EN",
       "game": "riftbound",
       "set_code": "OGN",
@@ -3116,6 +3922,42 @@
       "source": "external_research",
       "confidence": "verified",
       "note": "rune"
+    },
+    {
+      "card_uid": "riftbound:OGN:OGN-012:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-012",
+      "variant": "base",
+      "language": "EN",
+      "name": "Noxus Hopeful",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Common"
+    },
+    {
+      "card_uid": "riftbound:OGN:OGN-016:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-016",
+      "variant": "base",
+      "language": "EN",
+      "name": "Dangerous Duo",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Uncommon"
+    },
+    {
+      "card_uid": "riftbound:OGN:OGN-024:base:EN",
+      "game": "riftbound",
+      "set_code": "OGN",
+      "number": "OGN-024",
+      "variant": "base",
+      "language": "EN",
+      "name": "Void Seeker",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Uncommon"
     },
     {
       "card_uid": "riftbound:OGN:OGN-030:base:EN",
@@ -3284,6 +4126,42 @@
       "verified_from": "contracts/fixtures",
       "note": "Set code unverified against a primary source; see the gap note below.",
       "confidence": "in_repo"
+    },
+    {
+      "card_uid": "riftbound:SFD:SFD-020:base:EN",
+      "game": "riftbound",
+      "set_code": "SFD",
+      "number": "SFD-020",
+      "variant": "base",
+      "language": "EN",
+      "name": "Draven, Vanquisher",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Rare; Spiritforged set 2; illustrator Six More Vodka"
+    },
+    {
+      "card_uid": "riftbound:SFD:SFD-082:base:EN",
+      "game": "riftbound",
+      "set_code": "SFD",
+      "number": "SFD-082",
+      "variant": "base",
+      "language": "EN",
+      "name": "Ezreal, Dashing",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Rare; Spiritforged"
+    },
+    {
+      "card_uid": "riftbound:SFD:SFD-110:base:EN",
+      "game": "riftbound",
+      "set_code": "SFD",
+      "number": "SFD-110",
+      "variant": "base",
+      "language": "EN",
+      "name": "Fiora, Peerless",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "Rare; Spiritforged"
     },
     {
       "card_uid": "riftbound:VDT:VDT-017:base:EN",
@@ -3458,6 +4336,36 @@
           "confidence": "in_repo"
         }
       ]
+    }
+  ],
+  "_schema_note": "pair_id and reprint_shape are REAL FIELDS as of 2026-08-18. They were derived from prose in `note` for one migration and the parser was then deleted: a reworded note must not be able to silently drop a shape. Future batches carry both fields.",
+  "_disputes": [
+    {
+      "dispute": "OP01-014 / OP01-015",
+      "date": "2026-08-18",
+      "status": "RESOLVED -- pass 4 refuted, no existing row corrected",
+      "claim": "Pass 4 returned OP01-014 = Tony Tony.Chopper and OP01-015 = Jinbe, in EN and JP, dual-sourced. Pass 3's existing verified EN row has OP01-015 = Tony Tony.Chopper. Mutually exclusive.",
+      "settled_from": "apitcg's one-piece-tcg-data op01.json, a mirror of Bandai's official card list -- the same source that settled OP01-121 and the OP01-002/003 swap.",
+      "finding": "OP01-014 is JINBE and OP01-015 is TONY TONY.CHOPPER. Pass 3 is right; pass 4 has the pair swapped -- the same failure shape as batch 2's OP01-002/003.",
+      "action": "The three quarantined rows are NOT ingested as claimed. No existing row is corrected. Correct rows for OP01-014 EN/JP and OP01-015 JP are still needed and must be sourced afresh -- minting them from apitcg here would make them catalog-derived, which is the circularity the labelled set exists to avoid.",
+      "rows_still_needed": [
+        "optcg:op01:OP01-014:base:EN  = Jinbe",
+        "optcg:op01:OP01-014:base:JP  = Jinbe",
+        "optcg:op01:OP01-015:base:JP  = Tony Tony.Chopper"
+      ]
+    },
+    {
+      "dispute": "OP01-120 manga_rare -- which product?",
+      "date": "2026-08-18",
+      "status": "OPEN -- ambiguity confirmed, resolution NOT available here",
+      "claim": "The two `manga_rare` rows may be PRB-01 printings carrying `op01` as their set code. OP-01 predates manga treatments, and under number retention a listing reading `OP01-120 Manga` is product-ambiguous.",
+      "finding": "The ambiguity is real and larger than expected. OP01-120 has SIX printings across two products: op01 holds `OP01-120`, `_p1`, `_p2`; prb01 holds `_p3`, `_p4`, `_p5`. A marketplace listing naming only the number and `Manga` cannot pick between six.",
+      "why_not_resolved": "apitcg carries no treatment names -- every rarity field in the One Piece data is null -- so nothing available here says WHICH of the six is the manga printing. Re-homing to prb01 on the strength of `OP-01 predates manga` would be an inference, and inference is what put the row in op01 in the first place.",
+      "affected": [
+        "optcg:op01:OP01-120:manga_rare:EN",
+        "optcg:op01:OP01-120:manga_rare:JP"
+      ],
+      "note": "Left counted rather than demoted: demoting would move the gate numbers on a suspicion. Flagged on the rows so the doubt travels with them."
     }
   ]
 }

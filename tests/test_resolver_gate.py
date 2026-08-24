@@ -256,7 +256,10 @@ class TheLabelledSetIsComplete(unittest.TestCase):
         for required in ("same_art_different_language", "reprint",
                          "alt_art_variant", "promo_vs_set",
                          "same_printed_number_different_treatment",
-                         "same_number_different_product"):
+                         "same_number_different_product",
+                         # Both axes moving at once. A resolver can pass
+                         # set-only and variant-only and still mishandle this.
+                         "same_number_new_set_new_variant"):
             self.assertIn(required, kinds, f"no {required} case in the set")
 
 

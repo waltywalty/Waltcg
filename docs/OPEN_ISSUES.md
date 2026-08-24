@@ -129,34 +129,51 @@ disagreement stands:
 
 Neither is forced into a class, and a test asserts neither ever is.
 
-## S2 — the PRB reprints are not the shape Celebrations is
+## S2 — the fourth reprint shape has no rows
 
-The five One Piece originals carry `reprinted_in: prb01`/`prb02`. The PRB side
-is NOT represented, and the reason is a finding.
+`same_number_new_set_new_variant` is declared and REQUIRED by the gate, and
+nothing carries it. That is the point: a gate that only demands what it already
+has measures nothing, and this is the case a set-only test (Celebrations) and a
+variant-only test (OP01-025) both miss — a resolver can pass each and still
+mishandle the two together.
 
-apitcg's `prb01.json` confirms the rule emphatically — **317 of its 319 cards
-keep their original `OPxx-xxx`** and only 2 use the `PRB01-` scheme. But it
-also shows the reprints as `OP05-119_p3`, `_p4`, `_p5`: Bandai's *parallel*
-suffixes. So PRB-01 does not contain a plain reprint of OP05-119; it contains
-**new treatments** of it.
+C6 was NOT widened to absorb it. A widened C6 reads "variant differs, set may
+or may not" — a disjunction, and disjunctive kinds are how C6 itself nearly got
+buried inside `alt_art_variant`.
 
-That makes the pair `optcg:op05:OP05-119:base:EN` against
-`optcg:prb01:OP05-119:parallelN:EN` — differing in `set_code` **and**
-`variant`, which is neither `same_number_new_set` (set_code alone) nor C6
-(variant alone, same set). **The Celebrations analogy does not hold**, and I
-had tagged these `same_number_new_set` before checking. Backed out.
+The five PRB pairs are the rows it wants. Their originals carry
+`reprinted_in: prb01`/`prb02`; the PRB side is not minted because the variant
+is the one field no source here supplies. apitcg would give `_p3`/`_p4`/`_p5`,
+which is catalog-derived and excluded by rule.
 
-Needs a decision: a fourth reprint shape, or C6 widened to "same printed
-number, different treatment, wherever the treatment lives". Until then the
-representation would be:
+## S1 — OP01-120 `manga_rare` may be homed to the wrong product
 
-```
-optcg:prb01:OP05-119:<variant>:EN     set = the product, number retained
-```
+`OP01-120` has **six printings across two products**: `op01` holds `OP01-120`,
+`_p1`, `_p2`; `prb01` holds `_p3`, `_p4`, `_p5`. A marketplace listing reading
+`OP01-120 Manga` cannot pick between six, and both `manga_rare` rows were
+sourced from exactly that kind of listing.
 
-and the variant is the one field no source here supplies — reading it from
-apitcg would make the row catalog-derived, which is the circularity the
-labelled set exists to avoid.
+**Not re-homed.** apitcg carries no treatment names — every One Piece rarity
+field is null — so nothing available says which of the six is the manga
+printing. Re-homing to `prb01` on the strength of "OP-01 predates manga" would
+be an inference, and inference is what put the row in `op01` in the first
+place.
+
+S1 rather than S2 because these two rows are `verified` and counted: if they
+are mis-homed, a wrong identity is in ground truth. Flagged on the rows and
+left counted rather than demoted — demoting would move the gate numbers on a
+suspicion.
+
+## RESOLVED — OP01-014 / OP01-015, and pass 4 is the one that is wrong
+
+Pass 4 claimed `OP01-014` = Tony Tony.Chopper and `OP01-015` = Jinbe. Bandai's
+list has **`OP01-014` = Jinbe and `OP01-015` = Tony Tony.Chopper**. The existing
+verified EN row is correct; pass 4 has the pair swapped — the same failure
+shape as batch 2's OP01-002/003.
+
+No existing row corrected. The three quarantined rows are not ingested as
+claimed, and correct rows for OP01-014 EN/JP and OP01-015 JP still need
+sourcing afresh: minting them from apitcg would make them catalog-derived.
 
 ## RESOLVED — every required kind now has a verified example
 

@@ -184,6 +184,7 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False,
         else:
             accepted.append(row)
 
+    labelled["_needed"] = _needed_block(labelled)
     if accepted and not dry_run:
         replaced = {r["supersedes"] for r in accepted if r.get("supersedes")}
         kept = [c for c in labelled.get("cards", [])
@@ -286,6 +287,34 @@ def map_classes(labelled_path=LABELLED, dry_run=False):
     if changed and not dry_run:
         _save(labelled_path, labelled)
     return changed, unmapped, len(labelled.get("cards", []))
+
+
+def _needed_block(labelled):
+    """What is still missing, recomputed. It was a seed value written once and
+    never touched again, so it went on reporting `short_by: 229` while the set
+    grew past it."""
+    from resolve.hard_cases import hard_cases_of
+    cards = labelled.get("cards", [])
+    scored = [c for c in cards if c.get("confidence") in SCORED]
+    per = collections.Counter(f"{c['game']}:{c['language']}" for c in scored)
+    short = {combo: want - per.get(combo, 0)
+             for combo, want in TARGET_PER_COMBO.items()
+             if per.get(combo, 0) < want}
+    hard = sum(1 for c in scored if hard_cases_of(c))
+    want_hard = int(TARGET_TOTAL * HARD_CASE_SHARE)
+    return {
+        "have_verified": len(scored),
+        "rows_in_pool": len(cards),
+        "short_by": max(TARGET_TOTAL - len(scored), 0),
+        "short_per_combo": dict(sorted(short.items())),
+        "below_detection_floor": sorted(
+            c for c in TARGET_PER_COMBO if per.get(c, 0) < MIN_PER_COMBO),
+        "hard_cases": hard,
+        "hard_cases_short_by": max(want_hard - hard, 0),
+        "why": "Only `verified` rows count -- two independent external sources "
+               "agreeing. Single-source rows are candidates and are reported "
+               "separately.",
+    }
 
 
 def _load(path, default):
@@ -500,9 +529,18 @@ def _prompt(candidate):
 
 
 def _status_line(labelled):
+    """COUNTED ON VERIFIED ROWS, not on the pool.
+
+    It counted every row, so the file flipped to COMPLETE at 285 rows while
+    ground truth stood at 234 -- the same "pool size read as ground-truth
+    size" mistake the confidence split exists to prevent, surviving in the one
+    line a reader is most likely to trust.
+    """
     cards = labelled.get("cards", [])
-    return (f"{'COMPLETE' if len(cards) >= TARGET_TOTAL else 'INCOMPLETE'} -- "
-            f"{len(cards)} of {TARGET_TOTAL}")
+    scored = [c for c in cards if c.get("confidence") in SCORED]
+    return (f"{'COMPLETE' if len(scored) >= TARGET_TOTAL else 'INCOMPLETE'} -- "
+            f"{len(scored)} of {TARGET_TOTAL} verified "
+            f"({len(cards)} rows in the pool)")
 
 
 def status():

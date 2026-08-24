@@ -2854,3 +2854,104 @@ per-combo targets, and the 20-row floor — `pkmn:EN` and `optcg:EN` and
 `pkmn:JP` have cleared the floor, `riftbound:EN` is 4 short of it.
 
 111 mutants catalogued, all caught.
+
+---
+
+## ADR-0040 — A fourth shape, a seal on the auditor, and a dispute settled against the claimant
+
+**2026-08-18.** Batch 4: 72 rows ingested, 3 quarantined and adjudicated.
+
+### `same_number_new_set_new_variant`, and C6 stays narrow
+
+Both axes moving is a distinct failure mode. A resolver can pass set-only
+(Celebrations `4/102` in two sets) and variant-only (`OP01-025` base against
+its parallel) and **still mishandle the two together**, because each of those
+tests holds one axis fixed.
+
+C6 was not widened to cover it. A widened C6 reads "variant differs, set may or
+may not" — a **disjunction**, and disjunctive kinds are exactly how C6 itself
+nearly got buried inside `alt_art_variant`. A kind that means two things
+measures neither.
+
+Required by the gate with zero rows carrying it, deliberately. A gate that only
+demands what it already has measures nothing.
+
+### The note parser is deleted
+
+`reprint_shape` and `pair_id` are real fields. The prose-derived values were
+migrated once — 24 rows, 12 pairs — and the parser went the same day. It read
+`"pair MCD-1"` out of free text, so a note reworded at source silently dropped
+a shape, and the cross-check catches a *wrong* shape rather than a missing one.
+`reprint_shape_of` now returns `None` for a note and refuses an unrecognised
+value.
+
+### The seal, pointed at the auditor
+
+`.github/workflows/mutate.yml`: full run, weekly plus any change to `audit/**`.
+Filtered local subsets are fine — they are how the harness is actually used —
+as long as the whole catalogue runs somewhere nobody can quietly not run it.
+
+And a **mutant-count seal**. A run that discovers half the catalogue and
+reports every one of them CAUGHT looks exactly like a clean run, so the
+discovered count is asserted against `audit/mutant_seal.json` before anything
+else happens. A silently-skipped subset reads as FAILURE, not as green. Same
+instrument as the ledger seal, pointed at the thing doing the auditing.
+
+A missing seal fails rather than passes: a missing seal is precisely what a
+deleted catalogue looks like. The seal is raised in the same commit that adds
+mutants — one updated afterwards to match a broken run is not a seal.
+
+118 mutants, sealed.
+
+### The dispute went against the claimant
+
+Pass 4 claimed `OP01-014` = Tony Tony.Chopper and `OP01-015` = Jinbe, in EN and
+JP, dual-sourced. Bandai's list has **`OP01-014` = Jinbe and `OP01-015` = Tony
+Tony.Chopper**. The existing verified EN row is right; pass 4 has the pair
+swapped — the same failure shape as batch 2's OP01-002/003, arriving from the
+other direction.
+
+So neither branch of the expected outcome happened: no existing row was
+corrected, and the three rows did not land. They are recorded in `_disputes`
+with the evidence, and correct rows for OP01-014 EN/JP and OP01-015 JP still
+need sourcing afresh — minting them from apitcg would make them
+catalog-derived, which is the circularity the labelled set exists to avoid.
+
+Worth naming: the detector was **not** what caught this one. The researcher
+caught it pre-ingest by comparing passes. The machinery's value here was
+settling it, not spotting it.
+
+### OP01-120 is worse than suspected, and not resolvable here
+
+The hypothesis was that the two `manga_rare` rows are PRB-01 printings homed to
+`op01`. The ambiguity is real and larger than expected: **OP01-120 has six
+printings across two products** — `op01` holds `OP01-120`, `_p1`, `_p2`;
+`prb01` holds `_p3`, `_p4`, `_p5`. A listing reading `OP01-120 Manga` cannot
+pick between six.
+
+**Not re-homed.** apitcg carries no treatment names — every One Piece rarity
+field is null — so nothing available says which of the six is the manga
+printing. Re-homing to `prb01` on the strength of "OP-01 predates manga" would
+be an inference, and inference is what put the row in `op01` to begin with.
+Flagged on the rows, recorded as S1, left counted rather than demoted: demoting
+moves the gate numbers on a suspicion.
+
+### `_status` was reading the pool as ground truth
+
+At 285 rows the file's own status line flipped to COMPLETE while ground truth
+stood at 234 — the same "pool size read as ground-truth size" mistake the
+confidence split exists to prevent, surviving in the one line a reader is most
+likely to trust. `_needed` had the same problem from the other end: a seed
+value written once, still reporting `short_by: 229`. Both are recomputed now.
+
+### Where the gate stands
+
+**234 verified of 250**, and exactly three shorts — `optcg:CN-S` 16,
+`pkmn:EN` 2, `optcg:JP` 1. Seven of eight combos have cleared the detection
+floor. Hard cases 129 of 60.
+
+Two failures are now about one combination: `optcg:CN-S` is 16 short and the
+only one below the floor. Its 8 new rows are `single_source` **by this
+project's rule rather than the researcher's** — their second source is Bandai's
+shared numbering, which corroborates the NUMBER and not the Simplified Chinese
+printing. Recorded, not counted, and that is the rule working.
