@@ -2507,3 +2507,71 @@ pkmn, `holo` shared, `sp` to riftbound); `manga` **renamed** to the existing
 splits its price series.
 
 All 86 researched rows are now in: 57 `verified`, 29 `single_source`.
+
+---
+
+## ADR-0036 — Two vocabularies for one taxonomy, and the class that has neither
+
+**2026-08-18.** The researched rows arrive tagged `C1`..`C6`; this repository
+has always tagged them `hard_case`. Both are needed and neither is wrong: the C
+class says *why a row was collected*, the kind says *which gate requirement it
+satisfies*.
+
+`resolve/hard_cases.py` is the bridge, and it is a **translation, not an
+inference** — each entry quotes the class definition it came from, so a later
+reader can check the two against each other rather than trust that somebody
+once matched them up. Five map exactly: C1 → `same_art_different_language`,
+C2 → `reprint`, C3 → `alt_art_variant`, C4 → `promo_vs_set`,
+C5 → `name_is_not_unique`.
+
+### C6 has no kind, and is not being given the nearest one
+
+C3 is two printings whose numbers **differ** — `095/203` base against `215/203`
+alt art. C6 is two printings at the **identical** number, distinguished only by
+treatment — `OP01-025` base SR against `OP01-025` alt-art SR.
+
+Mapping C6 onto `alt_art_variant` would lose precisely the distinction that
+makes it one of the three blocking failures, and it would do so while making
+the gate *look* satisfied. That is the worst available outcome: a requirement
+marked met by the rows least able to meet it.
+
+So it is named as a gap. Ten rows carry C6 and count toward nothing until it
+has a name. All ten are One Piece base-vs-parallel pairs.
+
+The gap runs the other way too: `same_number_different_rarity` (3 rows) and
+`box_code_vs_card_number` (1) are kinds no C class describes.
+
+### `hard_case` had to become plural
+
+18 of the 57 researched rows carry two classes — `C1,C6`, `C3,C5`, `C2,C4`. A
+single-valued field has to drop one of them, and *which one it drops silently
+decides which gate requirement goes unmet*. `hard_cases_of()` reads the plural
+field and the legacy singular one, so nothing already recorded is lost.
+
+Result: verified rows carrying a hard case went from **1 to 47**, against a
+target of 60. Three of the four required kinds are now present in verified
+rows; `reprint` is the exception — two rows carry it and both are
+`single_source`.
+
+Two existing kinds are narrower C1 cases and were kept rather than collapsed
+into it: `same_number_three_languages` is C1 where the numbers match, and
+`renumbered_into_combined_set` is C1 where the denominators differ. Collapsing
+them would lose which of C1's three shapes a row actually exercises.
+
+### Four Riftbound rows contradict their own tag
+
+`299*/298`, `299/298`, `303*/298` and `303/298` are tagged C5 — "cards sharing
+an identical printed name that are genuinely different cards … **NOT printings
+of one card**". Their own notes read "asterisk only difference from 299/298"
+and "same art/rules as 303/298". They are printings of one card.
+
+**Flagged, not fixed.** Reclassifying someone's research from the outside is
+the same coercion refused four times already this session — for variant tokens,
+for set codes, for confusable numbers, for C6. A test asserts the rows are
+still tagged C5, so the contradiction fails loudly the moment they are
+re-tagged instead of being quietly forgotten.
+
+They are also the rows the C6 definition set aside as "C1-adjacent — your
+call", and that call depends on the C6 kind name.
+
+92 mutants catalogued, all caught.

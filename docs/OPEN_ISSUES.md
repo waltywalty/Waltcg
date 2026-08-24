@@ -81,25 +81,66 @@ Separately, `config/grading.yaml` declares four routes — `cgc_uk`, `psa_us`,
 unreachable from Model A regardless of their config: there is no route that
 gets a card to them and back.
 
-## S2 — 57 rows carry a `difficulty_class` the gate cannot read
+## S2 — C6 has no `hard_case` kind, and 10 rows are waiting on one
+
+The C1–C6 taxonomy is now translated into `hard_case` kinds
+(`resolve/hard_cases.py`, each entry quoting the definition it came from).
+Five of six map exactly:
+
+| class | kind |
+|---|---|
+| C1 same artwork across languages | `same_art_different_language` |
+| C2 reprint within one language | `reprint` |
+| C3 alternate art vs base, numbers differ | `alt_art_variant` |
+| C4 promo vs main-set | `promo_vs_set` |
+| C5 name collision | `name_is_not_unique` |
+| **C6 parallel sharing one printed number** | **NONE** |
+
+**C6 is not folded into `alt_art_variant`.** C3 is two printings whose numbers
+DIFFER; C6 is two printings at the IDENTICAL number, distinguished only by
+treatment. That identity is the whole difficulty, and it is one of the three
+blocking failures — mapping it to C3's kind would lose the distinction while
+making the gate look satisfied.
+
+Ten rows carry C6 and count toward no gate requirement until it has a name.
+All ten are One Piece base-vs-parallel pairs at one printed number.
+
+Two kinds run the other way and no C class describes them:
+`same_number_different_rarity` (3 rows) and `box_code_vs_card_number` (1).
+
+## S3 — four Riftbound rows contradict their own C5 tag
+
+`299*/298`, `299/298`, `303*/298` and `303/298` are tagged C5 — "cards sharing
+an identical printed name that are genuinely different cards … NOT printings of
+one card". Their own notes say "asterisk only difference from 299/298" and
+"same art/rules as 303/298". They are printings of one card, so by the C5
+definition they cannot be C5.
+
+**Flagged, not fixed.** Reclassifying somebody's research from the outside is
+the coercion this session has refused four times over. A test asserts the rows
+are still tagged C5, so the contradiction fails loudly the moment they are
+re-tagged rather than being quietly forgotten.
+
+They are also the case the C6 definition set aside as "C1-adjacent — your call".
+That call is still open, and it depends on the C6 kind name.
+
+## S3 — 57 rows carry a `difficulty_class` the gate cannot read
 
 The 86 researched rows tag themselves `C1`..`C6` — 28 `C1`, 21 `C5`, 10 `C3`,
 10 `C6`, 4 `C4`, 2 `C2`. The gate counts `hard_case`, and requires four named
 kinds: `same_art_different_language`, `reprint`, `alt_art_variant`,
 `promo_vs_set`.
 
-So **1 of 57 verified rows counts as a hard case**, against a target of 60, and
-`test_every_hard_case_kind_is_covered` fails on three of the four kinds — while
-the set almost certainly contains examples of all four.
+**RESOLVED** by the definitions above. 47 of 57 verified rows now carry a hard
+case, against a target of 60.
 
-**Not mapped, deliberately.** The notes suggest `C1` is same-art-across-
-languages and `C4` is promo-versus-set, but that is inference from a handful of
-annotations and the taxonomy is not documented here. Guessing a mapping is the
-same coercion this session refused for variant tokens, and it would put
-invented labels into the set that measures labelling.
+`hard_case` had to become plural to do it: 18 of the 57 rows carry two classes
+(`C1,C6`, `C3,C5`, `C2,C4`), and a single-valued field has to drop one —
+silently deciding which gate requirement goes unmet. `hard_cases_of()` reads
+both fields so nothing already recorded is lost.
 
-Needs one of: the C1–C6 definitions, so the mapping is a translation rather
-than a guess; or `hard_case` added to the rows at source.
+`reprint` (C2) is the one required kind still absent from verified rows: two
+rows carry it and both are `single_source`.
 
 ## S2 — nine variant tokens are rejected and 18 rows are waiting on them
 

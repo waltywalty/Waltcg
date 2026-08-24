@@ -198,6 +198,37 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False,
     return accepted, rejected, report
 
 
+def map_classes(labelled_path=LABELLED, dry_run=False):
+    """Translate `difficulty_class` tags into `hard_cases` kinds.
+
+    A translation, not an inference: `resolve/hard_cases.py` quotes the C class
+    definition each mapping came from. A class with no kind is REPORTED and
+    left alone -- folding C6 into `alt_art_variant` would lose the distinction
+    that makes it a blocking failure.
+
+    Returns (changed, unmapped, report).
+    """
+    from resolve.hard_cases import classes_of, hard_cases_of, kinds_for_classes
+
+    labelled = _load(labelled_path, {"cards": []})
+    changed, unmapped = [], collections.Counter()
+    for card in labelled.get("cards", []):
+        classes = classes_of(card)
+        if not classes:
+            continue
+        kinds, missing = kinds_for_classes(classes)
+        for name in missing:
+            unmapped[name] += 1
+        existing = hard_cases_of(card)
+        merged = list(existing) + [k for k in kinds if k not in existing]
+        if tuple(merged) != existing:
+            card["hard_cases"] = merged
+            changed.append((card["card_uid"], classes, tuple(merged)))
+    if changed and not dry_run:
+        _save(labelled_path, labelled)
+    return changed, unmapped, len(labelled.get("cards", []))
+
+
 def _load(path, default):
     if not os.path.exists(path):
         return default
@@ -435,7 +466,8 @@ def status():
     per_combo = collections.Counter(f"{c['game']}:{c['language']}"
                                     for c in scored)
     pool = collections.Counter(f"{c['game']}:{c['language']}" for c in cards)
-    hard = [c for c in scored if c.get("hard_case")]
+    from resolve.hard_cases import hard_cases_of
+    hard = [c for c in scored if hard_cases_of(c)]
     adjudicated = collections.Counter(
         c.get("adjudication", "seeded") for c in cards)
 
@@ -463,7 +495,8 @@ def status():
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="waft label")
     parser.add_argument("command",
-                        choices=["propose", "review", "status", "ingest"])
+                        choices=["propose", "review", "status", "ingest",
+                                 "map-classes"])
     parser.add_argument("--rows", default=None,
                         help="JSON file of externally-researched rows to "
                              "ingest. A list, or an object with a `cards` key. "
@@ -494,6 +527,21 @@ def main(argv=None):
             combos = tuple(tuple(c.split(":")) for c in args.combos.split(","))
         return propose(args.catalog, args.queue, source=args.source,
                        combos=combos)
+    if args.command == "map-classes":
+        changed, unmapped, total = map_classes(dry_run=args.dry_run)
+        print(f"{len(changed)} of {total} rows given hard_cases"
+              + ("  (DRY RUN, nothing written)" if args.dry_run else ""))
+        for uid, classes, kinds in changed:
+            print(f"  {uid:46} {','.join(classes):8} -> {', '.join(kinds)}")
+        if unmapped:
+            print("\nCLASSES WITH NO KIND -- named, not folded into the "
+                  "nearest one:")
+            from resolve.hard_cases import CLASS_TO_KIND
+            for name, count in sorted(unmapped.items()):
+                entry = CLASS_TO_KIND.get(name, {})
+                print(f"  {name}: {count} row(s). "
+                      + (entry.get("note") or "no definition recorded"))
+        return 0
     if args.command == "review":
         return review(args.queue, limit=args.limit)
     if args.command == "ingest":

@@ -185,7 +185,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C5",
-      "note": "Leader"
+      "note": "Leader",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-001:base:JP",
@@ -198,7 +201,11 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1,C5",
-      "note": "shared code system with EN"
+      "note": "shared code system with EN",
+      "hard_cases": [
+        "same_art_different_language",
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-001:parallel:EN",
@@ -223,7 +230,10 @@
       "name": "Roronoa Zoro",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C6"
+      "difficulty_class": "C1,C6",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-003:base:EN",
@@ -236,7 +246,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C5",
-      "note": "Leader"
+      "note": "Leader",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-003:base:JP",
@@ -248,7 +261,11 @@
       "name": "Monkey.D.Luffy",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C5"
+      "difficulty_class": "C1,C5",
+      "hard_cases": [
+        "same_art_different_language",
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-003:parallel:EN",
@@ -273,7 +290,10 @@
       "name": "Monkey.D.Luffy",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C6"
+      "difficulty_class": "C1,C6",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-013:alt_art:CN-S",
@@ -309,7 +329,10 @@
       "name": "Monkey.D.Luffy",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C5"
+      "difficulty_class": "C5",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-024:base:JP",
@@ -321,7 +344,11 @@
       "name": "Monkey.D.Luffy",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C5"
+      "difficulty_class": "C1,C5",
+      "hard_cases": [
+        "same_art_different_language",
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-025:base:EN",
@@ -334,7 +361,11 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C3,C5",
-      "note": "SR"
+      "note": "SR",
+      "hard_cases": [
+        "alt_art_variant",
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-025:base:JP",
@@ -346,7 +377,11 @@
       "name": "Roronoa Zoro",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C3"
+      "difficulty_class": "C1,C3",
+      "hard_cases": [
+        "same_art_different_language",
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-025:parallel:EN",
@@ -359,7 +394,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C3,C6",
-      "note": "alt art; illustrator AKIRA EGAWA"
+      "note": "alt art; illustrator AKIRA EGAWA",
+      "hard_cases": [
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-025:parallel:JP",
@@ -371,7 +409,10 @@
       "name": "Roronoa Zoro",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C6"
+      "difficulty_class": "C1,C6",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-025:promo:CN-S",
@@ -384,7 +425,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C4",
-      "note": "1st Anniversary promo"
+      "note": "1st Anniversary promo",
+      "hard_cases": [
+        "promo_vs_set"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-120:base:EN",
@@ -397,7 +441,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C5",
-      "note": "SEC; illustrator Makitoshi"
+      "note": "SEC; illustrator Makitoshi",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-120:base:JP",
@@ -409,7 +456,11 @@
       "name": "Shanks",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C5"
+      "difficulty_class": "C1,C5",
+      "hard_cases": [
+        "same_art_different_language",
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-120:manga_rare:EN",
@@ -436,7 +487,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1,C6",
-      "variant_as_sourced": "manga"
+      "variant_as_sourced": "manga",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "optcg:op01:OP01-121:base:EN",
@@ -460,7 +514,10 @@
       "name": "Yamato",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1"
+      "difficulty_class": "C1",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "optcg:op08:OP08-106:parallel:EN",
@@ -473,7 +530,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C3,C6",
-      "note": "illustrator POKImari"
+      "note": "illustrator POKImari",
+      "hard_cases": [
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "optcg:op08:OP08-106:parallel:JP",
@@ -485,7 +545,10 @@
       "name": "Nami",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1,C6"
+      "difficulty_class": "C1,C6",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "artist": "Oswaldo KATO",
@@ -506,6 +569,10 @@
       "inherited_fields": [
         "artist",
         "hard_case"
+      ],
+      "hard_cases": [
+        "name_is_not_unique",
+        "same_art_different_language"
       ]
     },
     {
@@ -569,6 +636,10 @@
       "inherited_fields": [
         "artist",
         "hard_case"
+      ],
+      "hard_cases": [
+        "name_is_not_unique",
+        "same_art_different_language"
       ]
     },
     {
@@ -582,7 +653,10 @@
       "source": "external_research",
       "confidence": "single_source",
       "difficulty_class": "C4",
-      "note": "30th Anniversary promo"
+      "note": "30th Anniversary promo",
+      "hard_cases": [
+        "promo_vs_set"
+      ]
     },
     {
       "card_uid": "pkmn:AS5aF:193/184:base:CN-T",
@@ -642,7 +716,10 @@
       "source": "external_research",
       "confidence": "single_source",
       "difficulty_class": "C4",
-      "note": "lottery promo"
+      "note": "lottery promo",
+      "hard_cases": [
+        "promo_vs_set"
+      ]
     },
     {
       "card_uid": "pkmn:SV1SF:106/078:ur:CN-T",
@@ -689,7 +766,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "TC = JP code + F, same numbers"
+      "note": "TC = JP code + F, same numbers",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:SV2aF:006/165:base:CN-T",
@@ -701,7 +781,10 @@
       "name": "Charizard ex",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1"
+      "difficulty_class": "C1",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:SV2aF:151/165:base:CN-T",
@@ -713,7 +796,10 @@
       "name": "Mew ex",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1"
+      "difficulty_class": "C1",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:SV2aF:173/165:ar:CN-T",
@@ -726,7 +812,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "matches EN/JP; SC differs"
+      "note": "matches EN/JP; SC differs",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:SV2aF:195/165:sr:CN-T",
@@ -750,7 +839,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "matches JP 201/165; EN is 199/165"
+      "note": "matches JP 201/165; EN is 199/165",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:SV2aF:210/165:ur:CN-T",
@@ -909,7 +1001,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "Moonbreon JP; EN equivalent is a different set"
+      "note": "Moonbreon JP; EN equivalent is a different set",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:s7R:047/067:base:JP",
@@ -921,7 +1016,10 @@
       "name": "Rayquaza VMAX",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C3"
+      "difficulty_class": "C3",
+      "hard_cases": [
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "pkmn:s7R:083/067:alt_art:JP",
@@ -934,7 +1032,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "083/069 is the KOREAN denominator, not this card"
+      "note": "083/069 is the KOREAN denominator, not this card",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv03.5:006/165:base:EN",
@@ -948,7 +1049,10 @@
       "confidence": "verified",
       "difficulty_class": "C5",
       "note": "illustrator PLANETA Mochizuki",
-      "set_code_as_sourced": "sv151"
+      "set_code_as_sourced": "sv151",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "pkmn:sv03.5:151/165:base:EN",
@@ -961,7 +1065,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "set_code_as_sourced": "sv151"
+      "set_code_as_sourced": "sv151",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv03.5:173/165:ar:EN",
@@ -974,7 +1081,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "set_code_as_sourced": "sv151"
+      "set_code_as_sourced": "sv151",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv03.5:199/165:sir:EN",
@@ -988,7 +1098,10 @@
       "confidence": "verified",
       "difficulty_class": "C1",
       "note": "illustrator miki kudo",
-      "set_code_as_sourced": "sv151"
+      "set_code_as_sourced": "sv151",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv03.5:205/165:ur:EN",
@@ -1001,7 +1114,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "set_code_as_sourced": "sv151"
+      "set_code_as_sourced": "sv151",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv2a:006/165:base:JP",
@@ -1013,7 +1129,10 @@
       "name": "Charizard ex",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1"
+      "difficulty_class": "C1",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv2a:195/165:sr:JP",
@@ -1037,7 +1156,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C1",
-      "note": "same art as EN 199/165"
+      "note": "same art as EN 199/165",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv2a:205/165:sar:JP",
@@ -1049,7 +1171,10 @@
       "name": "Mew ex",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C1"
+      "difficulty_class": "C1",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
     },
     {
       "card_uid": "pkmn:sv3:108/108:sar:JP",
@@ -1086,7 +1211,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C3",
-      "set_code_as_sourced": "swsh07"
+      "set_code_as_sourced": "swsh07",
+      "hard_cases": [
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "pkmn:swsh7:214/203:rainbow_secret:EN",
@@ -1099,7 +1227,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C3",
-      "set_code_as_sourced": "swsh07"
+      "set_code_as_sourced": "swsh07",
+      "hard_cases": [
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "pkmn:swsh7:215/203:alt_art:EN",
@@ -1113,7 +1244,11 @@
       "confidence": "verified",
       "difficulty_class": "C1,C3",
       "note": "Moonbreon EN",
-      "set_code_as_sourced": "swsh07"
+      "set_code_as_sourced": "swsh07",
+      "hard_cases": [
+        "same_art_different_language",
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "pkmn:swsh7:225/203:rainbow_secret:EN",
@@ -1150,7 +1285,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C5",
-      "note": "asterisk only difference from 299/298"
+      "note": "asterisk only difference from 299/298",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:299/298:overnumbered:EN",
@@ -1174,7 +1312,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C5",
-      "note": "same art/rules as 303/298; illustrator Airi Pan"
+      "note": "same art/rules as 303/298; illustrator Airi Pan",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:303/298:overnumbered:EN",
@@ -1186,7 +1327,10 @@
       "name": "Ahri, Nine-Tailed Fox",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C5"
+      "difficulty_class": "C5",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:OGN-001:base:EN",
@@ -1221,7 +1365,10 @@
       "name": "Jinx, Demolitionist",
       "source": "external_research",
       "confidence": "verified",
-      "difficulty_class": "C5"
+      "difficulty_class": "C5",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:OGN-030A:alt_art:EN",
@@ -1234,7 +1381,11 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C3,C5",
-      "note": "a-suffix Showcase"
+      "note": "a-suffix Showcase",
+      "hard_cases": [
+        "alt_art_variant",
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:OGN-039A:alt_art:EN",
@@ -1247,7 +1398,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C3",
-      "note": "a-suffix Showcase"
+      "note": "a-suffix Showcase",
+      "hard_cases": [
+        "alt_art_variant"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:OGN-042:signature:EN",
@@ -1284,7 +1438,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C5",
-      "note": "a-suffix Showcase"
+      "note": "a-suffix Showcase",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:OGN-119A:alt_art:EN",
@@ -1297,7 +1454,10 @@
       "source": "external_research",
       "confidence": "verified",
       "difficulty_class": "C5",
-      "note": "a-suffix Showcase"
+      "note": "a-suffix Showcase",
+      "hard_cases": [
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:OGN:OGN-301:overnumbered:EN",
@@ -1334,7 +1494,11 @@
       "source": "external_research",
       "confidence": "single_source",
       "difficulty_class": "C2,C5",
-      "note": "reuses Origins name"
+      "note": "reuses Origins name",
+      "hard_cases": [
+        "reprint",
+        "name_is_not_unique"
+      ]
     },
     {
       "card_uid": "riftbound:VEN:VEN-SP1/006:sp:EN",
@@ -1347,7 +1511,11 @@
       "source": "external_research",
       "confidence": "single_source",
       "difficulty_class": "C2,C4",
-      "note": "Vendetta SP of an Origins card"
+      "note": "Vendetta SP of an Origins card",
+      "hard_cases": [
+        "reprint",
+        "promo_vs_set"
+      ]
     }
   ],
   "_confidence": {

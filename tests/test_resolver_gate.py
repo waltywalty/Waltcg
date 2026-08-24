@@ -236,13 +236,15 @@ class TheLabelledSetIsComplete(unittest.TestCase):
         self.assertFalse(short, f"(have, want) per combo: {short}")
 
     def test_twenty_hard_cases(self):
-        hard = [c for c in self.cards if c.get("hard_case")]
+        from resolve.hard_cases import hard_cases_of
+        hard = [c for c in self.cards if hard_cases_of(c)]
         self.assertGreaterEqual(
             len(hard), self.gate["required_hard_cases"],
             f"{len(hard)} of {self.gate['required_hard_cases']} hard cases")
 
     def test_every_hard_case_kind_is_covered(self):
-        kinds = {c["hard_case"] for c in self.cards if c.get("hard_case")}
+        from resolve.hard_cases import hard_cases_of
+        kinds = {k for c in self.cards for k in hard_cases_of(c)}
         for required in ("same_art_different_language", "reprint",
                          "alt_art_variant", "promo_vs_set"):
             self.assertIn(required, kinds, f"no {required} case in the set")
