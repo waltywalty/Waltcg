@@ -4035,3 +4035,111 @@ cannot satisfy by trying harder, only by actually abstaining.
 **239 verified of 250.** One short: `optcg:CN-S` 16. The rows land under
 ADR-0049 whatever this channel returns; this only decides whether they land
 with names.
+
+---
+
+## ADR-0051 — The caller cannot be this session, and 0.8 of a card is not a floor
+
+**Date:** 2026-08-25
+**Status:** Accepted. Corrects two defects in ADR-0050, both raised against
+it before any call was made.
+
+### The blinding hole was structural, not incidental
+
+ADR-0050 built a blindness rule around withholding the number and the printed
+name. Both are necessary. Neither is sufficient, because **the reader already
+holds the set's cast.**
+
+This conversation contains OP01-001 Zoro, 003 Luffy, 014 Jinbe, 015 Chopper,
+120 Shanks, 121 Yamato, the 014/015 dispute in full — and it **printed the
+CN-S candidate rows verbatim** a few turns ago while checking what the
+detector actually compares. An art call made here would be matching pictures
+against a list already read. That is not a weakened independence; it is none,
+and the blindness protocol would have dressed it as the strong kind.
+
+**Abstention is not the remedy.** It presumes the reader can tell which of its
+identifications came from the picture and which from the conversation. It
+cannot — the contamination is **per-reader, not per-card**, so there is no
+subset of calls that survives it.
+
+So: this session must not call. `CONTAMINATED_READER` records the refusal and
+names concretely what is known here, because a rule stated abstractly gets
+reasoned around.
+
+### The fresh session, and two limits on it
+
+Calls come from a session opened fresh, given the images and nothing else, and
+recorded as a **distinct reader identity — never `Claude`**. A shared label
+erases the only property that makes the call worth anything, and
+`art_call_admits_a_name` refuses an absent identity, `Claude`, or a call with
+no `fresh_session` declaration.
+
+Two things stated rather than assumed:
+
+**Shared training is not the contamination.** A fresh session has the same base
+ability and the same failure shape, and that is expected — the profile
+describes the model class. What differs is conversational context, which is
+the entire issue.
+
+**Freshness is declared, not proven.** Nothing in this repository can verify
+that a session was fresh. The field records a claim, and it is labelled the
+weakest link in this channel so it cannot read as evidence. Same class as *the
+reader goes first* — worth stating because it can be followed, worth labelling
+because it cannot be checked.
+
+And because this session knows the expected names, the comparison is done
+**mechanically** by `art_call_outcome`, never by judgement. A reader that knows
+what the answer should have been must not be the one deciding whether a
+disagreement counts.
+
+### 0.8 of a card is not a floor
+
+The 5% abstention floor was arithmetic nonsense at n=16 — 0.8 cards, which
+collapses to *abstained at least once*. A lucky easy batch passes it; a
+careful batch fails it identically.
+
+The power calculation is worse than that, and it is worth writing down:
+
+| True abstention rate | P(zero abstentions in 16) |
+|---:|---:|
+| 5% | **0.44** |
+| 10% | 0.19 |
+| 17% | 0.05 |
+
+**A reader whose true rate is exactly the floor would have failed it 44% of the
+time.** Zero abstentions at n=16 is significant only if the true rate is
+≥17%.
+
+So the abstention rate is **demoted from a gate to a report**.
+`abstention_report` prints the count *with the rate at which zero would have
+been surprising* — because a count without its detectable floor reads as a
+verdict, which is the same defect as a detector that could not say how many
+rows it compared. Zero abstentions is worth a human look, not a failure, and
+not evidence of contamination on its own.
+
+`zero_abstention_detectable_rate` computes the floor rather than asserting it,
+so the claim in the docstring is checkable.
+
+### What carries the weight instead
+
+**The per-row disagreement rule**, which does not depend on sample size at
+all: every call is checked against the documentary name for its own row, and a
+disagreement blocks that row. Sixteen rows means sixteen independent checks,
+not one underpowered statistic.
+
+What the abstention rate cannot do — and this is the honest limit — is
+separate a careful reader on an easy batch from a contaminated one. Both agree
+with everything and abstain on nothing, and at n=16 those are statistically
+indistinguishable. That is precisely why the fresh-session protocol carries
+the anti-contamination load, and precisely why it is labelled unverifiable
+rather than presented as a control.
+
+### The pattern, again
+
+Both defects are the same one this session keeps finding: a control that reads
+as stronger than it is. A blindness rule that blinds nothing because the
+reader already knows; a floor that would fail the thing it was built to pass.
+Neither was caught by a test — both were caught by someone doing the
+arithmetic and asking what the reader already holds.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16.

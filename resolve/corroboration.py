@@ -540,48 +540,127 @@ READER_PROFILES = {
 UNCHECKSUMMED_FIELDS = ("name",)
 
 
-#: Below this, a run of art calls is claiming a recognition rate the weak
-#: cases do not support. NOT a quality target -- a FLOOR ON HONESTY. A batch
-#: of One Piece cards contains minor crew and background figures, and a reader
-#: that recognised every one of them recognised some it could not.
-MIN_CREDIBLE_ABSTENTION = 0.05
+#: THE ART CALLER CANNOT BE THE SESSION THAT BUILT THIS STANDARD.
+#:
+#: Not "should abstain where contaminated" -- MUST NOT CALL. Withholding the
+#: number from an image withholds nothing from a reader that already holds the
+#: set's cast, and this conversation holds it: OP01-001 Zoro, 003 Luffy, 014
+#: Jinbe, 015 Chopper, 120 Shanks, 121 Yamato, the CN-S row list printed
+#: verbatim while checking the detector. An art call made here would be
+#: MATCHING PICTURES AGAINST A CANDIDATE LIST ALREADY READ, which is not a
+#: weakened independence. It is none.
+CONTAMINATED_READER = {
+    "who": "The session that designed this standard, and any session carrying "
+           "this project's context.",
+    "may_call": False,
+    "why_not_merely_abstain": "Abstention presumes the reader can tell which "
+                              "of its identifications came from the picture "
+                              "and which from the conversation. It cannot. "
+                              "The contamination is not per-card, it is "
+                              "per-reader.",
+    "what_is_known_here": ("the OP01 cast, the numbers from eight batches, "
+                           "the 014/015 dispute, and the CN-S candidate list "
+                           "itself"),
+}
+
+#: The reader that MAY call: a session with no access to this conversation.
+FRESH_SESSION_PROTOCOL = {
+    "who": "A separate session, opened fresh, given the images and nothing "
+           "else -- no numbers, no names, no project context, no prompt "
+           "describing what the batch contains.",
+    "recorded_as": "A DISTINCT READER IDENTITY, never `Claude`. The whole "
+                   "point is that it is not this one, and a shared label "
+                   "would erase the only thing that makes the call worth "
+                   "anything.",
+    "what_it_still_shares": "The same training, so the same base ability and "
+                            "the same failure shape. That is expected and "
+                            "fine -- the profile describes the model class. "
+                            "What differs is CONVERSATIONAL contamination, "
+                            "which is the whole issue.",
+    "freshness_is_declared_not_proven": {
+        "what": "Nothing in this repository can verify that a session was "
+                "fresh. The field records a claim.",
+        "why_it_is_recorded_anyway": "Same class as `the reader goes first` "
+                                     "-- an unverifiable protocol step that "
+                                     "is worth stating because it can be "
+                                     "followed, and worth labelling because "
+                                     "it must not read as proof.",
+        "do_not": "Read a `fresh_session: true` field as evidence. It is a "
+                  "declaration, and it is the weakest link in this channel.",
+    },
+    "the_outcome_is_computed_not_judged": "This session evaluates the calls "
+        "against the documentary record, and it KNOWS the expected names -- "
+        "so the comparison is done by `art_call_outcome`, mechanically, "
+        "rather than by judgement that could rationalise a disagreement away.",
+}
+
+#: WHAT THE ABSTENTION RATE CAN AND CANNOT DETECT AT THIS SAMPLE SIZE.
+#:
+#: A 5% floor on 16 cards is 0.8 cards -- it collapses to "abstained at least
+#: once", which a lucky easy batch passes and a careful batch fails
+#: identically. Worse, a reader whose TRUE rate is 5% shows zero abstentions
+#: 44% of the time at n=16, so the floor would have failed a correct reader
+#: nearly half the time.
+#:
+#: So the abstention rate is DEMOTED: reported, never gating. The per-row
+#: disagreement rule is the primary control and does not depend on sample size
+#: at all.
+ABSTENTION_IS_A_WEAK_INSTRUMENT_HERE = {
+    "at_n": 16,
+    "zero_abstentions_is_significant_only_if_true_rate_at_least": 0.171,
+    "what_it_can_detect": "A reader that never abstains AND whose true "
+                          "abstention rate is high -- a gross calibration "
+                          "failure.",
+    "what_it_cannot_detect": "The difference between a careful reader on an "
+                             "easy batch and a contaminated one. Both agree "
+                             "with everything and abstain on nothing, and at "
+                             "n=16 those are statistically indistinguishable.",
+    "so_what_carries_the_weight": "The FRESH SESSION, which is procedural and "
+                                  "unverifiable, and the per-row disagreement "
+                                  "rule, which is neither.",
+}
 
 
-def abstention_is_credible(calls):
-    """Did the partial abstention actually fire?
+def zero_abstention_detectable_rate(n, alpha=0.05):
+    """The smallest true abstention rate at which seeing NONE is surprising.
 
-    `self_detecting: partial` is worth nothing as a label. It is worth
-    something as a MEASUREMENT, and this is the measurement: a reader claiming
-    partial self-detection must be seen abstaining, on a set that contains
-    cases it should abstain on.
+    `(1 - p) ** n <= alpha`. At n=16 and alpha=0.05 this is about 17%: below
+    that, zero abstentions says nothing. Computed rather than asserted so the
+    claim in the docstring can be checked.
+    """
+    if n <= 0:
+        return None
+    return 1 - alpha ** (1.0 / n)
 
-    ZERO ABSTENTIONS IS THE RED FLAG, not the success. A set of One Piece
-    cards is not all Luffy and Zoro; recognising every card in it is the
-    signature of confident substitution, which is the failure this profile
-    exists to bound.
+
+def abstention_report(calls, alpha=0.05):
+    """What the abstentions show, WITH what they could have shown.
+
+    Reports; does not gate. A count without its detectable floor reads as a
+    verdict, and at these sample sizes it is not one -- which is the same
+    defect as a detector that cannot say how many rows it compared.
     """
     total = len(calls)
-    if not total:
-        return {"credible": False, "calls": 0, "abstentions": 0, "rate": None,
-                "why": "no calls were made, so nothing was measured"}
     abstained = sum(1 for call in calls if call.get("outcome") == "abstains")
-    rate = abstained / total
-    if abstained == 0:
-        return {"credible": False, "calls": total, "abstentions": 0,
-                "rate": 0.0,
-                "why": "ZERO abstentions across the batch. A reader claiming "
-                       "partial self-detection that never abstained did not "
-                       "exercise the property it is credited with -- and a "
-                       "One Piece set is not all major characters. Treat the "
-                       "run as unmeasured, not as a clean sweep."}
-    if rate < MIN_CREDIBLE_ABSTENTION:
-        return {"credible": False, "calls": total, "abstentions": abstained,
-                "rate": rate,
-                "why": f"abstention rate {rate:.1%} is below "
-                       f"{MIN_CREDIBLE_ABSTENTION:.0%}; the abstention fired "
-                       "too rarely to be evidence that it works"}
-    return {"credible": True, "calls": total, "abstentions": abstained,
-            "rate": rate, "why": None}
+    floor = zero_abstention_detectable_rate(total, alpha)
+    note = None
+    if not total:
+        note = "no calls were made, so nothing was measured"
+    elif abstained == 0 and floor is not None:
+        note = (f"ZERO abstentions across {total} calls. That is surprising "
+                f"only if the reader's true rate is at least {floor:.0%}; "
+                "below that it is unremarkable. Worth a human look, NOT a "
+                "failure, and not evidence of contamination on its own.")
+    return {
+        "calls": total,
+        "abstentions": abstained,
+        "rate": (abstained / total) if total else None,
+        "zero_is_significant_above": floor,
+        "gates_anything": False,
+        "note": note,
+        "primary_control_is": "the per-row disagreement rule, which does not "
+                              "depend on sample size",
+    }
 
 
 def art_call_outcome(named_character, documentary_name, normalise=None):
@@ -608,6 +687,19 @@ def art_call_admits_a_name(call):
     ran. A disagreement blocks the row rather than choosing a side; an
     abstention leaves it name-absent, which costs nothing.
     """
+    if call.get("reader_instance") in (None, "", "Claude", "this_session"):
+        return False, (
+            "the art caller must be recorded as a DISTINCT reader identity. "
+            "`Claude` or an absent value is refused: the whole value of the "
+            "call is that it was not made by a session holding this "
+            "project's context, and a shared label erases the only thing "
+            "that makes it worth anything.")
+    if not call.get("fresh_session"):
+        return False, (
+            "the call does not declare a fresh session. A reader carrying "
+            "this conversation already holds the set's cast, so withholding "
+            "the number withholds nothing -- the call would be matching "
+            "pictures against a candidate list it has read.")
     if call.get("outcome") != "agrees":
         return False, ART_CALL_OUTCOMES.get(call.get("outcome"),
                                             "unknown art call outcome")
@@ -652,11 +744,12 @@ def may_read(reader_profile, field):
     if READER_PROFILES[reader_profile]["self_detecting"] == "partial":
         return False, (
             f"{reader_profile!r} claims PARTIAL self-detection, which is not "
-            "a licence -- it is a claim to be measured. A row may carry a "
-            f"{field} from this reader only through the art-call protocol: "
-            "blind ordering evidenced by commit order, an outcome of "
-            "`agrees`, and a batch whose abstention rate shows the "
-            "abstention actually fires. See `art_call_admits_a_name`.")
+            "a licence -- it is a claim, and at n=16 the abstention rate "
+            "cannot measure it (zero abstentions is unremarkable below a 17% "
+            f"true rate). A row may carry a {field} from this reader only "
+            "through the art-call protocol: a FRESH session recorded as a "
+            "distinct identity, blindness evidenced by commit order, and an "
+            "outcome of `agrees` on that row. See `art_call_admits_a_name`.")
     if field not in UNCHECKSUMMED_FIELDS:
         return True, (f"{field} is checksummed against the documentary "
                       "record, which catches what this reader cannot")

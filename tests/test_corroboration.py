@@ -19,7 +19,11 @@ from resolve.corroboration import (ART_CALL_BLINDNESS,  # noqa: E402
                                    ART_CALL_OUTCOMES, CHANNELS,
                                    CHECKSUM,
                                    DERIVED_NAME_IS_INERT,
-                                   abstention_is_credible,
+                                   ABSTENTION_IS_A_WEAK_INSTRUMENT_HERE,
+                                   CONTAMINATED_READER,
+                                   FRESH_SESSION_PROTOCOL,
+                                   abstention_report,
+                                   zero_abstention_detectable_rate,
                                    art_call_admits_a_name,
                                    art_call_outcome,
                                    IDENTITY_FIELDS,
@@ -625,49 +629,132 @@ class BlindnessMustCoverThePrintedName(unittest.TestCase):
 
     def test_an_uncommitted_call_does_not_admit_a_name(self):
         allowed, why = art_call_admits_a_name(
-            {"outcome": "agrees", "committed_before_checksum": False})
+            {"outcome": "agrees", "committed_before_checksum": False,
+             "reader_instance": "art-caller-A", "fresh_session": True})
         self.assertFalse(allowed)
         self.assertIn("not evidenced as blind", why)
 
 
-class PartialSelfDetectionIsMeasuredNotAsserted(unittest.TestCase):
-    """The dangerous middle: the occasions when a partial abstention fails to
-    fire are exactly the confident-substitution occasions."""
+class ThisSessionMayNotMakeArtCalls(unittest.TestCase):
+    """Not `should abstain where contaminated` -- MUST NOT CALL. This
+    conversation holds the OP01 cast and printed the CN-S candidate list
+    verbatim while checking the detector. An art call made here would be
+    matching pictures against a list already read."""
 
-    def test_partial_does_not_satisfy_the_self_detecting_predicate(self):
-        self.assertFalse(failure_is_self_detecting("ai_art_identification"))
+    def test_the_contaminated_reader_is_refused_outright(self):
+        self.assertFalse(CONTAMINATED_READER["may_call"])
 
-    def test_the_label_alone_does_not_admit_a_name(self):
-        allowed, why = may_read("ai_art_identification", "name")
+    def test_abstention_is_not_offered_as_the_remedy(self):
+        """The contamination is per-reader, not per-card: the reader cannot
+        tell which identifications came from the picture."""
+        why = CONTAMINATED_READER["why_not_merely_abstain"]
+        self.assertIn("per-reader", why)
+        self.assertIn("cannot", why)
+
+    def test_what_this_session_knows_is_named_concretely(self):
+        known = CONTAMINATED_READER["what_is_known_here"]
+        self.assertIn("CN-S candidate list", known)
+
+    def test_a_call_with_no_reader_identity_is_refused(self):
+        allowed, why = art_call_admits_a_name(
+            {"outcome": "agrees", "committed_before_checksum": True})
         self.assertFalse(allowed)
-        self.assertIn("not a licence", why)
-        self.assertIn("measured", why)
+        self.assertIn("DISTINCT reader identity", why)
 
-    def test_zero_abstentions_is_the_red_flag_not_the_success(self):
-        """A One Piece set is not all Luffy and Zoro. Recognising every card
-        in it is the signature of the failure this profile bounds."""
-        found = abstention_is_credible([{"outcome": "agrees"}] * 16)
-        self.assertFalse(found["credible"])
+    def test_a_call_attributed_to_claude_is_refused(self):
+        """A shared label erases the only thing that makes the call worth
+        anything."""
+        for name in ("Claude", "this_session", ""):
+            with self.subTest(reader=name):
+                allowed, _ = art_call_admits_a_name(
+                    {"outcome": "agrees", "committed_before_checksum": True,
+                     "reader_instance": name, "fresh_session": True})
+                self.assertFalse(allowed)
+
+    def test_a_call_not_declaring_a_fresh_session_is_refused(self):
+        allowed, why = art_call_admits_a_name(
+            {"outcome": "agrees", "committed_before_checksum": True,
+             "reader_instance": "art-caller-A"})
+        self.assertFalse(allowed)
+        self.assertIn("candidate list it has read", why)
+
+    def test_a_fresh_distinct_reader_is_accepted(self):
+        allowed, _ = art_call_admits_a_name(
+            {"outcome": "agrees", "committed_before_checksum": True,
+             "reader_instance": "art-caller-A", "fresh_session": True})
+        self.assertTrue(allowed)
+
+    def test_freshness_is_labelled_as_declared_not_proven(self):
+        """It is the weakest link in this channel and must not read as
+        evidence."""
+        entry = FRESH_SESSION_PROTOCOL["freshness_is_declared_not_proven"]
+        self.assertIn("records a claim", entry["what"])
+        self.assertIn("weakest link", entry["do_not"])
+
+    def test_the_shared_training_is_not_treated_as_contamination(self):
+        """Same model class, same failure shape -- expected. What differs is
+        conversational contamination."""
+        self.assertIn("expected and",
+                      FRESH_SESSION_PROTOCOL["what_it_still_shares"])
+
+    def test_the_comparison_is_mechanical_because_this_session_knows(self):
+        self.assertIn("mechanically",
+                      FRESH_SESSION_PROTOCOL["the_outcome_is_computed_not_judged"])
+
+
+class TheAbstentionRateIsWeakAtThisSampleSize(unittest.TestCase):
+    """A 5% floor on 16 cards is 0.8 cards. It collapses to `abstained at
+    least once`, which a lucky easy batch passes and a careful one fails
+    identically."""
+
+    def test_the_detectable_floor_is_computed_not_asserted(self):
+        self.assertAlmostEqual(zero_abstention_detectable_rate(16), 0.171,
+                               places=3)
+        self.assertLess(zero_abstention_detectable_rate(100),
+                        zero_abstention_detectable_rate(16))
+
+    def test_a_correct_reader_would_have_failed_the_old_floor_often(self):
+        """A genuinely 5%-abstaining reader shows zero abstentions 44% of the
+        time at n=16. The floor would have failed it nearly half the time."""
+        self.assertAlmostEqual((1 - 0.05) ** 16, 0.44, places=2)
+
+    def test_the_report_gates_nothing(self):
+        found = abstention_report([{"outcome": "agrees"}] * 16)
+        self.assertFalse(found["gates_anything"])
+        self.assertIn("NOT a failure", found["note"])
+        self.assertIn("not evidence of contamination", found["note"])
+
+    def test_zero_abstentions_is_reported_with_what_it_could_detect(self):
+        """A count without its detectable floor reads as a verdict, and at
+        this sample size it is not one."""
+        found = abstention_report([{"outcome": "agrees"}] * 16)
         self.assertEqual(found["abstentions"], 0)
-        self.assertIn("ZERO abstentions", found["why"])
-        self.assertIn("not as a clean sweep", found["why"])
+        self.assertAlmostEqual(found["zero_is_significant_above"], 0.171,
+                               places=3)
+        self.assertIn("17%", found["note"])
 
-    def test_a_batch_with_abstentions_is_credible(self):
-        found = abstention_is_credible(
+    def test_an_ordinary_batch_reports_no_note(self):
+        found = abstention_report(
             [{"outcome": "agrees"}] * 13 + [{"outcome": "abstains"}] * 3)
-        self.assertTrue(found["credible"])
+        self.assertIsNone(found["note"])
         self.assertAlmostEqual(found["rate"], 3 / 16)
 
-    def test_a_rate_below_the_floor_is_refused(self):
-        found = abstention_is_credible(
-            [{"outcome": "agrees"}] * 99 + [{"outcome": "abstains"}])
-        self.assertFalse(found["credible"])
-        self.assertIn("too rarely", found["why"])
+    def test_the_primary_control_is_named_as_the_per_row_rule(self):
+        found = abstention_report([])
+        self.assertIn("does not depend on sample size",
+                      found["primary_control_is"])
+        self.assertIn("nothing was measured", found["note"])
 
-    def test_no_calls_is_unmeasured_not_clean(self):
-        found = abstention_is_credible([])
-        self.assertFalse(found["credible"])
-        self.assertIn("nothing was measured", found["why"])
+    def test_what_it_cannot_detect_is_stated(self):
+        entry = ABSTENTION_IS_A_WEAK_INSTRUMENT_HERE
+        self.assertIn("contaminated one", entry["what_it_cannot_detect"])
+        self.assertIn("indistinguishable", entry["what_it_cannot_detect"])
+        self.assertIn("FRESH SESSION", entry["so_what_carries_the_weight"])
+
+    def test_the_label_alone_still_admits_nothing(self):
+        allowed, why = may_read("ai_art_identification", "name")
+        self.assertFalse(allowed)
+        self.assertIn("FRESH session", why)
 
 
 class WhatAnArtCallDoesToTheRow(unittest.TestCase):
@@ -676,7 +763,8 @@ class WhatAnArtCallDoesToTheRow(unittest.TestCase):
         self.assertEqual(art_call_outcome("Roronoa Zoro", "Roronoa Zoro"),
                          "agrees")
         allowed, _ = art_call_admits_a_name(
-            {"outcome": "agrees", "committed_before_checksum": True})
+            {"outcome": "agrees", "committed_before_checksum": True,
+             "reader_instance": "art-caller-A", "fresh_session": True})
         self.assertTrue(allowed)
 
     def test_spelling_differences_are_not_disagreements(self):
@@ -688,7 +776,9 @@ class WhatAnArtCallDoesToTheRow(unittest.TestCase):
     def test_disagreement_blocks_the_row_rather_than_picking_a_side(self):
         self.assertEqual(art_call_outcome("Monkey D. Luffy", "Roronoa Zoro"),
                          "disagrees")
-        allowed, why = art_call_admits_a_name({"outcome": "disagrees"})
+        allowed, why = art_call_admits_a_name(
+            {"outcome": "disagrees", "reader_instance": "art-caller-A",
+             "fresh_session": True, "committed_before_checksum": True})
         self.assertFalse(allowed)
         self.assertIn("BLOCKED", why)
         self.assertIn("not a vote to break", why)
@@ -696,7 +786,9 @@ class WhatAnArtCallDoesToTheRow(unittest.TestCase):
     def test_abstention_costs_nothing_and_is_not_discouraged(self):
         self.assertEqual(art_call_outcome(None, "Roronoa Zoro"), "abstains")
         self.assertEqual(art_call_outcome("", "Roronoa Zoro"), "abstains")
-        allowed, why = art_call_admits_a_name({"outcome": "abstains"})
+        allowed, why = art_call_admits_a_name(
+            {"outcome": "abstains", "reader_instance": "art-caller-A",
+             "fresh_session": True, "committed_before_checksum": True})
         self.assertFalse(allowed)
         self.assertIn("name-absent", why)
         self.assertIn("never be discouraged", why)

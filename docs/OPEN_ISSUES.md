@@ -371,17 +371,63 @@ before the checksum runs, and `art_call_admits_a_name` refuses a call whose
 commit does not predate it. What anyone remembers about the order is not the
 record.
 
-**2. `partial` is measured, never asserted.** Partial self-detection is the
-dangerous middle — the occasions when the abstention fails to fire are exactly
-the confident-substitution occasions. So `failure_is_self_detecting` returns
-**false** for `partial`, and the label alone admits nothing.
+**2. THIS SESSION MAY NOT MAKE THE CALLS.** Not *should abstain where
+contaminated* — **must not call**. This conversation holds the OP01 cast, the
+numbers from eight batches, the 014/015 dispute, and it **printed the CN-S
+candidate list verbatim** a few turns ago while checking the detector.
+Withholding the number from an image withholds nothing from a reader that
+already has the list. The call would be matching pictures against names
+already read, which is not weakened independence — it is none.
 
-`abstention_is_credible` is the instrument. **Zero abstentions across a batch
-is the red flag, not the success**: a One Piece set contains minor crew and
-background figures, and a reader that recognised every one of them recognised
-some it could not. Floor at 5%; below it the run is *unmeasured*, not clean.
+Abstention is not the remedy either: it presumes the reader can tell which of
+its identifications came from the picture and which from the conversation. It
+cannot. **The contamination is per-reader, not per-card.**
 
-**3. Outcomes.** `agrees` → the Latin name is independently attested and the
+Calls come from a **fresh session** given the images and nothing else — no
+numbers, no names, no project context, no prompt describing the batch. It is
+recorded as a **distinct reader identity, never `Claude`**; a shared label
+erases the only thing that makes the call worth anything.
+`art_call_admits_a_name` refuses a call with no identity, an identity of
+`Claude`, or no `fresh_session` declaration.
+
+Two honest limits. The fresh session shares the same **training**, so the same
+base ability and failure shape — expected, and not the issue; what differs is
+conversational contamination. And **freshness is declared, not proven**:
+nothing here can verify it, so the field records a claim and is labelled the
+weakest link in the channel. It must not read as evidence.
+
+Because this session knows the expected names, the comparison is computed by
+`art_call_outcome` **mechanically**, never judged — a disagreement cannot be
+rationalised away by the reader that knows what it should have said.
+
+**3. The abstention rate is a WEAK instrument at n=16, and no longer gates.**
+A 5% floor on 16 cards is 0.8 cards; it collapses to *abstained at least
+once*, which a lucky easy batch passes and a careful one fails identically.
+Worse:
+
+| True abstention rate | P(zero abstentions in 16) |
+|---:|---:|
+| 5% | **0.44** |
+| 10% | 0.19 |
+| 17% | 0.05 |
+
+**The old floor would have failed a correct reader nearly half the time.**
+Zero abstentions is significant at n=16 only if the true rate is **≥17%**.
+
+So `abstention_report` reports and gates nothing: it prints the count *with
+the rate at which zero would have been surprising*, because a count without
+its detectable floor reads as a verdict and at this sample size it is not one.
+Zero abstentions is worth a human look, **not a failure, and not evidence of
+contamination on its own**.
+
+**The per-row disagreement rule carries the weight instead**, and it does not
+depend on sample size at all: every row's call is checked against the
+documentary name individually. What the abstention rate cannot do is separate
+a careful reader on an easy batch from a contaminated one — at n=16 those are
+statistically indistinguishable, which is exactly why the fresh-session
+protocol is doing the work, and exactly why it is labelled unverifiable.
+
+**4. Outcomes.** `agrees` → the Latin name is independently attested and the
 detector is live on the row. `disagrees` → the row is **blocked**, admitted
 with neither name, because a disagreement is the instrument working rather
 than a vote to break. `abstains` → name absent, the row lands exactly as
