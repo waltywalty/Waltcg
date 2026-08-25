@@ -231,13 +231,46 @@ merged:
    another, and a rule about *which element lacks an anchor* has to be right
    about both. A missing integer is the same in either. **Abstains on a
    complete run**, which is equally the base page and the `?v=N+1` page.
-2. **The image filename suffix** (`_pN`, absent for base).
-3. **The page's own canonical `?v=`.** Weakest: the tag's presence is assumed
-   rather than observed.
+2. **The image filename suffix** (`_pN`, absent for base), read from
+   **`og:image` / `twitter:image` in the head** rather than the body `<img>`.
+   Head-level, so body markup changes cannot break it, and it is the same
+   string in either serialisation. The body image is the fallback for a
+   rendered page with no head, and the source that answered is reported.
+3. **The page's own self-reference links.** *Corrected 2026-08-25:* there is
+   **no `rel=canonical`** — the head holds `description`, `og:*`, `twitter:*`,
+   `viewport` and `title`, nothing else. Looking for a canonical element
+   returns absent on every page, which is a signal that never speaks
+   masquerading as a signal that agrees.
+
+   The self-reference is in the **body**, three times: the header card-name
+   link and the two language links (`/cards/OP01-120?v=2`,
+   `/cards/en/…`, `/cards/jp/…`). All three report **what was served**, not
+   what was requested — on the `?v=3` request that returned `?v=2`, all three
+   said `?v=2`. That is precisely the property this signal needs.
+
+   Three instances means the page checks itself: if the header and the two
+   language links disagree, that is a **page-level anomaly** and the signal
+   returns nothing. Two links claiming different printings of one card is not
+   a majority to take.
 
 Where two speak and disagree, the answer is *none* with the disagreement
 attached. A page that cannot say which printing it is must not be recorded as
 any printing.
+
+**One coupling, stated rather than papered over.** The header self-link may
+share a print row's URL shape exactly — nothing in the URL separates them —
+and left in the table it adds a "printing" labelled with the card's name and
+fills the gap that identifies the page. Self-references are excluded by
+**multiplicity**: the served slot carries several `/cards/{number}` links
+(header plus two language links) where every print row carries one. So signal
+1 depends on that exclusion where the shapes collide. It is never the other
+direction — the self-reference signal does not read the print table.
+
+A weak fourth check exists and is deliberately not a signal: **`og:title`
+carries the product NAME** ("Shanks (OP01-120) • Romance Dawn"). A name can
+corroborate a slug and must never supply one — turning a name into a set code
+needs a lookup, and doing that lookup here makes the title a product source
+again, which is the bug this module opened with.
 
 Open rather than resolved because the cause is unknown and it may recur on any
 card. Every run reports mismatches.

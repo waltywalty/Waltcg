@@ -5,7 +5,7 @@
   "_slot_vocabulary_is_evidenced_not_assumed": {
     "claim": "Limitless's `?v=N` and apitcg's `_pN` are the same slot vocabulary.",
     "confidence": "n=1. CONFIRMED FOR EXACTLY ONE PAIRING -- `?v=2` serving `OP01-120_p2_EN.webp` -- plus base/no-suffix. One pairing is one observation of the mapping, not the mapping.",
-    "evidence": "The asset URL carries the suffix, so the binding is observed rather than inferred from the order two sources happen to list printings in.",
+    "evidence": "The asset URL carries the suffix -- `og:image` and `twitter:image` in the head both do -- so the binding is observed rather than inferred from the order two sources happen to list printings in.",
     "observed": "2026-08-25, live fetch, one card",
     "how_it_is_used": "The adapter RE-CONFIRMS the binding per card from the image filename (`slot_binding_evidence`) rather than assuming it, and every run reports confirmations and contradictions. A card where it fails is evidence ABOUT THE MAPPING, not about that card.",
     "not_claimed": "That an image filename with NO `_pN` means the base printing. That is a convention we hold about apitcg's naming; `image_slot` reports such a page as slot None with the filename attached."
@@ -65,10 +65,12 @@
     "cause": "Unknown, and it does not matter. A site redirect and de-duping in the fetch path are indistinguishable from outside, and the guard is the same either way.",
     "guard": "`verify_slot` parses the slot FROM THE PAGE and compares it to what was requested; a mismatch is recorded as unresolved and never credited to the slot that was asked for. A fetch that silently returns a neighbour is exactly how a wrong pair enters this table with everything green.",
     "signals": [
-      "The gap in the `?v=` run. Every row but the current printing carries a link, so on `?v=2` the links run 1, 3, 4 and the missing integer names the page. Assumes nothing about markup. ABSTAINS on a complete run, which is equally the base page and the `?v=N+1` page.",
-      "The image filename suffix (`_pN`, absent for base).",
-      "The page's own canonical `?v=`. Weakest -- the tag's presence is assumed rather than observed."
+      "1. THE GAP IN THE `?v=` RUN. Every print row but the current printing carries a link, so on `?v=2` the links run 1, 3, 4 and the missing integer names the page. Assumes nothing about markup. ABSTAINS on a complete run, which is equally the base page and the `?v=N+1` page.",
+      "2. THE IMAGE FILENAME SUFFIX (`_pN`, absent for base), read from `og:image` / `twitter:image` IN THE HEAD rather than the body <img>. Head-level, so body markup changes cannot break it, and the same string in either serialisation. The body image is the fallback and the source that answered is reported.",
+      "3. THE PAGE'S OWN SELF-REFERENCE LINKS. There is NO rel=canonical -- the head holds description, og:*, twitter:*, viewport and title, and nothing else. The self-reference is in the BODY three times: the header card-name link and the two language links (/cards/OP01-120?v=2, /cards/en/..., /cards/jp/...). All three report WHAT WAS SERVED rather than what was requested -- on the ?v=3 request that returned ?v=2, all three said ?v=2. Three instances also means the page checks itself: header and language links disagreeing is a PAGE-LEVEL ANOMALY and the signal returns nothing."
     ],
-    "signals_are_compared_never_merged": "Where two speak and disagree the answer is None with the disagreement attached. A page that cannot say which printing it is must not be recorded as any printing."
+    "signals_are_compared_never_merged": "Where two speak and disagree the answer is None with the disagreement attached. A page that cannot say which printing it is must not be recorded as any printing.",
+    "one_coupling_not_papered_over": "The header self-link may share a print row's URL shape exactly, and left in the print table it adds a `printing` labelled with the card's name and fills the gap that identifies the page. Self-references are excluded by MULTIPLICITY -- the served slot carries several /cards/{number} links where every print row carries one. So signal 1 depends on that exclusion where the shapes collide. Never the other direction: the self-reference signal does not read the print table.",
+    "og_title_is_not_a_signal": "og:title carries the product NAME (`Shanks (OP01-120) - Romance Dawn`), never a code. A name can corroborate a slug and must never supply one: turning a name into a set code needs a lookup, and doing that lookup here makes the title a product source again -- the bug this module opened with."
   }
 }

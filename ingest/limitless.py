@@ -242,6 +242,32 @@ def product_line(page):
     return None
 
 
+def _self_reference_slots(page):
+    """Slots pointed at by MORE THAN ONE self-referencing link.
+
+    The header card link and the two language links all point at the printing
+    being displayed, so its slot carries several `/cards/{number}` links while
+    every print row carries exactly one. Multiplicity is the discriminator,
+    which matters because the header link may share a print row's URL shape
+    exactly -- nothing else in the URL separates them.
+
+    NOTE THE COUPLING, rather than claiming three independent signals: where
+    the shapes do collide, signal 1 (the gap in the run) depends on this to
+    clear the header link out first. Where they do not collide it is
+    unnecessary. It is never the other direction -- the self-reference signal
+    does not read the print table.
+    """
+    counts = {}
+    for href, _text_ in anchors(page):
+        reference = _SELF_REF.search(href)
+        if not reference:
+            continue
+        slot = reference.group("slot")
+        if slot is not None:
+            counts[int(slot)] = counts.get(int(slot), 0) + 1
+    return {slot for slot, count in counts.items() if count > 1}
+
+
 def print_table(page):
     """Every printing the page lists: (slot, label), lowest slot first.
 
@@ -250,9 +276,18 @@ def print_table(page):
     from this list means "not among the ?v= links", never "does not exist".
     """
     seen, rows = set(), []
+    skip = _self_reference_slots(page)
     for href, text in anchors(page):
         slot = _VARIANT_HREF.search(href)
         if not slot or not text:
+            continue
+        reference = _SELF_REF.search(href)
+        if reference and (reference.group("language")
+                          or int(slot.group(1)) in skip):
+            # THE HEADER AND LANGUAGE LINKS ARE NOT PRINT ROWS. They point at
+            # the printing being displayed, and left in they would add a
+            # "printing" labelled with the card's name and fill the gap that
+            # identifies the page.
             continue
         number = int(slot.group(1))
         if number in seen:
@@ -262,22 +297,48 @@ def print_table(page):
     return sorted(rows, key=lambda r: r["slot"])
 
 
-def image_slot(page):
-    """The `_pN` slot this page's asset carries, from the image URL.
+#: Head-level image sources, in preference order. `og:image` and
+#: `twitter:image` both carry the `_pN` suffix; reading the slot from the head
+#: means body markup changes cannot break it.
+IMAGE_META_KEYS = ("og:image", "twitter:image")
 
-    `OP01-120_p2_EN.webp` on `?v=2` is the evidence that Limitless's `?v=N`
-    and apitcg's `_pN` are one slot vocabulary. A filename with no `_pN` is
-    reported as slot None WITH the filename, because "no suffix" meaning "base"
-    is a convention we hold about apitcg, not something this page states.
+
+def image_slot(page):
+    """Signal 2: the `_pN` slot this page's asset carries.
+
+    READ FROM THE HEAD FIRST. `og:image` and `twitter:image` both carry the
+    suffix, they cannot be broken by a change to body markup, and it is the
+    same string in either serialisation. The body `<img>` is the fallback, for
+    a rendered-markdown page where the head did not survive -- and the source
+    that answered is reported, because "which field this came from" is the
+    fact that turns a disagreement into a diagnosis.
+
+    A filename with no `_pN` is reported as slot None WITH the filename,
+    because "no suffix" meaning "base" is a convention we hold about apitcg's
+    naming, not something this page states.
     """
+    meta = meta_tags(page)
+    for key in IMAGE_META_KEYS:
+        value = meta.get(key)
+        if not value:
+            continue
+        found = _IMAGE.search(value)
+        if found:
+            return _image_reading(found, key)
     found = _IMAGE.search(_content(page))
     if not found:
-        return {"slot": None, "filename": None, "why": "no card image on page"}
+        return {"slot": None, "filename": None, "source": None,
+                "why": "no card image in the head meta or the body"}
+    return _image_reading(found, "body_img")
+
+
+def _image_reading(found, source):
     slot = found.group(2)
     return {"slot": int(slot) if slot is not None else None,
             "filename": found.group(0),
             "number": found.group(1),
             "language": found.group(3),
+            "source": source,
             "why": None if slot is not None else
                    "filename carries no _pN suffix"}
 
@@ -306,12 +367,27 @@ def reprint_note(page):
 
 # -- which printing is this page? three signals, compared ------------------
 
-# The page's own canonical URL. Shape NOT observed -- like the anchor nesting,
-# this is inferred from ordinary HTML convention, so it stays one of three
-# signals and never the only one consulted.
-_CANONICAL = re.compile(
-    r'<(?:link[^>]+rel="canonical"|meta[^>]+property="og:url")[^>]+'
-    r'(?:href|content)="([^"]+)"', re.I)
+# THERE IS NO rel=canonical. The head holds description, og:*, twitter:*,
+# viewport and title -- nothing else. Looking for a canonical element returns
+# absent on every page, which is a signal that never speaks dressed as a
+# signal that agrees.
+#
+# The self-reference is in the BODY, three times over: the header card-name
+# link and the two language links. All three carry `?v=N`, and on the `?v=3`
+# request that served `?v=2` all three said `?v=2` -- they report WHAT WAS
+# SERVED, not what was asked for, which is the whole property this signal
+# needs. Three instances also means the page can be checked against itself.
+_SELF_REF = re.compile(
+    r'/cards/(?:(?P<language>[a-z]{2})/)?'
+    r'(?P<number>[A-Za-z]{2,4}\d{2}-\d{2,4})(?:\?v=(?P<slot>\d+))?(?:[#"\s)]|$)')
+# The slot suffix is in the HEAD as well as the body, and the head is the
+# better place to read it from: `og:image` and `twitter:image` both carry
+# `_pN`, they cannot be broken by a change to body markup, and it is the same
+# string in either serialisation.
+_META = re.compile(
+    r'<meta[^>]+(?:property|name)="(?P<key>[^"]+)"[^>]+content="(?P<value>[^"]*)"'
+    r'|<meta[^>]+content="(?P<value2>[^"]*)"[^>]+(?:property|name)="(?P<key2>[^"]+)"',
+    re.I)
 _ROW_BREAK = re.compile(r"</tr>|</li>|</p>|<br\s*/?>|\n", re.I)
 
 
@@ -351,7 +427,10 @@ def print_table_rows(page):
                 "unlinked_label": label,
                 "why": f"run 1..{max(slots)} is complete, so the current "
                        f"printing is either the base or v={max(slots) + 1}; "
-                       "this signal cannot tell those apart"}
+                       "this signal cannot tell those apart. (A complete run "
+                       "is also what the header self-link produces when its "
+                       "URL shape matches a print row's -- the served slot is "
+                       "back in the run. Same abstention either way.)"}
     if len(missing) > 1:
         return {"linked": linked, "unlinked_slot": None,
                 "unlinked_label": label,
@@ -371,8 +450,19 @@ def _unlinked_label(page):
     markdown in one path and raw HTML in another.
     """
     rows = _ROW_BREAK.split(_content(page))
-    linked_at = [i for i, row in enumerate(rows)
-                 if re.search(r"\?v=\d+", row)]
+    skip = _self_reference_slots(page)
+
+    def _is_print_row(row):
+        found = re.search(r"\?v=(\d+)", row)
+        if not found:
+            return False
+        reference = _SELF_REF.search(row)
+        if reference and (reference.group("language")
+                          or int(found.group(1)) in skip):
+            return False
+        return True
+
+    linked_at = [i for i, row in enumerate(rows) if _is_print_row(row)]
     if not linked_at:
         return None
     # One row either side of the linked run: the unlinked row is first on the
@@ -381,7 +471,7 @@ def _unlinked_label(page):
     linked_text = {text for href, text in anchors(page) if "?v=" in href}
     candidates = []
     for row in window:
-        if re.search(r"\?v=\d+", row) or "<a" in row.lower() or "](" in row:
+        if _is_print_row(row) or "<a" in row.lower() or "](" in row:
             continue
         text = _text(row)
         if text and text not in linked_text and len(text) > 2:
@@ -389,19 +479,103 @@ def _unlinked_label(page):
     return candidates[0] if len(candidates) == 1 else None
 
 
-def canonical_slot(page):
-    """Signal 3: the `?v=` on the page's own canonical URL.
+def meta_tags(page):
+    """`property`/`name` -> content for every meta tag in the head."""
+    found = {}
+    for match in _META.finditer(_content(page)):
+        key = match.group("key") or match.group("key2")
+        value = match.group("value")
+        if value is None:
+            value = match.group("value2")
+        if key:
+            found.setdefault(key.lower(), html.unescape(value or ""))
+    return found
 
-    Absent is reported as absent. This is the weakest of the three because the
-    tag's presence is assumed rather than observed.
+
+def self_reference_slot(page):
+    """Signal 3: the printing the page says it IS, from its own links.
+
+    Three of them -- the header card-name link and the two language links:
+
+        /cards/OP01-120?v=2
+        /cards/en/OP01-120?v=2
+        /cards/jp/OP01-120?v=2
+
+    They report WHAT WAS SERVED rather than what was requested, which is
+    exactly the property needed: on the `?v=3` request that returned the
+    `?v=2` page, all three said `?v=2`. On the base page all three carry no
+    query.
+
+    Three instances means the page can be checked against itself, so a
+    disagreement among them is a PAGE-LEVEL ANOMALY and returns nothing. Two
+    links claiming different printings of the same card is not a majority to
+    take; it is a page that should not be read.
     """
-    found = _CANONICAL.search(_content(page))
-    if not found:
-        return {"slot": None, "url": None, "why": "no canonical URL on page"}
-    url = html.unescape(found.group(1))
-    variant = _VARIANT_HREF.search(url)
-    return {"slot": int(variant.group(1)) if variant else None, "url": url,
-            "why": None if variant else "canonical URL carries no ?v="}
+    body = _content(page)
+    seen = []
+    for match in _SELF_REF.finditer(body):
+        slot = match.group("slot")
+        seen.append({"language": match.group("language"),
+                     "number": match.group("number"),
+                     "slot": int(slot) if slot is not None else None})
+    if not seen:
+        return {"slot": None, "references": [], "agreed": False,
+                "why": "no self-referencing card link on the page"}
+
+    numbers = {ref["number"].upper() for ref in seen}
+    if len(numbers) > 1:
+        return {"slot": None, "references": seen, "agreed": False,
+                "why": f"self-references name different cards "
+                       f"({sorted(numbers)}); page-level anomaly"}
+
+    # THE LANGUAGE LINKS ARE THE UNAMBIGUOUS ONES. A print-table row linking a
+    # sibling printing can share the header link's bare `/cards/{number}?v=N`
+    # shape, and nothing in the URL distinguishes them -- but no print row
+    # carries a `/cards/{lang}/` prefix. So the language links are always
+    # authoritative, and the bare ones speak only when they are unanimous.
+    tagged = [ref for ref in seen if ref["language"]]
+    bare = [ref for ref in seen if not ref["language"]]
+    bare_slots = {ref["slot"] for ref in bare}
+    voters = list(tagged)
+    dropped = None
+    if len(bare_slots) == 1:
+        voters += bare
+    elif bare:
+        dropped = (f"{len(bare)} bare self-links carry "
+                   f"{len(bare_slots)} different slots, so they are "
+                   "indistinguishable from print-table rows and do not vote")
+    if not voters:
+        return {"slot": None, "references": seen, "agreed": False,
+                "why": dropped or "no usable self-reference on the page"}
+
+    slots = {ref["slot"] for ref in voters}
+    if len(slots) > 1:
+        return {"slot": None, "references": seen, "agreed": False,
+                "why": "the header and language links disagree on the "
+                       "printing (" + ", ".join(sorted(map(str, slots)))
+                       + "); page-level anomaly"}
+    only = slots.pop()
+    return {"slot": only, "references": seen, "agreed": True,
+            "base": only is None, "count": len(voters),
+            "dropped": dropped, "why": None}
+
+
+def og_title_product_name(page):
+    """WEAK cross-check: the product NAME from `og:title`.
+
+    `Shanks (OP01-120) - Romance Dawn` on `?v=2`, `- One Piece The Best` on
+    `?v=4`. A NAME, never a code, so it can corroborate a slug and must never
+    supply one -- a name cannot be turned into a set code without a lookup,
+    and doing that lookup here would make the title a product source again.
+    """
+    title = meta_tags(page).get("og:title")
+    if not title:
+        return None
+    tail = re.split(r"[\u2022\u00b7\u2013\u2014|]", title)
+    if len(tail) < 2:
+        return None
+    name = tail[-1].strip()
+    return name or None
 
 
 def observed_slot(page):
@@ -413,7 +587,7 @@ def observed_slot(page):
     """
     image = image_slot(page)
     rows = print_table_rows(page)
-    canonical = canonical_slot(page)
+    self_ref = self_reference_slot(page)
 
     from_label = rows["unlinked_slot"]
 
@@ -426,7 +600,12 @@ def observed_slot(page):
                            "base": (image["filename"] is not None
                                     and image["slot"] is None),
                            "why": image["why"]},
-        "canonical_url": canonical,
+        "self_reference_links": {
+            "slot": self_ref["slot"] if self_ref["agreed"] else None,
+            "base": self_ref.get("base", False),
+            "count": self_ref.get("count", 0),
+            "references": self_ref["references"],
+            "why": self_ref["why"]},
     }
 
     def _norm(value, is_base):
@@ -555,6 +734,11 @@ def count_printings(page):
     one. Adding the current printing back needs to know which one it is, and
     where the signals cannot say, this reports a LOWER BOUND and says so
     rather than returning a count that reads as a total.
+
+    The header self-link carries the served `?v=`, so where its URL shape
+    matches a print row's the served slot is back in the run and this counts
+    it once, not twice -- `slots` is a set of the linked slots and the current
+    printing is added only when it is absent from them.
     """
     rows = print_table_rows(page)
     slots = [row["slot"] for row in rows["linked"]]

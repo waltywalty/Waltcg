@@ -3346,3 +3346,99 @@ found by a test.
 
 **Gate unchanged at 237 verified of 250.** Shorts: `optcg:CN-S` 16,
 `pkmn:EN` 2.
+
+---
+
+## ADR-0044 — Signal 3 was looking in the wrong place, and absent is not agreement
+
+**Date:** 2026-08-25
+**Status:** Accepted. Corrects ADR-0043's third signal and strengthens the
+second.
+
+### A signal that could never speak
+
+ADR-0043 built signal 3 on `rel=canonical` and flagged it as "the tag's
+presence is assumed rather than observed". It is worse than assumed: **there
+is no `rel=canonical` on these pages.** The head holds `description`, `og:*`,
+`twitter:*`, `viewport` and `title` — nothing else.
+
+So signal 3 returned `absent` on every page, forever. It never voted, never
+disagreed, and never failed a test, because "absent is reported as absent" is
+exactly what a well-behaved abstaining signal looks like. **A signal that
+cannot speak is indistinguishable from one that agrees**, and the design
+document said "three signals" while the code had two.
+
+Worth naming as a class, because it is the third variant of the same mistake
+in three sessions: a check that cannot fire reads as a check that passed.
+The seal that was never committed, the mutants that confirmed a broken parser,
+and now a signal wired to an element that does not exist.
+
+### Where the self-reference actually is
+
+In the **body**, three times over:
+
+    header card-name link  ->  /cards/OP01-120?v=2
+    language link EN       ->  /cards/en/OP01-120?v=2
+    language link JP       ->  /cards/jp/OP01-120?v=2
+
+On the base page all three carry no query. And on the `?v=3` request that
+served `?v=2`, **all three said `?v=2`** — they report what was *served*, not
+what was asked for, which is the entire property this signal exists to
+provide.
+
+Three instances also means the page can be checked against itself: if the
+header and the two language links disagree, that is a **page-level anomaly**
+and the signal returns nothing. Two links claiming different printings of one
+card is not a majority to take; it is a page that should not be read.
+
+### The collision, and the coupling it forces
+
+The header link may share a print row's URL shape exactly — nothing in the URL
+separates `/cards/OP01-120?v=2` used as "this page" from the same shape used
+as "go to printing 2". Left in the print table it does real damage: it adds a
+"printing" labelled with the card's *name*, and it fills the gap that
+identifies the page, so signal 1 goes quiet.
+
+Self-references are excluded by **multiplicity** — the served slot carries
+several `/cards/{number}` links where every print row carries exactly one.
+That works whether or not the shapes collide, and it uses only the structure
+of the links themselves.
+
+It is still a coupling, and it is recorded as one rather than smoothed over:
+where the shapes collide, signal 1 depends on that exclusion running first.
+Never the other direction — the self-reference signal does not read the print
+table. Claiming three independent signals when two share a dependency would be
+the same overstatement as claiming three signals when one could not speak.
+
+### Signal 2 moved to the head
+
+`og:image` and `twitter:image` both carry `_pN`. Reading the slot there rather
+than from the body `<img>` means body markup changes cannot break it, and it
+is the same string in either serialisation — which matters because the page
+arrives rendered down one path and raw down another. The body image stays as
+the fallback for a rendered page with no head, and **the source that answered
+is reported**, because which field a value came from is what turns a
+disagreement into a diagnosis.
+
+### A fourth check that is deliberately not a signal
+
+`og:title` carries the product **name**: `Shanks (OP01-120) • Romance Dawn` on
+`?v=2`, `• One Piece The Best` on `?v=4`. It can corroborate a slug and must
+never supply one. Turning a name into a set code requires a lookup, and doing
+that lookup here would make the title a product source again — which is the
+bug this module opened with, arriving by a different route. A test asserts
+that an `og:title` alone yields no product code.
+
+### What the fixtures now carry
+
+The observed head (`description`, `og:*`, `twitter:*`, `viewport`, `title`,
+and **no canonical**), the three body self-references, and the print table
+with the current printing unlinked. A test asserts the fixtures contain no
+`canonical` — if one ever appears, the assumption this signal replaced has
+come back.
+
+All three signals now vote on `?v=2`, and the printing count comes back exact
+from the base page, from `?v=2` and from `?v=4` independently.
+
+**Gate unchanged at 237 verified of 250.** Shorts: `optcg:CN-S` 16,
+`pkmn:EN` 2. S2 remains open: Prize Cards is still unattested.

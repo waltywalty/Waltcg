@@ -14,6 +14,7 @@ complete manifest, and the image filename is what binds `?v=N` to `_pN`.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -22,12 +23,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ingest.base import AdapterGaveUp  # noqa: E402
 from ingest.limitless import (LimitlessAdapter, attest,  # noqa: E402
-                              build_product_index, canonical_slot, image_slot,
+                              build_product_index, image_slot, meta_tags,
                               observed_slot, parse_variant_page, print_table,
                               print_table_rows, product_line,
                               product_attestation, reconcile, reprint_note,
                               render_attestation_report, render_binding_report,
-                              slot_binding_evidence, split_label, verify_slot)
+                              og_title_product_name,
+                              self_reference_slot,
+                              slot_binding_evidence, split_label,
+                              verify_slot)
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "fixtures", "limitless")
@@ -374,7 +378,6 @@ class TheFixturesCarryNoPrices(unittest.TestCase):
     is written never to put on disk."""
 
     def test_no_fixture_mentions_a_marketplace_or_a_price(self):
-        import re
         money = re.compile(r"[$€£]\s?\d|\b\d+\.\d{2}\b", re.I)
         # Comments stripped first: each fixture DECLARES that it omits the
         # price table, and scanning the declaration for the word it declares
@@ -431,15 +434,27 @@ class ThePageSaysWhichPrintingItIs(unittest.TestCase):
         self.assertEqual(observed_slot(V2)["slot"], 2)
         self.assertIn("image_filename", observed_slot(V2)["voted_by"])
 
-    def test_a_canonical_url_is_read_when_present(self):
-        with_canonical = V4.replace(
-            "<title>", '<link rel="canonical" href="/cards/OP01/120?v=4">\n<title>')
-        self.assertEqual(canonical_slot(with_canonical)["slot"], 4)
-        self.assertIn("canonical_url", observed_slot(with_canonical)["voted_by"])
+    def test_the_self_reference_links_place_the_page(self):
+        """There is NO rel=canonical. The head holds description, og:*,
+        twitter:*, viewport and title. The self-reference is in the body,
+        three times: the header card link and the two language links."""
+        found = self_reference_slot(V2)
+        self.assertEqual(found["slot"], 2)
+        self.assertEqual(found["count"], 3)
+        self.assertEqual(sorted(r["language"] or "-" for r in found["references"]),
+                         ["-", "en", "jp"])
+        self.assertIn("self_reference_links", observed_slot(V2)["voted_by"])
 
-    def test_an_absent_canonical_is_reported_absent_not_assumed(self):
-        self.assertIsNone(canonical_slot(V2)["slot"])
-        self.assertIn("no canonical URL", canonical_slot(V2)["why"])
+    def test_the_self_reference_reports_what_was_served(self):
+        """The property this signal exists for: on the ?v=3 request that
+        returned the ?v=2 page, all three links said ?v=2."""
+        self.assertEqual(self_reference_slot(V2)["slot"], 2)
+        self.assertFalse(verify_slot(V2, 3)["ok"])
+
+    def test_the_base_page_self_references_carry_no_query(self):
+        found = self_reference_slot(BASE)
+        self.assertIsNone(found["slot"])
+        self.assertTrue(found["base"])
 
     def test_disagreeing_signals_produce_no_answer_at_all(self):
         """Two signals speaking and disagreeing is not a vote to break. A page
@@ -508,13 +523,17 @@ class RequestedMustEqualObserved(unittest.TestCase):
         self.assertTrue(any(f.get("observed") == 2 for f in failures))
 
     def test_a_matching_follow_up_does_resolve_the_entry(self):
+        # A genuine ?v=3 page: og:image _p3, self-links ?v=3, slot 3
+        # unlinked in the print table and slot 2 linked again.
+        v3 = (V2.replace("_p2_EN.webp", "_p3_EN.webp")
+                .replace("?v=2", "?v=3")
+                .replace('<a href="/cards/OP01/120?v=3">Prize Cards serial</a>',
+                         "Prize Cards serial")
+                .replace("<tr><td>Romance Dawn manga</td></tr>",
+                         '<tr><td><a href="/cards/OP01/120?v=2">'
+                         'Romance Dawn manga</a></td></tr>'))
         pages = _Pages({("OP01", "OP01-120", None): BASE,
-                        ("OP01", "OP01-120", 3): V2.replace(
-                            "_p2_EN.webp", "_p3_EN.webp").replace(
-                            '<a href="/cards/OP01/120?v=3">Prize Cards serial</a>',
-                            "Prize Cards serial").replace(
-                            "Romance Dawn manga",
-                            '<a href="/cards/OP01/120?v=2">Romance Dawn manga</a>')})
+                        ("OP01", "OP01-120", 3): v3})
         _, entries, _, _ = attest(pages, [("OP01", "OP01-120")])
         slot3 = [e for e in entries if e["slot"] == 3][0]
         self.assertEqual(slot3["product_set_code"], "op01")
@@ -594,3 +613,133 @@ class TheAnchorNestingIsNotObserved(unittest.TestCase):
         noisy = V2.replace("<title>", "<!-- see ?v=7 -->\n<title>")
         self.assertEqual(print_table_rows(noisy)["unlinked_slot"], 2)
         self.assertEqual([r["slot"] for r in print_table(noisy)], [1, 3, 4])
+
+
+class TheSlotComesOffTheHead(unittest.TestCase):
+    """`og:image` and `twitter:image` both carry `_pN`. Head-level, so body
+    markup changes cannot break it, and the same string in either
+    serialisation."""
+
+    def test_the_head_is_preferred_over_the_body_image(self):
+        found = image_slot(V2)
+        self.assertEqual(found["source"], "og:image")
+        self.assertEqual(found["filename"], "OP01-120_p2_EN.webp")
+
+    def test_twitter_image_answers_when_og_image_is_absent(self):
+        no_og = V2.replace('<meta property="og:image"', '<meta name="x:image"')
+        self.assertEqual(image_slot(no_og)["source"], "twitter:image")
+        self.assertEqual(image_slot(no_og)["slot"], 2)
+
+    def test_the_body_image_is_the_fallback_and_is_named_as_such(self):
+        """A rendered-markdown page has no head to read."""
+        markdown = ("![](https://x/one-piece/OP01/OP01-120_p2_EN.webp)\n"
+                    "[Romance Dawn (OP01) Manga Art](/cards/op01-romance-dawn)\n")
+        found = image_slot(markdown)
+        self.assertEqual(found["source"], "body_img")
+        self.assertEqual(found["slot"], 2)
+
+    def test_a_head_image_with_no_suffix_is_the_base_and_says_why(self):
+        found = image_slot(BASE)
+        self.assertIsNone(found["slot"])
+        self.assertEqual(found["filename"], "OP01-120_EN.webp")
+        self.assertIn("no _pN", found["why"])
+
+    def test_no_image_anywhere_is_reported_not_defaulted(self):
+        found = image_slot("<p>nothing at all</p>")
+        self.assertIsNone(found["filename"])
+        self.assertIsNone(found["source"])
+        self.assertIn("no card image", found["why"])
+
+    def test_the_head_carries_no_canonical_element(self):
+        """Guards the shape itself: if a rel=canonical ever appears, the
+        assumption this signal replaced has come back."""
+        comment = re.compile(r"<!--.*?-->", re.S)
+        for name, html in (("base", BASE), ("v2", V2), ("v4", V4)):
+            with self.subTest(page=name):
+                # Comments stripped: each fixture DECLARES that there is no
+                # rel=canonical, and scanning the declaration for the word it
+                # declares about fails every file that is correct.
+                markup = comment.sub(" ", html).lower()
+                self.assertNotIn("canonical", markup)
+                self.assertIn("og:image", meta_tags(html))
+
+
+class TheSelfReferenceChecksItself(unittest.TestCase):
+    """Three instances means the page can be checked against itself."""
+
+    def test_disagreeing_language_links_are_a_page_level_anomaly(self):
+        broken = V2.replace('/cards/jp/OP01-120?v=2', '/cards/jp/OP01-120?v=4')
+        found = self_reference_slot(broken)
+        self.assertIsNone(found["slot"])
+        self.assertFalse(found["agreed"])
+        self.assertIn("page-level anomaly", found["why"])
+
+    def test_an_anomalous_page_is_refused_not_out_voted(self):
+        """Two links claiming different printings of one card is not a
+        majority to take; it is a page that should not be read."""
+        broken = V2.replace('/cards/jp/OP01-120?v=2', '/cards/jp/OP01-120?v=4')
+        self.assertIsNone(
+            observed_slot(broken)["signals"]["self_reference_links"]["slot"])
+
+    def test_self_references_naming_different_cards_are_refused(self):
+        broken = V2.replace('/cards/en/OP01-120?v=2', '/cards/en/OP01-121?v=2')
+        self.assertIn("different cards", self_reference_slot(broken)["why"])
+
+    def test_bare_links_abstain_when_print_rows_share_their_shape(self):
+        """If a print row links `/cards/OP01-120?v=1`, nothing in the URL
+        separates it from the header link. The language links stay
+        authoritative and the bare ones stand down."""
+        shared = ('<a href="/cards/OP01-120?v=2">Shanks</a>'
+                  '<a href="/cards/en/OP01-120?v=2">EN</a>'
+                  '<a href="/cards/jp/OP01-120?v=2">JP</a>'
+                  '<a href="/cards/OP01-120?v=1">Romance Dawn aa</a>'
+                  '<a href="/cards/OP01-120?v=3">Prize Cards serial</a>')
+        found = self_reference_slot(shared)
+        self.assertEqual(found["slot"], 2)
+        self.assertEqual(found["count"], 2)
+        self.assertIn("indistinguishable from print-table rows",
+                      found["dropped"])
+
+    def test_the_header_link_is_not_counted_as_a_printing(self):
+        """Left in, it adds a printing labelled with the card's name and
+        fills the gap that identifies the page."""
+        self.assertNotIn("Shanks", [r["label"] for r in print_table(V2)])
+        self.assertEqual([r["slot"] for r in print_table(V2)], [1, 3, 4])
+
+    def test_the_language_switcher_is_not_counted_as_a_printing(self):
+        self.assertNotIn("EN", [r["label"] for r in print_table(V2)])
+        self.assertNotIn("JP", [r["label"] for r in print_table(V2)])
+
+
+class TheOgTitleCorroboratesAndNeverSupplies(unittest.TestCase):
+    """`og:title` carries the product NAME, not a code. It can back a slug up
+    and must never stand in for one -- turning a name into a set code needs a
+    lookup, and doing that lookup here makes the title a product source
+    again, which is the bug this module opened with."""
+
+    def test_the_name_is_read_from_the_og_title(self):
+        self.assertEqual(og_title_product_name(V2), "Romance Dawn")
+        self.assertEqual(og_title_product_name(V4), "One Piece The Best")
+
+    def test_it_returns_a_name_never_a_code(self):
+        for html in (BASE, V2, V4):
+            with self.subTest():
+                name = og_title_product_name(html)
+                self.assertNotIn("(", name)
+                self.assertFalse(re.match(r"^[a-z]{2,5}\d{2}$", name.lower()))
+
+    def test_a_page_with_no_product_link_still_attests_nothing(self):
+        """SILENT's og:title has no product segment at all, but the guarantee
+        has to hold even when it does: a name is not a code."""
+        self.assertIsNone(og_title_product_name(SILENT))
+        self.assertFalse(product_attestation(SILENT, "OP01",
+                                             "OP01-120")["attested"])
+
+    def test_an_og_title_alone_never_produces_a_product_code(self):
+        titled = ('<meta property="og:title" content="Shanks (OP01-120) '
+                  '&bull; One Piece The Best">'
+                  '<title>Shanks (OP01-120)</title>')
+        self.assertEqual(og_title_product_name(titled), "One Piece The Best")
+        self.assertIsNone(product_line(titled))
+        self.assertIsNone(parse_variant_page(titled)["set_code"])
+
