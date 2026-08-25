@@ -3088,3 +3088,153 @@ demoting on a suspicion moves the gate numbers on a suspicion.
 
 **Gate unchanged at 237 verified of 250.** Two shorts: `optcg:CN-S` 16 and
 `pkmn:EN` 2.
+
+---
+
+## ADR-0042 — The parser was wrong on every page, and the tests agreed with it
+
+**Date:** 2026-08-25
+**Status:** Accepted. Corrects ADR-0041's adapter. The corroboration tiers it
+introduced are unchanged and were not what failed.
+
+### What real pages showed
+
+ADR-0041 shipped a Limitless adapter I could not run — the sandbox proxy
+answers 403 to CONNECT — and I flagged the URL shape and the title format as
+fragile. The pages were then fetched. The fragility was not a risk that might
+have bitten; it was **a certainty that would have**.
+
+The real title is:
+
+    Shanks (OP01-120) • Romance Dawn – Limitless
+
+The first parenthesised token is **the card number**. Always. The parser took
+"the first parenthesised code in the title" as the product code, so it would
+have attested **every printing to a product code equal to its own number**, on
+100% of pages, and reported each one at tier `full`.
+
+The product is instead in a body link, and the code has to come off the
+**HREF**, not the text:
+
+    [Romance Dawn (OP01) Manga Art](/cards/op01-romance-dawn)
+    [One Piece The Best (PRB01) …](/cards/prb01-premium-booster-one-piece-the-best)
+
+Set code = the slug's leading token. The bracketed code in the link text is
+kept **only as a cross-check**, and a slug disagreeing with its own text is
+refused rather than averaged — text is what the title lies with.
+
+### The part worth sitting with
+
+Twenty tests passed. Fifteen mutants were caught. Two of those mutants —
+"a silent page is read as attested", "the reprint relationship is read as this
+page's product" — were *confirming a broken product read*, because they were
+evaluated against fixtures I had written to match the regexes I had written.
+
+I flagged this in the session report as "my fixtures agreeing with my regexes
+is not evidence", and that was correct but far too weak. **A green mutation
+run over self-authored fixtures measures internal consistency and nothing
+else.** It cannot distinguish a parser that reads the right field from one
+that reads the wrong field consistently. Mutation testing answers "do my tests
+detect changes to my code"; it is silent on "does my code match the world",
+and I let the first stand in for the second because the number was reassuring.
+
+The fixtures now carry the observed shapes and say where they came from.
+
+### Three more corrections from the same fetch
+
+**One fetch per card, not per variant.** Every page carries the full Print
+table — a labelled `?v=` link per printing. Probing variant numbers was walking
+a list the first response already handed over. Six cards, six requests.
+
+**The slot vocabulary is now evidenced, not assumed.** The image served on
+`?v=2` is `OP01-120_p2_EN.webp`. The asset URL carries the suffix, so
+"Limitless's `?v=N` is apitcg's `_pN`" is an observation rather than an
+inference from the order two sources happen to list things in. What is *not*
+claimed: that a filename with no `_pN` means the base printing. That is a
+convention we hold about apitcg's naming, so `image_slot` reports such a page
+as slot `None` **with the filename attached**.
+
+**The pages carry prices** — USD/EUR columns, TCGplayer and Cardmarket links,
+a price history block. `_get_text` called `Adapter.cache_raw`, which writes the
+body to `raw/`. Now parsed in memory and never persisted. Bounded in practice —
+`raw/` is gitignored and the artifact upload takes only `store/` and
+`ingest-results.json` — so nothing reached the repository, but it wrote priced
+provider HTML to disk on every fetch, which is the thing the non-negotiable
+forbids independent of where the file happens to sit. The fixtures are
+hand-written with the price table omitted, the rule `probe/fixtures/` already
+lives under, and a test enforces it.
+
+### The trap, which is the whole module in one line
+
+    This variant has been reprinted in: One Piece The Best (PRB01)
+
+appears **identically on the base page and on `?v=2`**, despite saying "this
+variant". It is card-level. Anything reading it as the current printing's
+product attests the manga printing to `prb01`.
+
+That is exactly the wrong answer, arrived at from the discriminating source
+rather than from a marketplace — which is the more dangerous route, because the
+source is the one we trust. `reprint_note()` returns it labelled `scope:
+"card"` and the variant product comes only from the bracketed product link.
+
+### S1 closes, and the refusal is the reason
+
+`?v=2` names `/cards/op01-romance-dawn`. **Manga is `op01`.** Both
+`manga_rare` rows were right all along: not re-homed, and no correction event,
+because there was no error to correct.
+
+Two temptations pointed at `prb01` and both were declined — ordering the slots
+and assuming `prb01` holds the later ones, and reading the reprint line as
+variant-scoped. Either would have introduced the error.
+
+This is the rare case where declining to guess is checkable after the fact, so
+it is worth stating without hedging: **the guess was available, specific,
+consistent with everything known at the time, and wrong.** Leaving the rows
+counted rather than demoting them on a suspicion was also right — demoting
+would have moved the gate numbers away from the truth.
+
+The rule that made the rows unconfirmable is unaffected by which way the answer
+went. Marketplace attribution for a retained-number reprint is still
+`number_only` and still does not count toward `verified`; that is a claim about
+what a source class *can establish*, not about which answer it points at. It
+had to be checked against a source that could discriminate, and it was.
+
+### The model was wrong in the other direction too
+
+Not six printings across two products. **Five printings across three.**
+
+| Slot | Label | Product |
+|---|---|---|
+| — | Romance Dawn | `op01` |
+| `?v=1` | Romance Dawn aa | `op01` |
+| `?v=2` | Romance Dawn manga | `op01` |
+| `?v=3` | Prize Cards serial | **Championship 2023 — a third product** |
+| `?v=4` | One Piece The Best aa | `prb01` |
+
+A product nobody had. The apitcg-derived model put `_p3` in `prb01`;
+Limitless puts slot 3 in Prize Cards, and lists five printings where the old
+model assumed six.
+
+**Recorded, not reconciled** (`contracts/printing_slots.json` →
+`_disagreements`). Both cannot be right, neither is checkable from here, and
+averaging them or quietly preferring the newer source produces a number no
+source states. Filed **S2 rather than S1**: no ground-truth row currently
+claims a Prize Cards or `prb01` printing of OP01-120, so nothing wrong is
+being counted. It becomes S1 the moment one is minted. One fetch of `?v=3`
+settles it.
+
+### What still cannot be claimed
+
+The print table gives every printing a **label**, and labels carry product
+*names*. Codes come from slugs, and one fetch attests one slug. So
+`build_product_index` accumulates name → code across every page fetched, and
+`reconcile` resolves labels against it — a lookup of something a page stated,
+never an inference from the label's own text. Where the name was never seen in
+a slug, the entry records `product_set_code: null` and says which page would
+resolve it. `Prize Cards` is currently exactly that: named in a label, attested
+in no slug, left unresolved.
+
+**Gate unchanged at 237 verified of 250.** Shorts: `optcg:CN-S` 16,
+`pkmn:EN` 2. The five PRB reprint-side rows are still unminted, so
+`same_number_new_set_new_variant` still has no verified example — but its
+blocker is now a runner pass rather than an open question.

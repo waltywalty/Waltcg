@@ -146,49 +146,62 @@ The five PRB pairs are the rows it wants. Their originals carry
 is the one field no source here supplies. apitcg would give `_p3`/`_p4`/`_p5`,
 which is catalog-derived and excluded by rule.
 
-## S1 — OP01-120 `manga_rare` may be homed to the wrong product
+## RESOLVED — OP01-120 `manga_rare` is correctly homed, and the refusal is why
 
-`OP01-120` has **six printings across two products**: `op01` holds `OP01-120`,
-`_p1`, `_p2`; `prb01` holds `_p3`, `_p4`, `_p5`. A marketplace listing reading
-`OP01-120 Manga` cannot pick between six, and both `manga_rare` rows were
-sourced from exactly that kind of listing.
+**Closed 2026-08-25, confirmed correct.** The `?v=2` page's variant-scoped
+product link reads:
 
-**Not re-homed.** apitcg carries no treatment names — every One Piece rarity
-field is null — so nothing available says which of the six is the manga
-printing. Re-homing to `prb01` on the strength of "OP-01 predates manga" would
-be an inference, and inference is what put the row in `op01` in the first
-place.
+    [Romance Dawn (OP01) Manga Art](/cards/op01-romance-dawn)
 
-S1 rather than S2 because these two rows are `verified` and counted: if they
-are mis-homed, a wrong identity is in ground truth. Flagged on the rows and
-left counted rather than demoted — demoting would move the gate numbers on a
-suspicion.
+Manga is **`op01`**. The two `manga_rare` rows were right all along. Not
+re-homed, and no correction event — there was no error to correct.
 
-**Marketplace attribution here is untrustworthy BY CONSTRUCTION, not by
-accident.** PRB-01 reprints keep their `OPxx-xxx` number. So the seller reads
-the number, the number says `OP01`, and the listing says *Romance Dawn* — as a
-SET NAME, for a card that may be a PRB-01 printing. Live eBay listings do
-exactly this. The attribution is **derived from the number**, which means it
-carries no information the number did not already carry, and a second listing
-agreeing with the first is two sources performing the same derivation rather
-than two observations.
+**The refused inference would have introduced the error.** Two separate
+temptations pointed at `prb01` and both were declined:
 
-This is the same tier as the CN-S shared-numbering rule and is registered
-beside it: `resolve/corroboration.py`, `STRUCTURALLY_NUMBER_ONLY`
-→ `retained_number_reprint`. Corroboration tier **`number_only`**, which does
-not count toward `verified`. The generalisation is that *any* retained-number
-reprint has this property, so it will recur on every PRB-01 pair — it is a
-property of the numbering scheme, not of these two rows.
+1. *Order the slots and assume prb01 holds the later ones.* `attest()` writes
+   no entry where a page does not name a product rather than falling back to
+   slot order.
+2. *Read the `reprinted in:` line as this printing's product.* The line
+   `This variant has been reprinted in: One Piece The Best (PRB01)` appears
+   **identically on the base page and on `?v=2`**, despite the words "this
+   variant". It is card-level. Read as variant attribution it attests manga to
+   `prb01` — precisely the wrong answer.
 
-**The discriminating source class is the Limitless variant page**, which serves
-a separate page per printing, each naming its own product. That is a source
-that can tell the two apart; a marketplace listing cannot, at any volume. The
-fetch runs on the Actions runner (`ingest/limitless.py`, wired into
-`ingest.yml`) because the sandbox proxy answers 403 to CONNECT for
-limitlesstcg.com. Until it has run, this stays open — and where a page does not
-name a product, `attest()` records a refusal rather than ordering the slots and
-calling the first one the base. Ordering the slots is the inference that put
-this row in `op01` to begin with.
+This is the one case where refusing to guess is checkable after the fact, so
+it is worth stating plainly: the guess was available, it was specific, it was
+consistent with everything known at the time, and **it was wrong**. Leaving
+the rows counted rather than demoting them on a suspicion was also right —
+demoting would have moved the gate numbers away from the truth.
+
+What stays true is the *reason* the rows could not be confirmed earlier:
+marketplace attribution for a retained-number reprint is untrustworthy by
+construction (`resolve/corroboration.py` → `retained_number_reprint`), tier
+`number_only`. That rule is unaffected by the answer turning out to be the
+number's own product. It had to be checked against a source that could
+discriminate, and it was.
+
+## S2 — apitcg and Limitless disagree on OP01-120's printings
+
+Limitless's print table lists **five printings across three products**:
+`op01` base, `op01` alt art, `op01` manga, a **Championship 2023 Prize Cards
+serial** — a third product this project did not know existed — and `prb01`
+alt art.
+
+This project's previous model, derived from apitcg's filename grouping, was
+six printings across two products: `op01` base/`_p1`/`_p2` and `prb01`
+`_p3`/`_p4`/`_p5`. **They disagree on `_p3`**, which Limitless puts in Prize
+Cards, and on the count.
+
+**Not reconciled.** Both cannot be right and neither is checkable from here;
+averaging them or quietly preferring the newer source produces a number no
+source states. Recorded in `contracts/printing_slots.json` under
+`_disagreements`. Settled by one fetch of the `?v=3` page, which names its own
+product in its HREF slug the way every other variant page does.
+
+S2 rather than S1: no ground-truth row currently claims a Prize Cards or
+`prb01` printing of OP01-120, so nothing wrong is being counted. It becomes S1
+the moment one is minted.
 
 ## RESOLVED — OP01-014 / OP01-015, and pass 4 is the one that is wrong
 

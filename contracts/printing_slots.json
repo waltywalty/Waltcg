@@ -1,8 +1,39 @@
 {
-  "_schema": "waltcg printing-slot reconciliation v1",
-  "_what": "Per-(set, number, variant) mapping from a SEMANTIC treatment token to a provider's POSITIONAL slot. Data, sourced per entry -- never a rule.",
-  "_why": "apitcg identifies printings by position: OP01-120 is `_p1`..`_p5`, which says which asset file it is and nothing about what the treatment IS. Ground truth uses semantic tokens (`manga_rare`, `parallel`) because a positional token would make the identity scheme catalog-derived -- the card_uid would then encode one provider's file naming, and a provider that renumbered its assets would silently rewrite our identities.\n\nSo the two vocabularies are reconciled HERE, per card, each entry citing the page that attested it. Where no page attests the treatment, there is no entry and the reconciliation REFUSES -- it does not fall back to position order.",
-  "_refusal_is_the_default": "An absent entry means `we have not established this`, never `slot 1`. Ordering the slots and assuming the first is the base is exactly the inference that put OP01-120's manga rows in the wrong product.",
-  "_populated_by": "python -m ingest.limitless --attest, on the Actions runner. The egress proxy answers 403 to CONNECT for limitlesstcg.com from the sandbox.",
+  "_what": "Reconciliation between a SEMANTIC treatment and a provider's POSITIONAL printing slot, per (set, number). Data, not a rule -- there is no rule; the ordering is whatever apitcg happened to do, and the only reason we can speak about it at all is that Limitless's asset URL carries the same suffix.",
+  "_refusal_is_the_default": "An absent entry means `we have not established this`, never `slot 1`. Ordering the slots and calling the first one the base is the inference that made OP01-120 look like it needed re-homing.",
+  "_ground_truth_keeps_semantic_tokens": "`manga_rare`, never `_p4`. A positional token would make the identity scheme catalog-derived, which is what the labelled set exists to avoid.",
+  "_slot_vocabulary_is_evidenced_not_assumed": {
+    "claim": "Limitless's `?v=N` and apitcg's `_pN` are the same slot vocabulary.",
+    "evidence": "The image served on `?v=2` of OP01-120 is `OP01-120_p2_EN.webp`. The asset URL carries the suffix, so the binding is observed rather than inferred from the order the two sources happen to list printings in.",
+    "observed": "2026-08-25, live fetch",
+    "not_claimed": "That an image filename with NO `_pN` means the base printing. That is a convention we hold about apitcg's naming, and `image_slot` reports such a page as slot None with the filename attached rather than as slot 0."
+  },
+  "_disagreements": [
+    {
+      "card": "optcg:op01:OP01-120",
+      "status": "OPEN -- recorded, deliberately not reconciled",
+      "limitless_says": {
+        "printing_count": 5,
+        "products": 3,
+        "manifest": [
+          {"slot": null, "label": "Romance Dawn", "product": "op01", "treatment": "Secret Rare"},
+          {"slot": 1, "label": "Romance Dawn aa", "product": "op01"},
+          {"slot": 2, "label": "Romance Dawn manga", "product": "op01", "treatment": "Manga Art"},
+          {"slot": 3, "label": "Prize Cards serial", "product": "Championship 2023 prize card -- a THIRD product, previously unknown to this project"},
+          {"slot": 4, "label": "One Piece The Best aa", "product": "prb01"}
+        ],
+        "observed": "2026-08-25, live fetch of the print table"
+      },
+      "this_project_previously_believed": {
+        "printing_count": 6,
+        "products": 2,
+        "model": "op01 holds base/_p1/_p2; prb01 holds _p3/_p4/_p5",
+        "derived_from": "apitcg's grouping of image filename suffixes"
+      },
+      "the_disagreement": "apitcg's grouping puts _p3 in prb01; Limitless's print table puts slot 3 in a Prize Cards product that this project did not know existed. The two also disagree on the count -- Limitless lists five printings, the apitcg-derived model assumed six.",
+      "not_reconciled_because": "Both readings cannot be right and neither is checkable from here. Averaging them, or quietly preferring the newer one, would produce a number that no source states. The disagreement is the finding; it is recorded until a source can settle it.",
+      "what_would_settle_it": "The `?v=3` page's own product link, which names its product in the HREF slug the way every other variant page does. One fetch, on the runner."
+    }
+  ],
   "entries": []
 }

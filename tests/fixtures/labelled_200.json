@@ -1283,7 +1283,9 @@
       "hard_cases": [
         "same_printed_number_different_treatment"
       ],
-      "disputed": "set_code may be wrong: OP01-120 has six printings across op01 and prb01, and nothing available says which is the manga one. See _disputes."
+      "confirmed": "set_code op01 CONFIRMED 2026-08-25 from the ?v=2 page's product link `Romance Dawn (OP01) Manga Art` -> /cards/op01-romance-dawn. Not re-homed and not corrected: the row was right.",
+      "treatment_as_attested": "Manga Art",
+      "attested_by": "limitless_variant_page"
     },
     {
       "card_uid": "optcg:op01:OP01-120:manga_rare:JP",
@@ -1301,7 +1303,9 @@
         "same_art_different_language",
         "same_printed_number_different_treatment"
       ],
-      "disputed": "set_code may be wrong: OP01-120 has six printings across op01 and prb01, and nothing available says which is the manga one. See _disputes."
+      "confirmed": "set_code op01 CONFIRMED 2026-08-25 from the ?v=2 page's product link `Romance Dawn (OP01) Manga Art` -> /cards/op01-romance-dawn. Not re-homed and not corrected: the row was right.",
+      "treatment_as_attested": "Manga Art",
+      "attested_by": "limitless_variant_page"
     },
     {
       "card_uid": "optcg:op01:OP01-121:base:CN-S",
@@ -4393,19 +4397,21 @@
     {
       "dispute": "OP01-120 manga_rare -- which product?",
       "date": "2026-08-18",
-      "status": "OPEN -- ambiguity confirmed, resolution NOT available here",
+      "status": "RESOLVED 2026-08-25 -- the rows are CORRECT. Manga is op01.",
       "claim": "The two `manga_rare` rows may be PRB-01 printings carrying `op01` as their set code. OP-01 predates manga treatments, and under number retention a listing reading `OP01-120 Manga` is product-ambiguous.",
-      "finding": "The ambiguity is real and larger than expected. OP01-120 has SIX printings across two products: op01 holds `OP01-120`, `_p1`, `_p2`; prb01 holds `_p3`, `_p4`, `_p5`. A marketplace listing naming only the number and `Manga` cannot pick between six.",
-      "why_not_resolved": "apitcg carries no treatment names -- every rarity field in the One Piece data is null -- so nothing available here says WHICH of the six is the manga printing. Re-homing to prb01 on the strength of `OP-01 predates manga` would be an inference, and inference is what put the row in op01 in the first place.",
+      "finding": "Manga is op01. Both manga_rare rows were right all along -- not re-homed, and NO correction event, because there was no error to correct. The earlier six-printings-across-two-products model was itself wrong: there are FIVE printings across THREE products, the third being a Championship 2023 Prize Cards serial. See _disagreements in contracts/printing_slots.json.",
       "affected": [
         "optcg:op01:OP01-120:manga_rare:EN",
         "optcg:op01:OP01-120:manga_rare:JP"
       ],
-      "note": "Left counted rather than demoted: demoting would move the gate numbers on a suspicion. Flagged on the rows so the doubt travels with them.",
+      "note": "Left counted throughout rather than demoted on a suspicion -- which also turned out to be right: demoting would have moved the gate numbers away from the truth.",
       "marketplace_attribution_is_untrustworthy_by_construction": "PRB-01 reprints KEEP their OPxx-xxx number. The seller reads the number, the number says OP01, and the listing says `Romance Dawn` AS A SET NAME -- for a card that may be a PRB-01 printing. Live eBay listings do exactly this. The attribution is DERIVED FROM the number, so it carries no information the number did not already carry, and a second listing agreeing with the first is two sources repeating one derivation rather than two observations. This is a property of the numbering scheme, not of these two rows: it will recur on every retained-number reprint.",
       "corroboration_tier": "number_only",
       "tier_registered_at": "resolve/corroboration.py -> STRUCTURALLY_NUMBER_ONLY -> retained_number_reprint. Same tier as the CN-S shared-numbering rule, and registered beside it. number_only does NOT count toward `verified`.",
-      "discriminating_source": "Limitless variant pages: a separate page per printing, each naming its own product. A marketplace listing cannot tell the two apart at any volume; this can. Fetched on the Actions runner (ingest/limitless.py, wired into ingest.yml) because the sandbox proxy answers 403 to CONNECT for limitlesstcg.com. Where a page does not name a product the reconciliation REFUSES rather than ordering the slots -- ordering the slots and calling the first one the base is the inference that put this row in op01 to begin with."
+      "discriminating_source": "Limitless variant pages: a separate page per printing, each naming its own product. A marketplace listing cannot tell the two apart at any volume; this can. Fetched on the Actions runner (ingest/limitless.py, wired into ingest.yml) because the sandbox proxy answers 403 to CONNECT for limitlesstcg.com. Where a page does not name a product the reconciliation REFUSES rather than ordering the slots -- ordering the slots and calling the first one the base is the inference that put this row in op01 to begin with.",
+      "settled_from": "The ?v=2 page's variant-scoped product link: [Romance Dawn (OP01) Manga Art](/cards/op01-romance-dawn). The product comes off the HREF SLUG. Live fetch, 2026-08-25.",
+      "the_refused_inference_would_have_been_wrong": "Two temptations pointed at prb01 and both were declined. (1) Order the slots and assume prb01 holds the later ones. (2) Read `This variant has been reprinted in: One Piece The Best (PRB01)` as this printing's product -- that line appears IDENTICALLY on the base page and on ?v=2 despite saying `this variant`, so it is card-level. Either would have attested manga to prb01. The guess was available, specific, consistent with everything known at the time, and WRONG.",
+      "the_rule_is_unaffected": "Marketplace attribution for a retained-number reprint is still number_only and still does not count toward verified. The rule is about what a source class CAN establish, not about which answer it happened to point at. It had to be checked against a source that could discriminate, and it was."
     }
   ]
 }
