@@ -607,6 +607,11 @@ def main(argv=None):
                              "Every row needs `source` and `confidence`")
     parser.add_argument("--dry-run", action="store_true",
                         help="validate and report without writing")
+    parser.add_argument("--no-map-classes", action="store_true",
+                        help="skip the difficulty_class -> hard_cases "
+                             "translation that ingest runs by default. For "
+                             "inspecting a raw ingest only; the gate reads "
+                             "kinds, not classes")
     parser.add_argument("--supersede-unstated", action="store_true",
                         help="let a sourced row replace an `unstated` one at "
                              "the same card_uid. `unstated` records no source "
@@ -645,7 +650,8 @@ def main(argv=None):
               + ("  [DRY RUN]" if args.dry_run else ""))
         return 0
     if args.command == "map-classes":
-        changed, unmapped, total = map_classes(dry_run=args.dry_run)
+        changed, unmapped, total = map_classes(LABELLED,
+                                               dry_run=args.dry_run)
         print(f"{len(changed)} of {total} rows given hard_cases"
               + ("  (DRY RUN, nothing written)" if args.dry_run else ""))
         for uid, classes, kinds, before in changed:
@@ -672,7 +678,7 @@ def main(argv=None):
             parser.error(f"{args.rows} does not exist")
         rows = payload.get("cards") if isinstance(payload, dict) else payload
         accepted, rejected, report = ingest(
-            rows or [], dry_run=args.dry_run,
+            rows or [], LABELLED, dry_run=args.dry_run,
             supersede_unstated=args.supersede_unstated)
         print(f"accepted {len(accepted)}  rejected {len(rejected)}"
               + ("  (DRY RUN, nothing written)" if args.dry_run else ""))
@@ -685,6 +691,20 @@ def main(argv=None):
                   f"{report['_aliased']} (see SET_CODE_ALIASES)")
         if report.get("_superseded"):
             print(f"  superseded an `unstated` row: {report['_superseded']}")
+        # THE TRANSLATION RUNS HERE, not in a runbook. Batch 6 landed clean
+        # and left the suite one failure worse, because its `C1` tags had not
+        # become kinds yet -- a step you have to remember is a step that reads
+        # as done when it was not, which is the defect this repository keeps
+        # finding in other clothes. `map_classes` RECOMPUTES rather than
+        # merging, so running it on every ingest is idempotent.
+        if accepted and not args.dry_run and not args.no_map_classes:
+            mapped, unmapped, _total = map_classes(LABELLED)
+            if mapped:
+                print(f"  mapped {len(mapped)} row(s) from difficulty_class "
+                      f"to hard_cases")
+            if unmapped:
+                print(f"  {len(unmapped)} row(s) carry a class with no kind "
+                      f"(recorded, not folded -- see KINDS_WITH_NO_CLASS)")
         for entry in rejected:
             uid = entry["row"].get("card_uid", f"row {entry['index']}")
             print(f"  REJECTED {uid}: " + "; ".join(entry["why"]))

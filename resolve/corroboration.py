@@ -85,3 +85,252 @@ def tier_counts_toward_verified(tier) -> bool:
     """Unknown tiers do NOT count. A tier nobody has classified is not a
     licence to assume the strongest one."""
     return bool(TIERS.get(tier, {}).get("counts_toward_verified", False))
+
+
+# =========================================================================
+# PER-FIELD ATTESTATION
+#
+# PRE-REGISTERED 2026-08-25, BEFORE ANY ROW WAS COLLECTED UNDER IT. Same
+# discipline as the backtest pre-registration: a rule written while looking at
+# the rows it will admit is a rule fitted to those rows. If this standard is
+# ever edited after the CN-S batch arrives, the edit is the finding.
+#
+# WHY THE TIERS ABOVE WERE NOT ENOUGH. `number_only` means "attests the
+# NUMBER, silent on the PRINTING". A physical card in hand is the opposite
+# shape -- decisive about the printing, weak about the number, because
+# transcription is where it can go wrong. Both are "partial", and calling both
+# `number_only` would make `tier_counts_toward_verified` mean two different
+# things depending on which source asked.
+#
+# So attestation is recorded PER FIELD. That separates two axes the tiers
+# above ran together: WHICH field a source speaks to, and HOW STRONGLY.
+# =========================================================================
+
+#: How a source knows what it knows. The axis that matters for independence.
+CHANNELS = {
+    "optical": "Read off the physical artifact by a human eye. Fails by "
+               "transcription -- a misread digit, an ambiguous glyph, a "
+               "damaged card.",
+    "documentary": "Read from a published record. Fails by consulting the "
+                   "wrong record, or by the record being wrong.",
+    "decisive": "Not an inference at all. The card is in a hand; whether a "
+                "printing exists is not in question.",
+}
+
+#: What each source class can attest, field by field. `None` means SILENT --
+#: which is a different thing from `weak`, and the distinction is the reason
+#: this table exists rather than a per-source tier.
+FIELD_ATTESTATION = {
+    "physical_card": {
+        "_what": "A copy of the card, in hand, read by a person.",
+        "printing_exists": "decisive",
+        "language": "decisive",
+        "treatment": "decisive",
+        "number": "optical",
+        "name": "optical",
+        "set_code": None,
+        "_set_code_why": "One Piece encodes the set in the number's prefix, so "
+                         "the set code is DERIVED from the number rather than "
+                         "attested separately. It inherits the number's "
+                         "standing and never exceeds it.",
+    },
+    "shared_numbering_reference": {
+        "_what": "Bandai's own EN or JP card list, cited for a row in a "
+                 "language that shares its collector numbering.",
+        "printing_exists": None,
+        "language": None,
+        "treatment": None,
+        "number": "documentary",
+        "name": None,
+        "_name_why": "It gives the EN or JP name for the number. It does NOT "
+                     "give the Simplified Chinese name. Treating the two as "
+                     "the same attestation requires a translation, and a "
+                     "translation performed here is not a source.",
+    },
+    "limitless_variant_page": {
+        "_what": "A per-printing page naming its own product in an HREF slug.",
+        "printing_exists": "documentary",
+        "language": "documentary",
+        "treatment": "documentary",
+        "number": "documentary",
+        "name": "documentary",
+    },
+}
+
+#: Channel pairs that compose to a full attestation of ONE field, and the
+#: argument for each. A pair not listed here does NOT compose -- two partial
+#: attestations are not automatically one whole, and the burden is on the
+#: composition to say why the failure modes do not overlap.
+COMPOSES_TO_FULL = {
+    frozenset({"optical", "documentary"}): {
+        "why": "The failure modes are disjoint. A transcription slip and a "
+               "wrong-record error have no common cause, so agreement between "
+               "them is informative in a way that two documentary sources "
+               "citing each other is not.",
+        "requires_checksum": True,
+    },
+}
+
+#: Composing optical with documentary is only worth anything if the agreement
+#: is CHECKED, and the check has to be capable of failing.
+CHECKSUM = {
+    "name_against_number": {
+        "what": "The number and the name are read off the card TOGETHER, then "
+                "looked up in the documentary record. A transcription slip in "
+                "the number yields either a number the record does not carry "
+                "or one that names a different card.",
+        "why_it_can_fail": "The number and the name constrain each other. "
+                           "Without this the composition is arithmetic on "
+                           "tier labels -- two weak things called strong.",
+        "protocol": "THE CARD IS READ FIRST AND THE RECORD CONSULTED AFTER. "
+                    "A row drafted and then confirmed against the card is not "
+                    "an observation; it is a prior being agreed with, which "
+                    "is the same defect as fixtures agreeing with the regexes "
+                    "they were written from.",
+    },
+}
+
+#: WHAT THIS COMPOSITE DOES NOT REACH, stated here rather than discovered
+#: later. The gap is real and the rows carrying it must say so.
+NOT_REACHED = {
+    "cn_s_name": {
+        "field": "name",
+        "why": "There is no Simplified Chinese catalog source (OPEN_ISSUES: "
+               "`One Piece CN-S has no catalog source`), so the documentary "
+               "side gives the EN or JP name for the number and nothing else. "
+               "The SC name is attested OPTICALLY ONLY, with no second "
+               "channel, and the checksum does not cover it.",
+        "not_mitigated_by": "Confirming that the SC characters render the EN "
+                            "name is a TRANSLATION, and a translation "
+                            "performed here is not a source. It would be this "
+                            "repository corroborating itself.",
+        "recorded_as": "`name_attestation: optical_only` on every row that "
+                       "carries it.",
+    },
+}
+
+#: The identity a labelled row actually claims. The name is an annotation --
+#: it drives `cross_language_name_disagreements`, which has caught three
+#: errors -- but it is not what the resolver is being tested on.
+IDENTITY_FIELDS = ("printing_exists", "language", "treatment", "number")
+
+
+def attests(source_class, field):
+    """What `source_class` can say about `field`. None means SILENT."""
+    return FIELD_ATTESTATION.get(source_class, {}).get(field)
+
+
+def composes(channels):
+    """Do these channels compose to a full attestation of one field?
+
+    Unlisted pairs do NOT compose. Two partial attestations are not
+    automatically one whole, and a pair that has not been argued for has not
+    earned the promotion.
+    """
+    return COMPOSES_TO_FULL.get(frozenset(channels))
+
+
+def field_is_established(field, source_classes, checksum_passed=False):
+    """Is `field` established to full standard by these sources together?
+
+    Returns (established, why). A single `decisive` source settles it. A
+    composition needs its channels listed in COMPOSES_TO_FULL and, where that
+    entry demands one, a checksum that actually ran.
+    """
+    channels = [attests(source, field) for source in source_classes]
+    speaking = [channel for channel in channels if channel]
+    if not speaking:
+        return False, f"no source attests {field}"
+    if "decisive" in speaking:
+        return True, f"{field} is attested decisively"
+    if "full" in speaking:
+        return True, f"{field} is attested in full by a single source"
+    if len(set(speaking)) < 2:
+        return False, (f"{field} is attested only by {speaking[0]!r}; one "
+                       "partial channel does not compose with itself")
+    rule = composes(set(speaking))
+    if not rule:
+        return False, (f"{field}: channels {sorted(set(speaking))} are not a "
+                       "composition this standard has argued for")
+    if rule["requires_checksum"] and not checksum_passed:
+        return False, (f"{field}: {sorted(set(speaking))} would compose, but "
+                       "the checksum did not run. Agreement that is never "
+                       "checked is not agreement.")
+    return True, f"{field} established by composition: {rule['why']}"
+
+
+def row_is_verifiable(source_classes, checksum_passed=False):
+    """Does this combination of sources reach `verified` for a row?
+
+    Every IDENTITY field must be established. The name is reported separately
+    with its own standing, because on a CN-S row it is optical-only and saying
+    so is the point.
+    """
+    reasons, missing = {}, []
+    for field in IDENTITY_FIELDS:
+        ok, why = field_is_established(field, source_classes, checksum_passed)
+        reasons[field] = why
+        if not ok:
+            missing.append(field)
+    name_ok, name_why = field_is_established("name", source_classes,
+                                             checksum_passed)
+    return {
+        "verified": not missing,
+        "missing": missing,
+        "by_field": reasons,
+        "name_established": name_ok,
+        "name_why": name_why,
+        "name_attestation": None if name_ok else "optical_only",
+    }
+
+
+#: The collection protocol, recorded because the standard depends on it and a
+#: protocol that lives only in someone's memory is not a control.
+PHYSICAL_CARD_PROTOCOL = {
+    "reader_first": {
+        "rule": "The card's holder states the number and the name off the "
+                "card. Only then is the documentary record consulted.",
+        "forbidden": "Drafting a row and asking the holder to confirm it.",
+        "why": "A confirmation against a prior is not an observation. It is "
+               "the same defect as fixtures agreeing with the regexes they "
+               "were written from -- the agreement is guaranteed by the "
+               "construction and carries no information.",
+        "breaks": "the checksum, which is the only thing making the "
+                  "composition worth more than its parts",
+    },
+    "unsure_is_unresolved": {
+        "rule": "Ambiguous, damaged, or uncertain printed text is recorded "
+                "UNRESOLVED. Never guessed, never filled from the EN row.",
+        "why": "A guess here is indistinguishable from a reading, and it "
+               "would be laundered to `verified` by a checksum it was "
+               "constructed to pass.",
+        "consequence_is_accepted": "A shorter set. Twelve rows collected this "
+                                   "way beats sixteen with four guesses in "
+                                   "them, and the shortfall stays visible in "
+                                   "the gate rather than being closed by the "
+                                   "weakest four.",
+    },
+}
+
+#: Fields a `physical_card` row must carry. A card in a hand is not
+#: re-checkable by anyone else later -- unlike a URL, nobody can go and look
+#: again -- so the provenance has to be written down at the time.
+PHYSICAL_CARD_PROVENANCE = ("read_by", "read_on", "checksum",
+                            "name_attestation")
+
+
+def physical_card_row_is_well_formed(row):
+    """Does a `physical_card` row carry what the standard requires?
+
+    Returns (ok, problems). Refuses rather than repairing, like `ingest`.
+    """
+    problems = []
+    for field in PHYSICAL_CARD_PROVENANCE:
+        if not row.get(field):
+            problems.append(f"missing {field!r}")
+    if row.get("checksum") not in (None, *CHECKSUM):
+        problems.append(f"unknown checksum {row['checksum']!r}")
+    if row.get("name_attestation") not in (None, "optical_only", "full"):
+        problems.append(f"unknown name_attestation "
+                        f"{row['name_attestation']!r}")
+    return not problems, problems

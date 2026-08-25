@@ -263,3 +263,64 @@ class TheSizingIsDeliberate(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class IngestRunsTheClassTranslation(unittest.TestCase):
+    """Batch 6 landed clean and left the suite one failure worse: its `C1`
+    tags had not become kinds yet, and the gate reads kinds. A step you have
+    to remember is a step that reads as done when it was not -- which is the
+    defect this repository keeps finding in other clothes, so the translation
+    runs on ingest rather than living in a runbook."""
+
+    ROW = {
+        "card_uid": "pkmn:sv03.5:099/165:base:EN",
+        "game": "pkmn", "set_code": "sv03.5", "number": "099/165",
+        "variant": "base", "language": "EN", "name": "Test Card",
+        "source": "external_research", "confidence": "verified",
+        "difficulty_class": "C1",
+    }
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.rows = os.path.join(self.tmp, "rows.json")
+        self._real = CLI.LABELLED
+        CLI.LABELLED = os.path.join(self.tmp, "labelled.json")
+        json.dump({"cards": []}, open(CLI.LABELLED, "w"))
+
+    def tearDown(self):
+        CLI.LABELLED = self._real
+
+    def _ingest(self, row, *flags):
+        json.dump({"cards": [row]}, open(self.rows, "w"))
+        CLI.main(["ingest", "--rows", self.rows, *flags])
+        return json.load(open(CLI.LABELLED))["cards"]
+
+    def test_a_class_becomes_a_kind_without_a_second_command(self):
+        cards = self._ingest(dict(self.ROW))
+        self.assertEqual(cards[0]["hard_cases"],
+                         ["same_art_different_language"])
+
+    def test_the_translation_can_be_skipped_deliberately(self):
+        cards = self._ingest(dict(self.ROW), "--no-map-classes")
+        self.assertEqual(cards[0].get("hard_cases", []), [])
+        self.assertEqual(cards[0]["difficulty_class"], "C1")
+
+    def test_a_row_with_no_class_is_untouched(self):
+        row = dict(self.ROW)
+        del row["difficulty_class"]
+        cards = self._ingest(row)
+        self.assertEqual(cards[0].get("hard_cases", []), [])
+
+    def test_a_dry_run_writes_nothing_at_all(self):
+        json.dump({"cards": [dict(self.ROW)]}, open(self.rows, "w"))
+        CLI.main(["ingest", "--rows", self.rows, "--dry-run"])
+        self.assertEqual(json.load(open(CLI.LABELLED))["cards"], [])
+
+    def test_running_it_twice_is_idempotent(self):
+        """`map_classes` recomputes rather than merging, so a re-tag cannot
+        leave a stale kind behind and re-running is safe."""
+        self._ingest(dict(self.ROW))
+        before = json.load(open(CLI.LABELLED))["cards"][0]["hard_cases"]
+        CLI.main(["map-classes"])
+        after = json.load(open(CLI.LABELLED))["cards"][0]["hard_cases"]
+        self.assertEqual(before, after)

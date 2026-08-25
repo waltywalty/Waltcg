@@ -3532,3 +3532,126 @@ observed shape, and the printing count comes back exact from the base page,
 from `?v=2` and from `?v=4` independently.
 
 **239 verified of 250. One short: `optcg:CN-S` 16.**
+
+---
+
+## ADR-0046 — An admission standard, written before the rows
+
+**Date:** 2026-08-25
+**Status:** Accepted and **pre-registered**. No row has been collected under
+it. If it is edited after the CN-S batch arrives, the edit is the finding.
+
+### The question
+
+`optcg:CN-S` is the last short combo and the only one below the detection
+floor. Its candidates sit at `single_source` because their second source is
+Bandai's shared numbering, which attests the *number* and is structurally
+silent on whether a Simplified Chinese printing exists.
+
+The proposal: admit a new source class `physical_card` — a copy in hand, read
+by a person — and let it compose with the documentary record.
+
+### Is this the rule bending to reach a number?
+
+I do not think so, and the test I applied was: *would this rule have been
+written the same way without the CN-S problem in view, and does it weaken
+anything that currently holds?*
+
+**It generalises.** A card in hand plus a documentary number composes
+identically for EN, JP and CN-T. Nothing about it is CN-S-specific.
+
+**It leaves the load-bearing half untouched.** The documentary source still
+attests nothing about whether a CN-S printing exists. What supplies that is a
+physical artifact, which is the strongest evidence available for existence —
+stronger than any catalog. The rule that blocked these rows is not relaxed; a
+source that satisfies it is added.
+
+Both halves of that matter. A rule that had to be *weakened* to admit the
+rows would be bending; a rule that admits them because better evidence turned
+up is the rule working.
+
+### The correction
+
+`number_only` already meant "attests the number, silent on the printing". A
+physical card is the opposite shape — decisive about the printing, weak about
+the number, because transcription is where it can go wrong. Calling both
+`number_only` would make `tier_counts_toward_verified` mean two different
+things depending on which source asked.
+
+So attestation is recorded **per field**. That separates two axes the tiers
+ran together: *which* field a source speaks to, and *how strongly* — and it
+distinguishes SILENT from WEAK, which the per-source tier could not. The
+proposal was already describing this; the schema had to catch up.
+
+### What the composition guards, stated precisely
+
+The Bandai list and the printed card are **not causally independent**: the
+card was printed from that database, so they are one fact observed twice.
+
+That is not a flaw — two observation channels of one underlying fact is
+exactly right for catching *observation* error — but it bounds the claim. The
+composite guards **transcription error, not upstream error**. If the record
+and the card agreed on something wrong, nothing here would notice. Bandai is
+the authority for what the number is, so that is acceptable; the claim being
+made is "we recorded it correctly", never "the number is correct".
+
+### The addition: the checksum is the mechanism
+
+Two `partial` attestations composing to `full` needs an argument, or it is
+arithmetic on tier labels. `optical` composes with `documentary` because their
+failure modes are disjoint — a misread glyph and a wrong-record error have no
+common cause — **and** because the number and the name constrain each other. A
+transcription slip yields either a number the record does not carry or one
+that names a different card.
+
+`field_is_established` therefore refuses the composition when the checksum did
+not run. Agreement that is never checked is not agreement. A channel also does
+not compose with itself, and a pair nobody has argued for does not compose at
+all.
+
+### The gap the standard does not close
+
+There is no Simplified Chinese catalog source, so the documentary side gives
+the **EN or JP** name for the number — not the SC name. Confirming that the SC
+characters render the EN name is a **translation**, and a translation
+performed here is not a source; it would be this repository corroborating
+itself.
+
+The SC name is therefore attested optically only, with no second channel, and
+every row carries `name_attestation: optical_only`. The name is not an
+identity field — it drives `cross_language_name_disagreements`, which has
+caught three errors, but the resolver is not tested on it. Registered in
+`NOT_REACHED` with its reason and asserted by a test, because the failure mode
+this repository keeps producing is a gap that reads as covered.
+
+### The protocol is a control, so it is written down
+
+**The reader goes first.** The holder states number and name off the card; the
+record is consulted after. Drafting a row and asking for confirmation is
+forbidden *by name* in `PHYSICAL_CARD_PROTOCOL`, because a confirmation
+against a prior carries no information — the same defect as fixtures agreeing
+with the regexes they were written from, which cost this project two sessions.
+
+**Unsure is unresolved.** Ambiguous, damaged or uncertain text is recorded
+unresolved, never guessed and never filled from the EN row. A guess there
+would be indistinguishable from a reading and would be laundered to
+`verified` by a checksum it was constructed to pass. Twelve rows collected
+this way beats sixteen with four guesses in them.
+
+Every `physical_card` row must carry `read_by`, `read_on`, `checksum` and
+`name_attestation`. A card in a hand is not re-checkable by anyone else later
+— unlike a URL, nobody can go and look again.
+
+### The procedural fix
+
+Batch 6 landed clean and left the suite one failure worse: its `C1` tags had
+not become kinds, and the gate reads kinds. `ingest` now runs the translation
+itself, with `--no-map-classes` to opt out. `map_classes` recomputes rather
+than merging, so this is idempotent.
+
+Not a runbook entry. **A step you have to remember is a step that reads as
+done when it was not** — the same shape as the uncommitted seal, the canonical
+tag, and the unreachable branch.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16, awaiting rows collected
+under this standard.

@@ -181,6 +181,90 @@ construction (`resolve/corroboration.py` → `retained_number_reprint`), tier
 number's own product. It had to be checked against a source that could
 discriminate, and it was.
 
+## PRE-REGISTERED — the admission standard for `physical_card`, 2026-08-25
+
+**Written before any row was collected under it.** Same discipline as the
+backtest pre-registration: a rule written while looking at the rows it will
+admit is a rule fitted to those rows. **If this standard is edited after the
+CN-S batch arrives, the edit is the finding.**
+
+`optcg:CN-S` is the last short combo (16 rows) and the only one below the
+detection floor. Its candidates are `single_source` because their second
+source is Bandai's shared numbering, which attests the *number* and is silent
+on whether a Simplified Chinese printing exists.
+
+### What changed, and what deliberately did not
+
+Attestation is now recorded **per field**, not per source. The old tiers ran
+two axes together — *which* field a source speaks to, and *how strongly*.
+`number_only` meant "attests the number, silent on the printing"; a physical
+card is the opposite shape, decisive about the printing and weak about the
+number. Reusing the tier name would have made
+`tier_counts_toward_verified` mean two different things depending on which
+source asked.
+
+**The load-bearing half of the original rule is untouched.** A documentary
+EN/JP source still attests *nothing* about whether a CN-S printing exists.
+What supplies that is a card in a hand. The rule that blocked these rows is
+not being relaxed; a source class that satisfies it is being added, and it
+generalises — the same composition works for EN, JP and CN-T.
+
+### What the composition actually guards
+
+The Bandai list and the printed card are **not causally independent** — the
+card was printed from that database, so they are one fact observed twice. That
+is the right design here, but it means the composite guards **transcription
+error, not upstream error**. If the record and the card agreed on something
+wrong, nothing here would catch it. Bandai *is* the authority for what the
+number is, so that is acceptable — but the claim is "we recorded it
+correctly", never "the number is correct".
+
+### The checksum is the mechanism, not the arithmetic
+
+Two partial attestations are not automatically one whole. `optical` composes
+with `documentary` because their failure modes are disjoint, **and** because
+the number and the name constrain each other: a transcription slip yields
+either a number the record does not carry or one that names a different card.
+`field_is_established` refuses the composition when the checksum did not run.
+
+### The gap this standard does NOT close
+
+There is no Simplified Chinese catalog source, so the documentary side gives
+the **EN or JP** name for the number. Confirming that 阿修罗童子 renders
+"Ashura Doji" is a **translation**, and a translation performed here is not a
+source — it would be this repository corroborating itself.
+
+So the SC **name** is attested optically only, with no second channel, and
+every row carries `name_attestation: optical_only`. The name is not an
+identity field — it drives `cross_language_name_disagreements`, which has
+caught three errors, but it is not what the resolver is tested on. Registered
+in `NOT_REACHED` and asserted by a test, so it cannot be quietly assumed
+closed later.
+
+### Protocol, recorded because memory is not a control
+
+1. **The reader goes first.** The card's holder states number and name off the
+   card; the documentary record is consulted **after**. Drafting a row and
+   asking for confirmation is forbidden by name — a confirmation against a
+   prior is the same defect as fixtures agreeing with the regexes they were
+   written from, and it breaks the only thing making the composition worth
+   more than its parts.
+2. **Unsure is unresolved.** Ambiguous, damaged or uncertain printed text is
+   recorded unresolved, never guessed and never filled from the EN row. If
+   that yields 12 rows instead of 16, the set is 12 and the shortfall stays
+   visible in the gate.
+
+Every `physical_card` row must carry `read_by`, `read_on`, `checksum` and
+`name_attestation`. A card in a hand is not re-checkable by anyone else later
+— unlike a URL, nobody can go and look again — so the provenance is written
+down at the time or the row is refused.
+
+### What would falsify this
+
+A Simplified Chinese catalog source appearing and disagreeing with a row
+admitted under this standard. That is a real possibility and the reason the
+rows carry their provenance.
+
 ## S2 — apitcg and Limitless disagree on OP01-120's printings
 
 **Still open. The fetch that would settle it was attempted and did not land.**
