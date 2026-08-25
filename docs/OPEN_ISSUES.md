@@ -304,6 +304,72 @@ character aloud *without being offered a candidate* is fine; that is a
 reading, not a confirmation. The distinction is whether a candidate was
 supplied before the answer.
 
+### DECIDED — CN-S rows are admitted on the number alone, with NO name
+
+**Both of us were reasoning about the wrong field.** Every existing CN-S row
+carries a **Latin reference name** in `name`; the printed Simplified Chinese
+characters live in `note`. The detector sees all 28, and one row already
+states the policy verbatim: *"Printed Chinese name not verified by the
+research; the reference name is recorded and the printed name is absent rather
+than guessed."*
+
+`cross_language_name_disagreements` is **Latin-only by construction** — it
+skips a non-Latin name because comparing 阿修罗童子 to "Ashura Doji" is a
+translation, which is the gap already registered in `NOT_REACHED`. So the SC
+characters were never what the detector consumed, and the cost as originally
+stated does not apply.
+
+**But the alternative is worse than the stated cost.** The detector's power
+comes from the CN-S Latin name being an **independent observation**: batch 2's
+swap was catchable because the researcher transliterated from a CN-S source
+and the result disagreed with EN/JP.
+
+Fill `name` from Bandai's EN record instead, and **the detector can never
+disagree** — the name was derived from the record it is compared against. It
+runs, it passes, and its passing means nothing. That is the fifth instance of
+this session's defect and the most expensive, because the check it disables is
+the one that has caught three real errors. Registered as
+`DERIVED_NAME_IS_INERT`.
+
+**So: no name at all.** Not the printed characters, and not a Latin reference
+copied from the documentary record. An absent name makes the row **visibly
+skipped**; a copied one makes it vacuously passed. The rows are
+identity-complete and name-absent, which is what "when a source cannot supply
+a field, delete the field" already required.
+
+**The names remain available and additive.** A transliteration of the printed
+characters is an independent path to the Latin name, so it restores the
+detector — it just must not hold up the identity rows, and it must not come
+from a reader who cannot check it.
+
+### The non-native reader profile
+
+`human_nonnative_logographic`, `self_detecting: **False**`. Same failure shape
+as the model, different cause: **no model of which strokes are load-bearing**.
+A smudge is noticed; a wrong radical is not. The reader knows they are
+copying, and that feels like appropriate caution — but the caution is about
+legibility, not meaning, and the substitution happens in the part they cannot
+check.
+
+Under the allocation already set, that reader may read the **checksummed
+number** and **may not supply the name**. No new rule; the existing one
+applied. What *would* be self-detecting is a native reader of the script or a
+Simplified Chinese catalog source, and neither is currently available.
+
+So `optical_only_nonnative` is not needed: the case it would label is one the
+standard already refuses.
+
+### The detector could not report what it looked at
+
+`cross_language_name_disagreements` returns disagreements. A caller could not
+tell *examined 28 and found none* from *examined none* — and those read
+identically, which is this repository's recurring failure exactly.
+
+`name_disagreement_coverage` now reports both. On the live set: **103 rows
+examined, 49 numbers seen, 31 actually compared, 18 carrying a single row**. A
+number with one row cannot disagree with itself, so the clean report is over
+31 comparisons, not 49 numbers — and it was being read as the latter.
+
 ### Who read it is an error-profile field
 
 `read_by` is **not attribution**. Different readers fail differently, and the

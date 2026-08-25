@@ -16,6 +16,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from resolve.corroboration import (CHANNELS, CHECKSUM,  # noqa: E402
+                                   DERIVED_NAME_IS_INERT,
                                    IDENTITY_FIELDS,
                                    READER_PROFILES,
                                    UNCHECKSUMMED_FIELDS,
@@ -516,3 +517,54 @@ class TheRowEnforcesTheAllocation(unittest.TestCase):
             ("physical_card", "shared_numbering_reference"),
             checksum_passed=True)
         self.assertTrue(found["verified"])
+
+
+class ANonNativeReaderOfALogographicScript(unittest.TestCase):
+    """Same failure shape as the model, different cause. A reader who cannot
+    read the script knows they are copying, and that feels like appropriate
+    caution -- but the caution is about legibility, not meaning, and the
+    substitution happens in the part they cannot check."""
+
+    def test_it_is_not_self_detecting(self):
+        self.assertFalse(
+            failure_is_self_detecting("human_nonnative_logographic"))
+
+    def test_the_failure_is_about_which_strokes_matter(self):
+        profile = READER_PROFILES["human_nonnative_logographic"]
+        self.assertIn("LOAD-BEARING", profile["failure_mode"])
+        self.assertIn("smudge is noticed", profile["failure_mode"])
+
+    def test_it_may_not_supply_the_name_either(self):
+        """Follows from the allocation already set, not from a new rule."""
+        self.assertFalse(may_read("human_nonnative_logographic", "name")[0])
+
+    def test_it_may_still_read_the_checksummed_number(self):
+        self.assertTrue(may_read("human_nonnative_logographic", "number")[0])
+
+    def test_what_would_be_self_detecting_is_named(self):
+        """Saying a reader cannot do it is half a finding. The other half is
+        who could -- otherwise it reads as unknowable."""
+        profile = READER_PROFILES["human_nonnative_logographic"]
+        self.assertIn("native reader", profile["what_would_be_self_detecting"])
+
+
+class ACopiedNameCannotDisagree(unittest.TestCase):
+    """The most expensive instance of this session's defect, because the check
+    it disables is the one that has caught three real errors."""
+
+    def test_the_finding_is_registered_with_its_mechanism(self):
+        self.assertIn("BY\nCONSTRUCTION".replace("\n", " "),
+                      DERIVED_NAME_IS_INERT["why_it_is_worse_than_an_absent_name"])
+        self.assertIn("cannot fail",
+                      DERIVED_NAME_IS_INERT["why_it_is_worse_than_an_absent_name"])
+
+    def test_an_absent_name_is_preferred_to_a_derived_one(self):
+        self.assertIn("visibly skipped",
+                      DERIVED_NAME_IS_INERT["why_it_is_worse_than_an_absent_name"])
+        self.assertIn("records NO name", DERIVED_NAME_IS_INERT["so"])
+
+    def test_independence_is_named_as_the_mechanism(self):
+        self.assertIn("INDEPENDENTLY",
+                      DERIVED_NAME_IS_INERT["what_made_the_detector_work"])
+        self.assertIn("a copy has none",
+                      DERIVED_NAME_IS_INERT["what_made_the_detector_work"])

@@ -33,7 +33,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from resolve.identity import (NUMBERING_PARENT, RENUMBERED, SET_CODE_SUFFIX,  # noqa: E402
+from resolve.identity import (cross_language_name_disagreements,  # noqa: E402
+                              name_disagreement_coverage,
+                              NUMBERING_PARENT, RENUMBERED, SET_CODE_SUFFIX,  # noqa: E402
                               VARIANTS, card_uid, renumbers,
                               shares_numbering_with, variant_from_rarity)
 from resolve.resolver import Resolver                                  # noqa: E402
@@ -986,3 +988,64 @@ class TheParserDropsSetPrefixesAndTheBridgeMustNot(unittest.TestCase):
         from resolve.identity import numbers_denote_same_printing as same
         with self.assertRaises(CannotBridge):
             same("R01a", "199/165", 165)
+
+
+class TheDetectorReportsWhatItLookedAt(unittest.TestCase):
+    """`cross_language_name_disagreements` returns disagreements. A caller
+    cannot tell `examined 28 and found none` from `examined none`, and those
+    read identically -- which is the failure this repository keeps producing:
+    a check that could not fire reading like a check that passed."""
+
+    ROWS = [
+        {"card_uid": "optcg:op01:OP01-002:base:EN", "game": "optcg",
+         "set_code": "op01", "number": "OP01-002", "name": "Trafalgar Law"},
+        {"card_uid": "optcg:op01:OP01-002:base:JP", "game": "optcg",
+         "set_code": "op01", "number": "OP01-002", "name": "Trafalgar Law"},
+        {"card_uid": "optcg:op01:OP01-999:base:EN", "game": "optcg",
+         "set_code": "op01", "number": "OP01-999", "name": "Only Row"},
+        {"card_uid": "optcg:op01:OP01-003:base:CN-S", "game": "optcg",
+         "set_code": "op01", "number": "OP01-003", "name": "阿修罗童子"},
+        {"card_uid": "pkmn:sv03.5:002/165:base:EN", "game": "pkmn",
+         "set_code": "sv03.5", "number": "002/165", "name": "Ivysaur"},
+    ]
+
+    def test_a_number_with_one_row_is_counted_apart(self):
+        """It cannot disagree with itself, and folding it into `no
+        disagreements found` produces a clean report having compared
+        nothing."""
+        found = name_disagreement_coverage(self.ROWS)
+        self.assertEqual(found["numbers_actually_compared"], 1)
+        # OP01-999 only. The CN-S row is skipped for having no Latin name, so
+        # it never reaches `examined` and is not a one-row number.
+        self.assertEqual(found["numbers_with_one_row_only"], 1)
+        self.assertEqual(found["numbers_seen"], 2)
+
+    def test_a_non_latin_name_is_counted_as_skipped_not_as_checked(self):
+        found = name_disagreement_coverage(self.ROWS)
+        self.assertEqual(found["skipped_no_latin_name"], 1)
+
+    def test_a_game_that_does_not_share_numbering_is_counted_apart(self):
+        found = name_disagreement_coverage(self.ROWS)
+        self.assertEqual(found["skipped_game_does_not_share_numbering"], 1)
+
+    def test_zero_disagreements_over_zero_comparisons_is_visible(self):
+        """The case the count exists for."""
+        nothing = [dict(self.ROWS[2])]
+        self.assertEqual(cross_language_name_disagreements(nothing), [])
+        found = name_disagreement_coverage(nothing)
+        self.assertEqual(found["numbers_actually_compared"], 0)
+        self.assertEqual(found["examined_rows"], 1)
+
+    def test_the_live_set_reports_more_than_a_pass(self):
+        import json
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "fixtures", "labelled_200.json")
+        with open(path, encoding="utf-8") as handle:
+            cards = json.load(handle)["cards"]
+        found = name_disagreement_coverage(cards)
+        self.assertEqual(cross_language_name_disagreements(cards), [])
+        # The clean report is over the numbers that COULD disagree, not over
+        # every row in the set.
+        self.assertGreater(found["numbers_actually_compared"], 0)
+        self.assertGreater(found["numbers_with_one_row_only"], 0)

@@ -407,6 +407,49 @@ def cross_language_name_disagreements(cards):
             for key, names in sorted(groups.items()) if len(names) > 1]
 
 
+def name_disagreement_coverage(cards):
+    """What the detector actually LOOKED AT, not just what it found.
+
+    `cross_language_name_disagreements` returns disagreements. A caller cannot
+    tell `examined 28 rows and found none` from `examined none`, and those
+    read identically in a report -- which is the failure this repository keeps
+    producing in other clothes: a check that could not fire reading like a
+    check that passed.
+
+    Returns per (game, set_code, number): how many rows were examined and how
+    many were skipped for having no Latin name, plus the totals. A number with
+    fewer than two examined rows CANNOT disagree with itself, so it is counted
+    separately from one that was compared and agreed.
+    """
+    import collections as _collections
+    examined = _collections.defaultdict(list)
+    skipped_no_latin, skipped_other_game = 0, 0
+    for card in cards:
+        if not shares_numbering_across_languages(card.get("game")):
+            skipped_other_game += 1
+            continue
+        if not is_latin_name(card.get("name")):
+            skipped_no_latin += 1
+            continue
+        key = (card.get("game"), str(card.get("set_code") or "").lower(),
+               card.get("number"))
+        examined[key].append(card["card_uid"])
+    comparable = {k: v for k, v in examined.items() if len(v) > 1}
+    return {
+        "examined_rows": sum(len(v) for v in examined.values()),
+        "skipped_no_latin_name": skipped_no_latin,
+        "skipped_game_does_not_share_numbering": skipped_other_game,
+        "numbers_seen": len(examined),
+        "numbers_actually_compared": len(comparable),
+        "numbers_with_one_row_only": len(examined) - len(comparable),
+        "why_that_last_one_matters": (
+            "A number carrying one row cannot disagree with itself. It is "
+            "counted here rather than folded into `no disagreements found`, "
+            "because a set of single-row numbers produces a clean report "
+            "having compared nothing."),
+    }
+
+
 # Games whose REPRINTS KEEP THE ORIGINAL COLLECTOR NUMBER.
 #
 # One Piece PRB-01 reprints of OP01-120, OP01-024, OP02-004, OP03-123 and

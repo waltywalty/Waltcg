@@ -190,6 +190,30 @@ CHECKSUM = {
     },
 }
 
+#: A NAME COPIED FROM THE RECORD IT WILL BE CHECKED AGAINST CANNOT DISAGREE
+#: WITH IT. The fifth instance of this session's defect, and the most
+#: expensive, because the check it disables is the one that has caught three
+#: real errors.
+DERIVED_NAME_IS_INERT = {
+    "what": "Filling a CN-S row's Latin reference name from Bandai's EN or JP "
+            "record for the same number.",
+    "why_it_looks_fine": "The name is correct. The row validates. "
+                         "`cross_language_name_disagreements` runs over it "
+                         "and reports nothing.",
+    "why_it_is_worse_than_an_absent_name": "It reports nothing BY "
+        "CONSTRUCTION. The CN-S name was derived from the EN name, so the two "
+        "agree no matter what is printed on the card -- the check cannot "
+        "fail, which reads exactly like a check that passed. An ABSENT name "
+        "makes the row visibly skipped instead.",
+    "what_made_the_detector_work": "Batch 2's swap was catchable because the "
+        "researcher transliterated from a CN-S source INDEPENDENTLY, and the "
+        "result disagreed with EN and JP. Independence is the whole "
+        "mechanism; a copy has none.",
+    "so": "A CN-S row admitted on the number alone records NO name -- neither "
+          "the printed characters nor a Latin reference copied from the "
+          "documentary record.",
+}
+
 #: WHAT THIS COMPOSITE DOES NOT REACH, stated here rather than discovered
 #: later. The gap is real and the rows carrying it must say so.
 NOT_REACHED = {
@@ -404,6 +428,24 @@ READER_PROFILES = {
                         "focus, resolution, crop.",
         "self_detecting": True,
         "why": "Same as above, and an illegible image is legibly illegible.",
+    },
+    "human_nonnative_logographic": {
+        "what": "A person copying characters from a script they do not read "
+                "-- Simplified Chinese, for a non-native reader.",
+        "failure_mode": "Confident substitution of a visually similar "
+                        "character, from having no model of WHICH STROKES ARE "
+                        "LOAD-BEARING. A smudge is noticed; a wrong radical "
+                        "is not.",
+        "self_detecting": False,
+        "why": "Same shape as the model's failure, different cause. A reader "
+               "who cannot read the script knows they are copying, and that "
+               "feels like appropriate caution -- but the caution is about "
+               "legibility, not about meaning, and the substitution happens "
+               "in the part they cannot check.",
+        "what_would_be_self_detecting": "A native reader of the script, or a "
+                                        "Simplified Chinese catalog source. "
+                                        "Neither is currently available; see "
+                                        "NOT_REACHED.",
     },
     "ai_from_image": {
         "what": "A model reading glyphs off card artwork.",

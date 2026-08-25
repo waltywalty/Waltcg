@@ -3844,3 +3844,102 @@ are unaffected. If that makes the SC names thinner than hoped, that is the
 standard reporting what it actually knows.
 
 **239 verified of 250.** One short: `optcg:CN-S` 16.
+
+---
+
+## ADR-0049 — A copied name cannot disagree
+
+**Date:** 2026-08-25
+**Status:** Accepted. Decides the CN-S admission question posed against
+ADR-0046's pre-registration. Still before any row.
+
+### Both framings were about the wrong field
+
+The choice offered was: admit on the number alone with the name unresolved
+(losing the cross-language disagreement check), or take the names with a
+non-native reader profile.
+
+Neither is what the set does. **Every existing CN-S row carries a Latin
+reference name in `name`; the printed Simplified Chinese characters live in
+`note`.** The detector sees all 28 of them, and one row already states the
+policy: *"Printed Chinese name not verified by the research; the reference
+name is recorded and the printed name is absent rather than guessed."*
+
+`cross_language_name_disagreements` is **Latin-only by construction** — it
+skips a non-Latin name, because comparing 阿修罗童子 to "Ashura Doji" is a
+translation, the gap `NOT_REACHED` already registers. The SC characters were
+never what it consumed, so the stated cost does not apply as stated.
+
+### What replaces it is worse, and it is the fifth instance
+
+The detector's power comes from the CN-S Latin name being an **independent
+observation**. Batch 2's swap was catchable because the researcher
+transliterated from a CN-S source and the result disagreed with EN and JP.
+
+Fill `name` from Bandai's EN record instead — the obvious move once the number
+is checksummed against it — and **the detector can never disagree**. The name
+was derived from the record it is being compared against. It runs, it passes,
+and its passing carries no information.
+
+That is this session's defect for the fifth time, and the most expensive,
+because the check it disables is the one that has caught three real errors:
+
+| What | Read as | Was |
+|---|---|---|
+| The mutant seal | committed and enforcing | never in the repository |
+| Signal 3 (`rel=canonical`) | present and abstaining | wired to a tag that does not exist |
+| Bare-link voting branch | a handled case | unreachable on every real page |
+| Limitless `CARD_CANDIDATES` | probed endpoints | three guesses, with the answer already in the parser |
+| A name copied from EN | a passing check | a check that cannot fail |
+
+### Decision: no name at all
+
+Not the printed characters, and **not a Latin reference copied from the
+documentary record**. An absent name makes the row **visibly skipped**; a
+copied one makes it **vacuously passed**, and the second is strictly worse
+because it produces a clean report.
+
+This is also what the project's own rule already required — *when a source
+cannot supply a field, delete the field* — applied to a case where the
+plausible default was not a guess at the value but a copy of it from
+somewhere that could not corroborate it.
+
+The rows are identity-complete and name-absent. `name` is not an identity
+field; the gate and the resolver do not read it.
+
+**The names stay available and additive.** A transliteration of the printed
+characters is an independent path to the Latin name and would restore the
+detector on those rows. It must not hold up the identity rows, and it must not
+come from a reader who cannot check it.
+
+### The non-native reader, and why the proposed label is unnecessary
+
+`human_nonnative_logographic`, **`self_detecting: False`**. Same failure shape
+as the model, different cause: **no model of which strokes are load-bearing**.
+A smudge is noticed; a wrong radical is not. The reader knows they are
+copying, which feels like appropriate caution — but the caution is about
+legibility, not meaning, and the substitution lands in the part they cannot
+check.
+
+Under the allocation set in ADR-0048 that reader may read the **checksummed
+number** and **may not supply the name**. No new rule was needed; the existing
+one applied to a new profile. So `optical_only_nonnative` is not required —
+the case it would have labelled is one the standard already refuses, and a
+label for a refused case is a caveat with nothing enforcing it.
+
+What *would* be self-detecting is named: a native reader of the script, or a
+Simplified Chinese catalog source. Neither is currently available.
+
+### The detector could not report what it looked at
+
+Found while checking the above. `cross_language_name_disagreements` returns
+disagreements. A caller could not distinguish *examined 28 rows and found
+none* from *examined none* — and in a report those read identically.
+
+`name_disagreement_coverage` reports both. On the live set: **103 rows
+examined, 49 numbers seen, 31 actually compared, 18 carrying a single row.** A
+number with one row cannot disagree with itself, so the clean result stands on
+31 comparisons rather than 49 numbers — and it had been read as the latter.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16, awaiting rows admitted on
+the number alone.
