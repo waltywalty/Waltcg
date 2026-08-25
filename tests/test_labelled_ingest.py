@@ -775,11 +775,11 @@ class PromotionIsDeliberateAndNamed(unittest.TestCase):
     def test_it_records_the_second_source(self):
         from resolve.label_cli import upgrade
         path = self._seeded()
-        card, why = upgrade(row()["card_uid"], "verified", "PriceCharting",
+        card, why = upgrade(row()["card_uid"], "verified", "other:PriceCharting",
                             labelled_path=path, date="2026-08-18")
         self.assertEqual(why, "")
         self.assertEqual(card["confidence"], "verified")
-        self.assertEqual(card["upgraded"]["second_source"], "PriceCharting")
+        self.assertEqual(card["upgraded"]["second_source"], "other:PriceCharting")
         self.assertEqual(card["upgraded"]["from"], "single_source")
 
     def test_an_unnamed_source_is_refused(self):

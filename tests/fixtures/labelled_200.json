@@ -2731,8 +2731,9 @@
       "upgraded": {
         "from": "single_source",
         "to": "verified",
-        "second_source": "PriceCharting",
-        "date": "2026-08-24"
+        "second_source": "other:PriceCharting",
+        "date": "2026-08-24",
+        "prefix_added": "2026-08-25, when `upgrade` started validating the second source against the classified source classes. NOT a change of claim: PriceCharting was and is the second source. The prefix records that nobody has analysed what it attests PER FIELD, which is a different thing from it having been checked and found sufficient."
       }
     },
     {

@@ -4143,3 +4143,85 @@ Neither was caught by a test — both were caught by someone doing the
 arithmetic and asking what the reader already holds.
 
 **239 verified of 250.** One short: `optcg:CN-S` 16.
+
+---
+
+## ADR-0052 — The standard was wired to nothing
+
+**Date:** 2026-08-25
+**Status:** Accepted.
+
+### The question, and why the answer is bad news
+
+*Is the `physical_card` composite a valid `--second-source` for an existing
+`single_source` row, or does `upgrade` hardcode a documentary second source?*
+
+Source-agnostic. The ten CN-S candidates could always have moved.
+
+But `second_source` was a **free string**, stored verbatim and validated only
+for being non-empty. `--second-source "looked about right"` promoted a row to
+ground truth exactly as readily as a physical card would have.
+
+So the answer is worse than a yes: **four ADRs of composite rules, per-field
+attestation, reader profiles, checksums and blindness protocols existed in
+`resolve/corroboration.py`, and `upgrade()` never called any of it.** The
+standard was complete, tested, mutation-covered — and connected to nothing.
+
+That is the seventh instance of this session's defect and the cleanest
+specimen of it. The others were checks that could not fire. This one is a
+check that fires perfectly, in a module nothing imports at the moment of
+decision.
+
+Worth noting how it was found: not by a test, and not by me. It was found by
+someone asking whether a command written before a standard still honoured it.
+The tests all passed because they tested the standard and tested the upgrade,
+separately, and never asked whether one reached the other.
+
+### The wiring
+
+`second_source_is_admissible`, on both the single-row and batch paths:
+
+- an unclassified string is **refused**, listing the known classes;
+- `other:<name>` is accepted and **recorded as unclassified** — a visible
+  escape hatch, because an invisible one is indistinguishable from a check;
+- `physical_card` additionally requires its full provenance and must satisfy
+  `row_is_verifiable` for the composite.
+
+The single historical upgrade is normalised to `other:PriceCharting` with a
+note. Not a change of claim — PriceCharting was and is the second source. The
+prefix records that nobody has analysed what it attests *per field*, which is
+a different thing from having checked it and found it sufficient. Classifying
+it properly would mean doing that analysis; inventing a class to make a test
+pass would be the vocabulary rotting.
+
+### Batch upgrades exist because the provenance does not
+
+The single-row path reads provenance off the card. None of the ten candidate
+rows carry it, so `upgrade --rows FILE` supplies it with the promotion.
+
+`UPGRADE_MAY_ADD` bounds what an entry may attach — reading method, reader,
+checksum, attestation, source class — and pointedly **not** `number`,
+`variant`, `language` or `name`. An upgrade records how a claim became better
+evidenced; it never edits the claim. An entry attempting to is refused naming
+the fields it tried to change, because a promotion that can also rewrite the
+row is a re-adjudication wearing a promotion's name.
+
+### `unstated` needs no upgrade path
+
+`UPGRADE_PATH` remains `single_source → verified` alone, and the existing
+reasoning holds: **`unstated` means the source count was never recorded, not
+"one source".** Promoting it on one physical card would claim two independent
+sources agree without knowing the first exists or is independent of the
+second.
+
+`ingest --supersede-unstated` is the route, and it is the better one anyway: a
+claim replacing a non-claim, appended with a `supersedes` reference rather
+than edited in place, carrying forward whatever the new row does not supply.
+The superseding row arrives with its own full provenance instead of inheriting
+an unknown one.
+
+Five rows are at `unstated`, not four: `pkmn:csv6C:152/128:sar:CN-S` alongside
+the four One Piece treasure rares.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16 — ten upgrades and six new
+rows, on the split identified from the file.

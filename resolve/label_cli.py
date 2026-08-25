@@ -199,6 +199,60 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False,
     return accepted, rejected, report
 
 
+#: Second sources this project has classified. A free string was accepted
+#: here until 2026-08-25, which meant `--second-source "looked about right"`
+#: promoted a row to ground truth exactly as readily as a physical card did --
+#: the whole per-field standard in `resolve/corroboration.py` existed and was
+#: WIRED TO NOTHING. A control that is not connected to the thing it controls
+#: is the defect this repository keeps finding, arriving here in its purest
+#: form.
+#:
+#: `other:` is the deliberate escape hatch: it accepts anything, and it says
+#: so in the record, so an unclassified source is VISIBLE rather than
+#: indistinguishable from a classified one.
+UNCLASSIFIED_PREFIX = "other:"
+
+
+def second_source_is_admissible(second_source, card):
+    """Is this a source class the standard knows, and does the row carry what
+    that class requires?
+
+    Returns (ok, why). Refuses rather than repairing, like `ingest`.
+    """
+    from resolve.corroboration import (FIELD_ATTESTATION,
+                                       physical_card_row_is_well_formed,
+                                       row_is_verifiable)
+
+    name = str(second_source)
+    if name.startswith(UNCLASSIFIED_PREFIX):
+        return bool(name[len(UNCLASSIFIED_PREFIX):].strip()), (
+            "" if name[len(UNCLASSIFIED_PREFIX):].strip()
+            else f"{UNCLASSIFIED_PREFIX!r} needs something after it")
+    if name not in FIELD_ATTESTATION:
+        return False, (
+            f"{name!r} is not a source class this standard has classified. "
+            "Known: " + ", ".join(sorted(FIELD_ATTESTATION))
+            + f". If it is genuinely something else, prefix it "
+              f"`{UNCLASSIFIED_PREFIX}` -- that is accepted and RECORDED AS "
+              "UNCLASSIFIED, which is a different thing from being waved "
+              "through as if it had been checked.")
+    if name == "physical_card":
+        well_formed, problems = physical_card_row_is_well_formed(card)
+        if not well_formed:
+            return False, (f"{card['card_uid']} claims a physical_card second "
+                           "source but does not carry what one requires: "
+                           + "; ".join(problems))
+        first = card.get("source_class") or "shared_numbering_reference"
+        found = row_is_verifiable((first, name),
+                                  checksum_passed=bool(card.get("checksum")))
+        if not found["verified"]:
+            return False, (f"{card['card_uid']}: {first!r} plus {name!r} does "
+                           "not establish " + ", ".join(found["missing"])
+                           + ". " + "; ".join(found["by_field"][f]
+                                              for f in found["missing"]))
+    return True, ""
+
+
 UPGRADE_PATH = {("single_source", "verified")}
 
 
@@ -233,12 +287,81 @@ def upgrade(card_uid, to, second_source, labelled_path=LABELLED,
         return None, ("--second-source is required: `verified` claims two "
                       "independent sources agree, and an unnamed one cannot "
                       "be checked")
+    ok, why = second_source_is_admissible(second_source, card)
+    if not ok:
+        return None, why
     card["confidence"] = to
     card["upgraded"] = {"from": was, "to": to, "second_source": second_source,
                         "date": date or _today()}
     if not dry_run:
         _save(labelled_path, labelled)
     return card, ""
+
+
+#: Provenance a batch upgrade may ADD to the row it promotes. Not identity --
+#: an upgrade records how a claim became better evidenced; it never edits what
+#: the claim is. `card_uid`, `number`, `variant`, `language` and `name` are
+#: absent from this list on purpose.
+UPGRADE_MAY_ADD = ("reading_method", "read_by", "read_on", "imaged_by",
+                   "image_ref", "reader_reliability", "checksum",
+                   "name_attestation", "source_class", "art_call")
+
+
+def upgrade_rows(rows, labelled_path=LABELLED, dry_run=False, date=None):
+    """Promote a batch, carrying each row's provenance with it.
+
+    The single-row path reads provenance OFF THE CARD, which cannot work for a
+    row that does not have it yet -- and none of the ten CN-S candidates do.
+    So a batch entry supplies the provenance and the upgrade attaches it,
+    validates the composite, and refuses the row if it does not hold.
+
+    Returns (upgraded, refused).
+    """
+    labelled = _load(labelled_path, {"cards": []})
+    by_uid = {c["card_uid"]: c for c in labelled.get("cards", [])}
+    upgraded, refused = [], []
+    for index, row in enumerate(rows or []):
+        uid = row.get("card_uid")
+        card = by_uid.get(uid)
+        if card is None:
+            refused.append({"index": index, "card_uid": uid,
+                            "why": "not in the set"})
+            continue
+        identity_edits = sorted(
+            key for key in row
+            if key not in UPGRADE_MAY_ADD
+            and key not in ("card_uid", "to", "second_source")
+            and row[key] != card.get(key))
+        if identity_edits:
+            refused.append({"index": index, "card_uid": uid,
+                            "why": "an upgrade records how a claim became "
+                                   "better evidenced; it never edits the "
+                                   "claim. Refusing changes to: "
+                                   + ", ".join(identity_edits)})
+            continue
+        staged = dict(card)
+        staged.update({k: row[k] for k in UPGRADE_MAY_ADD if k in row})
+        ok, why = second_source_is_admissible(
+            row.get("second_source") or "", staged)
+        if not (row.get("second_source") and ok):
+            refused.append({"index": index, "card_uid": uid,
+                            "why": why or "--second-source is required"})
+            continue
+        was = card.get("confidence")
+        if (was, row.get("to", "verified")) not in UPGRADE_PATH:
+            refused.append({"index": index, "card_uid": uid,
+                            "why": f"{was!r} is not a rung this promotes "
+                                   "from; see UPGRADE_PATH"})
+            continue
+        card.update({k: staged[k] for k in UPGRADE_MAY_ADD if k in staged})
+        card["confidence"] = row.get("to", "verified")
+        card["upgraded"] = {"from": was, "to": card["confidence"],
+                            "second_source": row["second_source"],
+                            "date": date or _today()}
+        upgraded.append(card)
+    if upgraded and not dry_run:
+        _save(labelled_path, labelled)
+    return upgraded, refused
 
 
 def _today():
@@ -637,8 +760,25 @@ def main(argv=None):
         return propose(args.catalog, args.queue, source=args.source,
                        combos=combos)
     if args.command == "upgrade":
+        if args.rows:
+            payload = _load(args.rows, None)
+            if payload is None:
+                parser.error(f"{args.rows} does not exist")
+            rows = (payload.get("cards") if isinstance(payload, dict)
+                    else payload)
+            done, refused = upgrade_rows(rows or [], LABELLED,
+                                         dry_run=args.dry_run)
+            print(f"upgraded {len(done)}  refused {len(refused)}"
+                  + ("  (DRY RUN, nothing written)" if args.dry_run else ""))
+            for card in done:
+                print(f"  {card['card_uid']}: {card['upgraded']['from']} -> "
+                      f"{card['upgraded']['to']}  "
+                      f"({card['upgraded']['second_source']})")
+            for entry in refused:
+                print(f"  REFUSED {entry['card_uid']}: {entry['why']}")
+            return 1 if refused else 0
         if not args.card_uid:
-            parser.error("upgrade needs --card-uid")
+            parser.error("upgrade needs --card-uid or --rows")
         card, why = upgrade(args.card_uid, args.to, args.second_source,
                             dry_run=args.dry_run)
         if card is None:

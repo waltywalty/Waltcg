@@ -304,6 +304,68 @@ character aloud *without being offered a candidate* is fine; that is a
 reading, not a confirmation. The distinction is whether a candidate was
 supplied before the answer.
 
+## RESOLVED — `upgrade` existed and was wired to nothing
+
+**Asked: is `physical_card` a valid `--second-source`? Answer: yes, and that
+was the problem.**
+
+`second_source` was a free string — stored verbatim, validated only for being
+non-empty. Nothing hardcoded a documentary source, so the ten CN-S candidates
+could always have moved. But nothing validated *anything*:
+`--second-source "looked about right"` promoted a row to ground truth exactly
+as readily as a physical card did.
+
+**The entire per-field standard in `resolve/corroboration.py` was not
+connected to the one command that promotes rows to `verified`.** Four ADRs of
+composite rules, reader profiles, checksums and blindness protocols, and
+`upgrade()` never called any of it. A control that is not wired to the thing
+it controls, in its purest form.
+
+Now `second_source_is_admissible` runs on both the single-row and batch paths:
+
+- An unclassified string is **refused**, with the known classes listed.
+- `other:<name>` is the deliberate escape hatch — accepted, and **recorded as
+  unclassified**, which is a different thing from being waved through as if it
+  had been checked.
+- `physical_card` additionally requires the full provenance and must satisfy
+  `row_is_verifiable` for the composite.
+
+The one historical upgrade (`pkmn:csv3C:155/130:sar:CN-S`, PriceCharting) is
+normalised to `other:PriceCharting` with a note. Not a change of claim —
+PriceCharting was and is the second source. The prefix records that **nobody
+has analysed what it attests per field**, which is different from it having
+been checked and found sufficient.
+
+### Batch upgrades, because the provenance does not exist yet
+
+The single-row path reads provenance **off the card**, which cannot work for
+rows that do not carry it — and none of the ten do. `upgrade --rows FILE`
+supplies the provenance with the promotion, attaches it, validates the
+composite, and refuses the row if it does not hold.
+
+`UPGRADE_MAY_ADD` bounds what a batch entry may attach: reading method,
+reader, checksum, attestation, source class. **Not `number`, `variant`,
+`language` or `name`.** An upgrade records how a claim became better
+evidenced; it never edits the claim, and an entry attempting to is refused
+naming the fields.
+
+### `unstated` is not upgradeable, and does not need to be
+
+`UPGRADE_PATH` is only `single_source → verified`, and that is right:
+**`unstated` means the source count was never recorded — not "one source".**
+Promoting it on one physical card would claim two independent sources without
+knowing the first exists or is independent.
+
+The path already exists: **`ingest --supersede-unstated`**. A claim replacing
+a non-claim, appended with a `supersedes` reference rather than editing in
+place, carrying forward anything the new row does not supply (`hard_case`
+tags, artist). So those rows arrive as **new rows with full provenance**, not
+as upgrades.
+
+Five rows sit at `unstated`, not four — `pkmn:csv6C:152/128:sar:CN-S` as well
+as the four One Piece treasure rares. All five are eligible for supersede if a
+physical copy exists.
+
 ### DECIDED — CN-S rows are admitted on the number alone, with NO name
 
 **Both of us were reasoning about the wrong field.** Every existing CN-S row

@@ -324,3 +324,108 @@ class IngestRunsTheClassTranslation(unittest.TestCase):
         CLI.main(["map-classes"])
         after = json.load(open(CLI.LABELLED))["cards"][0]["hard_cases"]
         self.assertEqual(before, after)
+
+
+class UpgradeIsWiredToTheStandard(unittest.TestCase):
+    """`second_source` was a free string until 2026-08-25, so
+    `--second-source "looked about right"` promoted a row to ground truth
+    exactly as readily as a physical card did. The whole per-field standard in
+    resolve/corroboration.py existed and was WIRED TO NOTHING -- a control not
+    connected to the thing it controls, in its purest form."""
+
+    ROW = {"card_uid": "optcg:op01:OP01-032:base:CN-S", "game": "optcg",
+           "set_code": "op01", "number": "OP01-032", "variant": "base",
+           "language": "CN-S", "confidence": "single_source",
+           "source": "external_research"}
+    PROVENANCE = {"reading_method": "direct", "read_by": "Walton",
+                  "read_on": "2026-08-26", "reader_reliability":
+                  "human_holder", "checksum": "name_against_number",
+                  "name_attestation": "unresolved"}
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._real = CLI.LABELLED
+        CLI.LABELLED = os.path.join(self.tmp, "labelled.json")
+        json.dump({"cards": [dict(self.ROW)]}, open(CLI.LABELLED, "w"))
+
+    def tearDown(self):
+        CLI.LABELLED = self._real
+
+    def _cards(self):
+        return json.load(open(CLI.LABELLED))["cards"]
+
+    def test_an_unclassified_source_no_longer_promotes_silently(self):
+        done, refused = CLI.upgrade_rows(
+            [{"card_uid": self.ROW["card_uid"], "second_source": "a hunch"}],
+            CLI.LABELLED)
+        self.assertEqual(done, [])
+        self.assertIn("not a source class this standard has classified",
+                      refused[0]["why"])
+
+    def test_the_other_prefix_is_accepted_and_recorded_as_unclassified(self):
+        """A visible escape hatch beats a silent one: `other:` says in the
+        record that nobody classified this."""
+        done, refused = CLI.upgrade_rows(
+            [{"card_uid": self.ROW["card_uid"],
+              "second_source": "other:PriceCharting"}], CLI.LABELLED)
+        self.assertEqual(refused, [])
+        self.assertEqual(done[0]["upgraded"]["second_source"],
+                         "other:PriceCharting")
+
+    def test_a_physical_card_claim_without_its_provenance_is_refused(self):
+        done, refused = CLI.upgrade_rows(
+            [{"card_uid": self.ROW["card_uid"],
+              "second_source": "physical_card"}], CLI.LABELLED)
+        self.assertEqual(done, [])
+        self.assertIn("does not carry what one requires", refused[0]["why"])
+
+    def test_a_complete_physical_card_upgrade_lands(self):
+        done, refused = CLI.upgrade_rows(
+            [dict(self.PROVENANCE, card_uid=self.ROW["card_uid"],
+                  to="verified", second_source="physical_card")], CLI.LABELLED)
+        self.assertEqual(refused, [])
+        card = self._cards()[0]
+        self.assertEqual(card["confidence"], "verified")
+        self.assertEqual(card["upgraded"]["from"], "single_source")
+        self.assertEqual(card["read_by"], "Walton")
+
+    def test_an_upgrade_may_not_edit_the_claim_it_promotes(self):
+        """It records how a claim became better evidenced. It never changes
+        what the claim is."""
+        done, refused = CLI.upgrade_rows(
+            [dict(self.PROVENANCE, card_uid=self.ROW["card_uid"],
+                  second_source="physical_card", number="OP01-999")],
+            CLI.LABELLED)
+        self.assertEqual(done, [])
+        self.assertIn("never edits the claim", refused[0]["why"])
+        self.assertEqual(self._cards()[0]["number"], "OP01-032")
+
+    def test_a_row_not_in_the_set_is_refused(self):
+        done, refused = CLI.upgrade_rows(
+            [{"card_uid": "optcg:op01:OP01-777:base:CN-S",
+              "second_source": "physical_card"}], CLI.LABELLED)
+        self.assertEqual((done, refused[0]["why"]), ([], "not in the set"))
+
+    def test_a_dry_run_writes_nothing(self):
+        CLI.upgrade_rows(
+            [dict(self.PROVENANCE, card_uid=self.ROW["card_uid"],
+                  second_source="physical_card")], CLI.LABELLED, dry_run=True)
+        self.assertEqual(self._cards()[0]["confidence"], "single_source")
+
+    def test_unstated_is_not_a_rung_this_promotes_from(self):
+        """`unstated` means the source count was never recorded -- not `one
+        source`. Promoting it would claim two independent sources without
+        knowing the first exists."""
+        json.dump({"cards": [dict(self.ROW, confidence="unstated")]},
+                  open(CLI.LABELLED, "w"))
+        done, refused = CLI.upgrade_rows(
+            [dict(self.PROVENANCE, card_uid=self.ROW["card_uid"],
+                  second_source="physical_card")], CLI.LABELLED)
+        self.assertEqual(done, [])
+        self.assertIn("not a rung this promotes from", refused[0]["why"])
+
+    def test_the_single_row_path_validates_too(self):
+        card, why = CLI.upgrade(self.ROW["card_uid"], "verified",
+                                "looked about right", CLI.LABELLED)
+        self.assertIsNone(card)
+        self.assertIn("not a source class", why)
