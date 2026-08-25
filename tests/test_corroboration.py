@@ -15,8 +15,13 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from resolve.corroboration import (CHANNELS, CHECKSUM,  # noqa: E402
+from resolve.corroboration import (ART_CALL_BLINDNESS,  # noqa: E402
+                                   ART_CALL_OUTCOMES, CHANNELS,
+                                   CHECKSUM,
                                    DERIVED_NAME_IS_INERT,
+                                   abstention_is_credible,
+                                   art_call_admits_a_name,
+                                   art_call_outcome,
                                    IDENTITY_FIELDS,
                                    READER_PROFILES,
                                    UNCHECKSUMMED_FIELDS,
@@ -568,3 +573,134 @@ class ACopiedNameCannotDisagree(unittest.TestCase):
                       DERIVED_NAME_IS_INERT["what_made_the_detector_work"])
         self.assertIn("a copy has none",
                       DERIVED_NAME_IS_INERT["what_made_the_detector_work"])
+
+
+class ArtIdentificationIsADifferentChannel(unittest.TestCase):
+    """The evidence is the picture, not the text. That is what makes it
+    independent of Bandai's record -- and independence is the whole reason the
+    detector can be live again on rows admitted by number."""
+
+    def test_it_is_a_separate_profile_from_glyph_reading(self):
+        art = READER_PROFILES["ai_art_identification"]
+        glyph = READER_PROFILES["ai_from_image"]
+        self.assertIn("CHARACTERS", art["failure_mode"])
+        self.assertIn("not two "
+                      "similar strokes", art["failure_mode"])
+        self.assertNotEqual(art["failure_mode"], glyph["failure_mode"])
+
+    def test_its_independence_from_the_record_is_stated(self):
+        art = READER_PROFILES["ai_art_identification"]
+        self.assertIn("Bandai's record", art["independent_of"])
+        self.assertIn("CAN disagree", art["independent_of"])
+
+    def test_it_also_cross_checks_the_number(self):
+        """The field that otherwise has one channel."""
+        art = READER_PROFILES["ai_art_identification"]
+        self.assertIn("number was misread", art["also_checks_the_number"])
+
+
+class BlindnessMustCoverThePrintedName(unittest.TestCase):
+    """Blind to the NUMBER is not enough. A Simplified Chinese card name is a
+    PHONETIC TRANSLITERATION -- the same partial read that disqualifies the
+    glyph channel is more than enough to anchor an art call."""
+
+    def test_the_printed_name_is_withheld(self):
+        self.assertIn("printed_name", ART_CALL_BLINDNESS["withhold"])
+
+    def test_the_transliteration_trap_is_named(self):
+        easy_to_miss = ART_CALL_BLINDNESS["the_one_that_is_easy_to_miss"]
+        self.assertEqual(easy_to_miss["field"], "printed_name")
+        self.assertIn("phonetic transliteration", easy_to_miss["why"])
+        self.assertIn("partial read", easy_to_miss["why"])
+
+    def test_the_number_and_the_uid_are_withheld_too(self):
+        for field in ("number", "card_uid", "documentary_name"):
+            with self.subTest(field=field):
+                self.assertIn(field, ART_CALL_BLINDNESS["withhold"])
+
+    def test_ordering_is_enforced_as_sequence_not_intention(self):
+        self.assertIn("SEQUENCE, NOT INTENTION",
+                      ART_CALL_BLINDNESS["enforced_as"])
+        self.assertIn("git history", ART_CALL_BLINDNESS["enforced_as"])
+
+    def test_an_uncommitted_call_does_not_admit_a_name(self):
+        allowed, why = art_call_admits_a_name(
+            {"outcome": "agrees", "committed_before_checksum": False})
+        self.assertFalse(allowed)
+        self.assertIn("not evidenced as blind", why)
+
+
+class PartialSelfDetectionIsMeasuredNotAsserted(unittest.TestCase):
+    """The dangerous middle: the occasions when a partial abstention fails to
+    fire are exactly the confident-substitution occasions."""
+
+    def test_partial_does_not_satisfy_the_self_detecting_predicate(self):
+        self.assertFalse(failure_is_self_detecting("ai_art_identification"))
+
+    def test_the_label_alone_does_not_admit_a_name(self):
+        allowed, why = may_read("ai_art_identification", "name")
+        self.assertFalse(allowed)
+        self.assertIn("not a licence", why)
+        self.assertIn("measured", why)
+
+    def test_zero_abstentions_is_the_red_flag_not_the_success(self):
+        """A One Piece set is not all Luffy and Zoro. Recognising every card
+        in it is the signature of the failure this profile bounds."""
+        found = abstention_is_credible([{"outcome": "agrees"}] * 16)
+        self.assertFalse(found["credible"])
+        self.assertEqual(found["abstentions"], 0)
+        self.assertIn("ZERO abstentions", found["why"])
+        self.assertIn("not as a clean sweep", found["why"])
+
+    def test_a_batch_with_abstentions_is_credible(self):
+        found = abstention_is_credible(
+            [{"outcome": "agrees"}] * 13 + [{"outcome": "abstains"}] * 3)
+        self.assertTrue(found["credible"])
+        self.assertAlmostEqual(found["rate"], 3 / 16)
+
+    def test_a_rate_below_the_floor_is_refused(self):
+        found = abstention_is_credible(
+            [{"outcome": "agrees"}] * 99 + [{"outcome": "abstains"}])
+        self.assertFalse(found["credible"])
+        self.assertIn("too rarely", found["why"])
+
+    def test_no_calls_is_unmeasured_not_clean(self):
+        found = abstention_is_credible([])
+        self.assertFalse(found["credible"])
+        self.assertIn("nothing was measured", found["why"])
+
+
+class WhatAnArtCallDoesToTheRow(unittest.TestCase):
+
+    def test_agreement_admits_the_name(self):
+        self.assertEqual(art_call_outcome("Roronoa Zoro", "Roronoa Zoro"),
+                         "agrees")
+        allowed, _ = art_call_admits_a_name(
+            {"outcome": "agrees", "committed_before_checksum": True})
+        self.assertTrue(allowed)
+
+    def test_spelling_differences_are_not_disagreements(self):
+        """The claim being corroborated is WHICH CHARACTER, not which
+        orthography."""
+        self.assertEqual(art_call_outcome("Monkey D. Luffy",
+                                          "Monkey.D.Luffy"), "agrees")
+
+    def test_disagreement_blocks_the_row_rather_than_picking_a_side(self):
+        self.assertEqual(art_call_outcome("Monkey D. Luffy", "Roronoa Zoro"),
+                         "disagrees")
+        allowed, why = art_call_admits_a_name({"outcome": "disagrees"})
+        self.assertFalse(allowed)
+        self.assertIn("BLOCKED", why)
+        self.assertIn("not a vote to break", why)
+
+    def test_abstention_costs_nothing_and_is_not_discouraged(self):
+        self.assertEqual(art_call_outcome(None, "Roronoa Zoro"), "abstains")
+        self.assertEqual(art_call_outcome("", "Roronoa Zoro"), "abstains")
+        allowed, why = art_call_admits_a_name({"outcome": "abstains"})
+        self.assertFalse(allowed)
+        self.assertIn("name-absent", why)
+        self.assertIn("never be discouraged", why)
+
+    def test_a_missing_documentary_name_is_a_disagreement_not_an_agreement(self):
+        """Nothing to agree WITH is not agreement."""
+        self.assertEqual(art_call_outcome("Roronoa Zoro", None), "disagrees")

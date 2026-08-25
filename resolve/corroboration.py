@@ -190,6 +190,47 @@ CHECKSUM = {
     },
 }
 
+#: WHAT MUST BE WITHHELD FOR AN ART CALL TO BE INDEPENDENT.
+#:
+#: Blind to the NUMBER is not enough. The printed Simplified Chinese name is a
+#: PHONETIC TRANSLITERATION of the character's name -- 索隆 is Suo-long is
+#: Zoro -- so it leaks the answer to a reader who cannot read the script
+#: reliably but can read it well enough to be led. That is the trap: the same
+#: unreliability that disqualifies the glyph channel does NOT prevent the
+#: glyphs from anchoring the art call.
+ART_CALL_BLINDNESS = {
+    "withhold": ("number", "card_uid", "set_code", "printed_name",
+                 "documentary_name", "note"),
+    "the_one_that_is_easy_to_miss": {
+        "field": "printed_name",
+        "why": "A Simplified Chinese card name is a phonetic transliteration. "
+               "A partial read of it -- which is all this reader is credited "
+               "with -- still carries the answer. Withholding the number and "
+               "showing the name would leave the channel reading the answer "
+               "off the card in the script we established it reads badly.",
+    },
+    "show": ("the card image, and nothing else",),
+    "enforced_as": "SEQUENCE, NOT INTENTION. The art calls are recorded and "
+                   "COMMITTED before the checksum is run, so the git history "
+                   "is the evidence of ordering. A call whose commit does not "
+                   "predate the checksum is not blind, whatever anyone "
+                   "remembers.",
+}
+
+#: What an art call can produce, and what each outcome does to the row.
+ART_CALL_OUTCOMES = {
+    "agrees": "The character named from the picture matches the documentary "
+              "name for the transcribed number. The Latin name is now "
+              "INDEPENDENTLY attested and the detector is live on the row.",
+    "disagrees": "Either the number was misread or the call was wrong. The "
+                 "row is BLOCKED -- not admitted with either name -- until it "
+                 "is resolved. A disagreement is the instrument working, not "
+                 "a vote to break.",
+    "abstains": "No name is recorded and the row lands identity-complete and "
+                "name-absent, exactly as it would have without this channel. "
+                "Abstention costs nothing and must never be discouraged.",
+}
+
 #: A NAME COPIED FROM THE RECORD IT WILL BE CHECKED AGAINST CANNOT DISAGREE
 #: WITH IT. The fifth instance of this session's defect, and the most
 #: expensive, because the check it disables is the one that has caught three
@@ -447,6 +488,33 @@ READER_PROFILES = {
                                         "Neither is currently available; see "
                                         "NOT_REACHED.",
     },
+    "ai_art_identification": {
+        "what": "A model naming the CHARACTER DEPICTED, from the artwork "
+                "alone. A different channel from reading glyphs: the evidence "
+                "is the picture, not the text.",
+        "failure_mode": "Confusing two visually similar CHARACTERS -- not two "
+                        "similar strokes. Weakest on minor crew, background "
+                        "figures and alternate-art stylisation; worst case is "
+                        "a major character drawn unusually.",
+        "self_detecting": "partial",
+        "why_partial": "Unlike the glyph case, `I do not recognise this one` "
+                       "is available and meaningful. But PARTIAL IS THE "
+                       "DANGEROUS MIDDLE: the occasions when the abstention "
+                       "fails to fire are exactly the confident-substitution "
+                       "occasions. It is usable only where the abstention is "
+                       "MEASURED rather than asserted -- see "
+                       "`abstention_is_credible`.",
+        "independent_of": "Bandai's record. The identification comes from the "
+                          "picture, so a CN-S row named this way CAN disagree "
+                          "with the EN or JP row at that number -- which is "
+                          "what makes the detector live again.",
+        "also_checks_the_number": "If the art call disagrees with the "
+                                  "documentary name for the transcribed "
+                                  "number, either the number was misread or "
+                                  "the call was wrong. A finding either way, "
+                                  "on the field that otherwise has one "
+                                  "channel.",
+    },
     "ai_from_image": {
         "what": "A model reading glyphs off card artwork.",
         "failure_mode": "CONFIDENT SUBSTITUTION of a visually similar "
@@ -472,6 +540,85 @@ READER_PROFILES = {
 UNCHECKSUMMED_FIELDS = ("name",)
 
 
+#: Below this, a run of art calls is claiming a recognition rate the weak
+#: cases do not support. NOT a quality target -- a FLOOR ON HONESTY. A batch
+#: of One Piece cards contains minor crew and background figures, and a reader
+#: that recognised every one of them recognised some it could not.
+MIN_CREDIBLE_ABSTENTION = 0.05
+
+
+def abstention_is_credible(calls):
+    """Did the partial abstention actually fire?
+
+    `self_detecting: partial` is worth nothing as a label. It is worth
+    something as a MEASUREMENT, and this is the measurement: a reader claiming
+    partial self-detection must be seen abstaining, on a set that contains
+    cases it should abstain on.
+
+    ZERO ABSTENTIONS IS THE RED FLAG, not the success. A set of One Piece
+    cards is not all Luffy and Zoro; recognising every card in it is the
+    signature of confident substitution, which is the failure this profile
+    exists to bound.
+    """
+    total = len(calls)
+    if not total:
+        return {"credible": False, "calls": 0, "abstentions": 0, "rate": None,
+                "why": "no calls were made, so nothing was measured"}
+    abstained = sum(1 for call in calls if call.get("outcome") == "abstains")
+    rate = abstained / total
+    if abstained == 0:
+        return {"credible": False, "calls": total, "abstentions": 0,
+                "rate": 0.0,
+                "why": "ZERO abstentions across the batch. A reader claiming "
+                       "partial self-detection that never abstained did not "
+                       "exercise the property it is credited with -- and a "
+                       "One Piece set is not all major characters. Treat the "
+                       "run as unmeasured, not as a clean sweep."}
+    if rate < MIN_CREDIBLE_ABSTENTION:
+        return {"credible": False, "calls": total, "abstentions": abstained,
+                "rate": rate,
+                "why": f"abstention rate {rate:.1%} is below "
+                       f"{MIN_CREDIBLE_ABSTENTION:.0%}; the abstention fired "
+                       "too rarely to be evidence that it works"}
+    return {"credible": True, "calls": total, "abstentions": abstained,
+            "rate": rate, "why": None}
+
+
+def art_call_outcome(named_character, documentary_name, normalise=None):
+    """agrees / disagrees / abstains, from one art call.
+
+    `named_character` is what the picture was called; None or empty means the
+    reader abstained. `documentary_name` is what the record says for the
+    TRANSCRIBED NUMBER -- consulted only after the call was committed.
+    """
+    if not named_character:
+        return "abstains"
+    if not documentary_name:
+        return "disagrees"
+    clean = normalise or (lambda text: " ".join(
+        str(text).lower().replace(".", " ").replace("-", " ").split()))
+    return ("agrees" if clean(named_character) == clean(documentary_name)
+            else "disagrees")
+
+
+def art_call_admits_a_name(call):
+    """May this row carry a Latin name on the strength of its art call?
+
+    Only on `agrees`, and only when the call was committed BEFORE the checksum
+    ran. A disagreement blocks the row rather than choosing a side; an
+    abstention leaves it name-absent, which costs nothing.
+    """
+    if call.get("outcome") != "agrees":
+        return False, ART_CALL_OUTCOMES.get(call.get("outcome"),
+                                            "unknown art call outcome")
+    if not call.get("committed_before_checksum"):
+        return False, ("the art call is not evidenced as blind: its commit "
+                       "does not predate the checksum. Ordering is enforced "
+                       "as SEQUENCE, not intention -- what anyone remembers "
+                       "about the order is not the record.")
+    return True, ART_CALL_OUTCOMES["agrees"]
+
+
 def failure_is_self_detecting(reader_profile) -> bool:
     """Can this reader notice its own failure?
 
@@ -480,7 +627,11 @@ def failure_is_self_detecting(reader_profile) -> bool:
     assume the favourable case.
     """
     profile = READER_PROFILES.get(reader_profile)
-    return bool(profile and profile["self_detecting"])
+    # `partial` is NOT True. It is a claim that has to be measured before it
+    # counts, and `may_read` routes it through the art-call protocol rather
+    # than through this predicate. Returning True here would let a partial
+    # reader supply an unchecksummed field on the strength of a label.
+    return bool(profile and profile["self_detecting"] is True)
 
 
 def may_read(reader_profile, field):
@@ -498,6 +649,14 @@ def may_read(reader_profile, field):
                        "one")
     if failure_is_self_detecting(reader_profile):
         return True, "the reader can notice its own failure and abstain"
+    if READER_PROFILES[reader_profile]["self_detecting"] == "partial":
+        return False, (
+            f"{reader_profile!r} claims PARTIAL self-detection, which is not "
+            "a licence -- it is a claim to be measured. A row may carry a "
+            f"{field} from this reader only through the art-call protocol: "
+            "blind ordering evidenced by commit order, an outcome of "
+            "`agrees`, and a batch whose abstention rate shows the "
+            "abstention actually fires. See `art_call_admits_a_name`.")
     if field not in UNCHECKSUMMED_FIELDS:
         return True, (f"{field} is checksummed against the documentary "
                       "record, which catches what this reader cannot")

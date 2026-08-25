@@ -3943,3 +3943,95 @@ number with one row cannot disagree with itself, so the clean result stands on
 
 **239 verified of 250.** One short: `optcg:CN-S` 16, awaiting rows admitted on
 the number alone.
+
+---
+
+## ADR-0050 — Naming the picture, and the transliteration that would have leaked the answer
+
+**Date:** 2026-08-25
+**Status:** Accepted with three tightenings. Additive to ADR-0049; rows still
+land name-absent where this channel abstains.
+
+### Why it is not too soft
+
+The objection to invite was *a model naming cartoon characters is not evidence*.
+It is, and the reason is structural rather than a claim about accuracy: the
+evidence is **the picture, not the text**, so the channel is independent of
+Bandai's record in the way ADR-0049 identified as the whole point. A CN-S row
+named from artwork **can** disagree with the EN or JP row at that number.
+A name copied from the record cannot. That difference is the detector.
+
+It also cross-checks the **number**, which currently has one channel. An art
+call disagreeing with the documentary name for the transcribed number means
+either the number was misread or the call was wrong — a finding either way,
+and the number is the field where a finding is most valuable.
+
+### Tightening 1: blindness must cover the printed name
+
+The proposal made the art call blind to the number. That is not enough, and
+the hole would have voided the channel.
+
+**A Simplified Chinese card name is a phonetic transliteration.** 索隆 is
+*Suǒlóng* is *Zoro*. The same partial read that disqualifies the glyph channel
+— ADR-0048 established this reader gets SC glyphs confidently wrong — is more
+than sufficient to *anchor* an art call. Unreliable is not the same as
+uninformative, and the trap is that a channel disqualified for accuracy can
+still be perfectly adequate for leakage.
+
+So `ART_CALL_BLINDNESS` withholds `number`, `card_uid`, `set_code`,
+`printed_name`, `documentary_name` and `note`. The image is what is shown.
+
+Ordering is enforced as **sequence, not intention**, which the proposal got
+right and which is worth restating because it is the pattern that makes these
+protocols real: the calls are committed *before* the checksum runs, and
+`art_call_admits_a_name` refuses a call whose commit does not predate it. The
+git history is the evidence. What anyone remembers about the order is not.
+
+### Tightening 2: `partial` is a measurement, not a label
+
+`self_detecting: partial` is the dangerous middle, and naming it that way is
+the honest framing: **the occasions when a partial abstention fails to fire
+are exactly the confident-substitution occasions**. A property that works most
+of the time and fails silently on its worst case is not much better than one
+that never works, if nothing measures which case you are in.
+
+So `failure_is_self_detecting` returns **false** for `partial` — it is not a
+licence — and `may_read` routes it through the art-call protocol instead of
+granting it on the strength of the word.
+
+`abstention_is_credible` is the instrument, and its shape matters:
+**zero abstentions across a batch is the red flag, not the success.** A One
+Piece set is not all Luffy and Zoro; it contains minor crew, background
+figures and alternate-art stylisation, which is precisely where this reader
+said it is weakest. A run that recognised every card recognised some it could
+not. Floor at 5%; below it the batch is **unmeasured**, not clean.
+
+That inverts the usual reading of a clean sweep, deliberately. This project
+has spent a session finding checks that could not fail; a recognition rate of
+100% on a task with genuinely hard cases is the same shape.
+
+### Tightening 3: what each outcome does
+
+- **`agrees`** — the Latin name is independently attested, and the detector is
+  live on that row.
+- **`disagrees`** — the row is **blocked**. Not admitted with either name. A
+  disagreement is the instrument working, not a vote to break, and picking a
+  side would discard the finding.
+- **`abstains`** — no name, the row lands exactly as ADR-0049 has it, and
+  **abstention costs nothing and must never be discouraged.** That is written
+  into the outcome table because the pressure to close the last sixteen rows
+  is exactly the pressure that turns an abstention into a guess.
+
+Spelling differences are not disagreements: the claim being corroborated is
+*which character*, not which orthography.
+
+### The conflict worth naming
+
+The reader in this pipeline is the same agent that designed the standard it is
+judged by. The abstention-rate instrument is the mitigation — it is a
+measurement over the output that someone else can run and that the reader
+cannot satisfy by trying harder, only by actually abstaining.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16. The rows land under
+ADR-0049 whatever this channel returns; this only decides whether they land
+with names.

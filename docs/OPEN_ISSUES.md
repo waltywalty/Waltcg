@@ -342,6 +342,54 @@ characters is an independent path to the Latin name, so it restores the
 detector — it just must not hold up the identity rows, and it must not come
 from a reader who cannot check it.
 
+### ACCEPTED — `art_identification` as an independent path to the Latin name
+
+Reading the **artwork** and naming the character is a different channel from
+reading glyphs: the evidence is the picture, not the text. It is therefore
+independent of Bandai's record, so a CN-S row named this way **can** disagree
+with the EN or JP row at that number — which is what makes the detector live
+again on rows admitted by number alone.
+
+It also cross-checks the **number**: an art call disagreeing with the
+documentary name for the transcribed number means either the number was
+misread or the call was wrong, and that is a finding on the field that
+otherwise has one channel.
+
+Accepted with three tightenings.
+
+**1. Blindness must cover the printed name, not just the number.** A
+Simplified Chinese card name is a **phonetic transliteration** — 索隆 is
+*Suǒlóng* is *Zoro*. The same partial read that disqualifies the glyph channel
+is more than enough to anchor an art call. Withholding the number while
+showing the name would leave the "independent" channel reading the answer off
+the card in the script we established it reads badly. `ART_CALL_BLINDNESS`
+withholds `number`, `card_uid`, `set_code`, `printed_name`,
+`documentary_name` and `note`; the image is all that is shown.
+
+Ordering is enforced as **sequence, not intention**: art calls are committed
+before the checksum runs, and `art_call_admits_a_name` refuses a call whose
+commit does not predate it. What anyone remembers about the order is not the
+record.
+
+**2. `partial` is measured, never asserted.** Partial self-detection is the
+dangerous middle — the occasions when the abstention fails to fire are exactly
+the confident-substitution occasions. So `failure_is_self_detecting` returns
+**false** for `partial`, and the label alone admits nothing.
+
+`abstention_is_credible` is the instrument. **Zero abstentions across a batch
+is the red flag, not the success**: a One Piece set contains minor crew and
+background figures, and a reader that recognised every one of them recognised
+some it could not. Floor at 5%; below it the run is *unmeasured*, not clean.
+
+**3. Outcomes.** `agrees` → the Latin name is independently attested and the
+detector is live on the row. `disagrees` → the row is **blocked**, admitted
+with neither name, because a disagreement is the instrument working rather
+than a vote to break. `abstains` → name absent, the row lands exactly as
+option A, and abstention costs nothing and must never be discouraged.
+
+Spelling differences are not disagreements — the claim being corroborated is
+*which character*, not which orthography.
+
 ### The non-native reader profile
 
 `human_nonnative_logographic`, `self_detecting: **False**`. Same failure shape
