@@ -254,10 +254,63 @@ closed later.
    that yields 12 rows instead of 16, the set is 12 and the shortfall stays
    visible in the gate.
 
-Every `physical_card` row must carry `read_by`, `read_on`, `checksum` and
-`name_attestation`. A card in a hand is not re-checkable by anyone else later
-— unlike a URL, nobody can go and look again — so the provenance is written
-down at the time or the row is refused.
+### Two reading methods, one channel
+
+**`direct`** — the holder reads the card. **`photograph`** — the holder
+photographs it and a second person reads the image.
+
+A photograph removes the holder's transcription step on the **name**, which is
+the one field with no checksum, and it is **not** the forbidden pattern: an
+image carries no prior of the reader's to agree with. It does **not** add a
+channel. Same optical evidence, one artifact, one reading, and
+`physical_card` stays `optical` about the name either way. Two people reading
+the same image is still one channel — they share every failure the artifact
+has, and a cropped number is cropped for both. `composes` refuses
+`optical` with `optical`.
+
+**Two roles, recorded separately.** The photographer owns *which card* and
+whether it is legible — wrong copy, cropped number, glare, focus. The reader
+owns *transcription* and nothing else. One field for both would lose the
+distinction that makes recording them worth anything, which is the mistake
+`number_only` was making when it had to mean two things. So `imaged_by` and
+`read_by` are separate fields, and `reading_method` is stated rather than
+inferred from which fields happen to be present.
+
+**The image makes the reading auditable.** The standard says a card in a hand
+is not re-checkable — unlike a URL, nobody can go and look again. A photograph
+changes that, and since a later CN-S catalog source disagreeing is the live
+falsification risk, being able to re-read the glyphs is worth having. That
+strengthens the **provenance**, not the tier: nothing about the composition
+moves.
+
+`image_ref` — a filename or content hash the holder keeps — identifies which
+image was read. **The image itself is never committed**: it is a photograph of
+copyrighted card art, the same redistribution rule provider data lives under.
+A photograph nobody can find again is a card in a hand, and
+`reading_is_re_checkable` returns false for one.
+
+### The back door a photograph opens
+
+The reader cannot make out a character and asks the holder *"is this 阿?"*
+
+**That is the forbidden pattern arriving through the photograph instead of
+through a drafted row.** The holder is now agreeing with a candidate rather
+than reading, and the agreement carries no information. It is short enough to
+walk without noticing, so it is named in `ILLEGIBLE_GLYPH_ROUTE` and closed.
+
+Instead: take a fresh photograph — better light, closer, different angle — and
+read that, or record the field **unresolved**. Asking the holder to read the
+character aloud *without being offered a candidate* is fine; that is a
+reading, not a confirmation. The distinction is whether a candidate was
+supplied before the answer.
+
+### Required provenance
+
+Every `physical_card` row: `reading_method`, `read_by`, `read_on`, `checksum`,
+`name_attestation`. Plus `imaged_by` and `image_ref` when the method is
+`photograph`. A `direct` row claiming an `imaged_by` is refused — nothing was
+photographed, so there is no photographer to hold responsible for the wrong
+copy.
 
 ### What would falsify this
 

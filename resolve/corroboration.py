@@ -312,11 +312,83 @@ PHYSICAL_CARD_PROTOCOL = {
     },
 }
 
-#: Fields a `physical_card` row must carry. A card in a hand is not
-#: re-checkable by anyone else later -- unlike a URL, nobody can go and look
-#: again -- so the provenance has to be written down at the time.
-PHYSICAL_CARD_PROVENANCE = ("read_by", "read_on", "checksum",
-                            "name_attestation")
+#: HOW the card was read. Both are the same channel -- `optical` -- and
+#: neither adds a second one. What differs is where the human steps sit.
+READING_METHODS = {
+    "direct": {
+        "what": "The card's holder reads the printed text off the card.",
+        "roles": ("read_by",),
+        "error_sources": "One person, two steps: choosing the copy and "
+                         "transcribing its glyphs.",
+        "re_checkable": False,
+        "why_not": "Nobody can go and look again. Unlike a URL, the evidence "
+                   "is a physical object in one person's hands at one moment.",
+    },
+    "photograph": {
+        "what": "The holder photographs the card; a second person reads the "
+                "printed text off the image.",
+        "roles": ("imaged_by", "read_by"),
+        "error_sources": "TWO PEOPLE, DIFFERENT FAILURES. The photographer "
+                         "owns WHICH CARD and whether it is legible -- wrong "
+                         "copy, cropped number, glare, focus. The reader owns "
+                         "TRANSCRIPTION and nothing else. Recording one name "
+                         "for both would lose the distinction, which is the "
+                         "mistake the per-field table exists to avoid.",
+        "re_checkable": True,
+        "why": "The image is an ARTIFACT. The reading can be audited after "
+               "the fact, which a card in a hand cannot be. That strengthens "
+               "the PROVENANCE. It does not raise the tier -- it is the same "
+               "optical channel, one artifact, one reading.",
+    },
+}
+
+#: A photograph is not the forbidden pattern -- it carries no prior of the
+#: reader's to agree with. But it opens a NEW ROUTE BACK TO IT, and the route
+#: is short enough to walk without noticing.
+ILLEGIBLE_GLYPH_ROUTE = {
+    "the_temptation": "The reader cannot make out a character and asks the "
+                      "holder `is this 阿?`",
+    "why_it_is_forbidden": "That is a confirmation against a prior, arriving "
+                           "through the photograph instead of through a "
+                           "drafted row. The holder is now agreeing with a "
+                           "candidate rather than reading, and the agreement "
+                           "carries no information -- identical to the "
+                           "drafted-row case the protocol already forbids.",
+    "what_to_do_instead": ("take a fresh photograph -- better light, closer, "
+                           "different angle -- and read that, or record the "
+                           "field UNRESOLVED. Asking the holder to read the "
+                           "character aloud WITHOUT being offered a candidate "
+                           "is also fine; that is a reading, not a "
+                           "confirmation."),
+}
+
+#: Two people reading the same card optically is still ONE channel. Recorded
+#: when it happens, because it lowers the transcription error rate, but it
+#: does NOT promote the field -- `composes` refuses optical with optical.
+SECOND_OPTICAL_READING = {
+    "raises_the_tier": False,
+    "why": "Two eyes on one artifact share every failure mode that comes "
+           "from the artifact -- a cropped number is cropped for both. "
+           "Independence has to come from a different CHANNEL, not a second "
+           "pass down the same one.",
+    "worth_recording_anyway": "It lowers the practical transcription error "
+                              "rate, and a disagreement between two readers "
+                              "is a finding worth keeping.",
+}
+
+#: Fields every `physical_card` row must carry, whatever the method.
+PHYSICAL_CARD_PROVENANCE = ("reading_method", "read_by", "read_on",
+                            "checksum", "name_attestation")
+#: Extra fields required per method.
+METHOD_PROVENANCE = {
+    "direct": (),
+    # `image_ref` identifies WHICH image was read -- a filename or a content
+    # hash the holder keeps. THE IMAGE ITSELF IS NEVER COMMITTED: it is a
+    # photograph of copyrighted card art, which is the same redistribution
+    # rule the provider data lives under. The reference is what makes the
+    # reading auditable without putting the artwork in a public repository.
+    "photograph": ("imaged_by", "image_ref"),
+}
 
 
 def physical_card_row_is_well_formed(row):
@@ -328,9 +400,32 @@ def physical_card_row_is_well_formed(row):
     for field in PHYSICAL_CARD_PROVENANCE:
         if not row.get(field):
             problems.append(f"missing {field!r}")
+    method = row.get("reading_method")
+    if method is not None and method not in READING_METHODS:
+        problems.append(f"unknown reading_method {method!r}")
+    for field in METHOD_PROVENANCE.get(method, ()):
+        if not row.get(field):
+            problems.append(f"missing {field!r}, required when "
+                            f"reading_method is {method!r}")
+    if method == "direct" and row.get("imaged_by"):
+        problems.append("`imaged_by` on a `direct` reading: nothing was "
+                        "photographed, so there is no photographer to blame "
+                        "for the wrong copy")
     if row.get("checksum") not in (None, *CHECKSUM):
         problems.append(f"unknown checksum {row['checksum']!r}")
     if row.get("name_attestation") not in (None, "optical_only", "full"):
         problems.append(f"unknown name_attestation "
                         f"{row['name_attestation']!r}")
     return not problems, problems
+
+
+def reading_is_re_checkable(row):
+    """Can anyone go back and look at what was read?
+
+    True only for a photograph WITH a reference identifying which image. A
+    photograph nobody can find again is a card in a hand.
+    """
+    method = READING_METHODS.get(row.get("reading_method"))
+    if not method or not method["re_checkable"]:
+        return False
+    return bool(row.get("image_ref"))

@@ -3655,3 +3655,104 @@ tag, and the unreachable branch.
 
 **239 verified of 250.** One short: `optcg:CN-S` 16, awaiting rows collected
 under this standard.
+
+---
+
+## ADR-0047 — A photograph is one channel with two hands on it
+
+**Date:** 2026-08-25
+**Status:** Accepted. Extends ADR-0046's pre-registration before any row was
+collected under it.
+
+### The question
+
+Walton photographs the card; I read the characters off the image. Still
+`optical_only`? Who is `read_by`?
+
+### The three claims, all correct
+
+**Still one channel.** Same optical evidence, one artifact, one reading.
+`physical_card` stays `optical` about the name and the number however the
+glyphs reached the reader. Nothing about the composition moves.
+
+**It removes a transcription step on the one field with no checksum.** The
+number is checksummed against Bandai's record, so a slip there is already
+caught. The **name** has no second channel — there is no Simplified Chinese
+catalog source — so removing a human hop on the name is exactly where the gain
+is, and it is a real one.
+
+**It is not the forbidden pattern.** The prohibition is on *confirmation
+against a prior*. A photograph carries no prior of the reader's to agree with;
+it is a fresh artifact. Correct, and the reasoning generalises: what makes the
+drafted-row case worthless is that the answer was supplied before the
+question.
+
+### The answer: both, in two fields
+
+Not one field holding two names. **The photographer and the reader fail
+differently, and they fail on different things.**
+
+- **`imaged_by`** owns *which card* — the wrong copy off a stack, a cropped
+  number, glare, focus. That is a **selection and legibility** error, and it
+  can make the whole row about a different card.
+- **`read_by`** owns *transcription* and nothing else — glyph to text.
+
+Collapsing them into `read_by` would record two error sources under one name
+and lose which one to look at when a row turns out wrong. That is precisely
+the mistake `number_only` was making when it had to mean both "attests the
+number" and "weak about the number", and it is the reason ADR-0046 moved to
+per-field attestation in the first place. The same argument applies to roles.
+
+`reading_method` is stated explicitly rather than inferred from which fields
+are present — absent means unknown, so which method was used has to be
+declared, not deduced. A `direct` row carrying an `imaged_by` is refused:
+nothing was photographed, so there is no photographer to hold responsible.
+
+### What the photograph changes that was not asked about
+
+**It makes the reading auditable.** ADR-0046 states that a card in a hand is
+not re-checkable — unlike a URL, nobody can go and look again — and treats
+that as the reason provenance must be written down at the time. A photograph
+undoes that limitation. Given that the registered falsification condition is
+*a Simplified Chinese catalog source appearing later and disagreeing*, being
+able to go back and re-read the glyphs is worth having.
+
+This strengthens the **provenance**, not the tier. `image_ref` — a filename or
+content hash — identifies which image was read, and
+`reading_is_re_checkable` returns false without it, because a photograph
+nobody can find again is a card in a hand.
+
+**The image itself is never committed.** It is a photograph of copyrighted
+card art, which is the same redistribution rule provider data lives under. The
+reference is what makes the reading auditable without putting the artwork in a
+public repository.
+
+### The back door, which is the part worth catching
+
+A photograph is not the forbidden pattern, but it **opens a new route back to
+it**, and the route is short enough to walk without noticing:
+
+> The reader cannot make out a character and asks the holder *"is this 阿?"*
+
+That is a confirmation against a prior arriving through the photograph instead
+of through a drafted row. The holder is now agreeing with a candidate rather
+than reading, and the agreement carries no information — identical in kind to
+the case the protocol already forbids, and harder to spot because it feels
+like diligence.
+
+Named in `ILLEGIBLE_GLYPH_ROUTE` and closed. The permitted moves: take a fresh
+photograph and read that, or record the field **unresolved**. Asking the
+holder to read the character aloud *without being offered a candidate* is
+fine — that is a reading. **The distinction is whether a candidate was
+supplied before the answer**, and it is the same line the drafted-row rule
+draws.
+
+### Also recorded
+
+Two people reading the same image is still one channel and does not promote
+the field — they share every failure the artifact has, and a cropped number is
+cropped for both. Worth recording when it happens, because it lowers the
+practical error rate and a disagreement between two readers is a finding, but
+`composes` refuses `optical` with `optical` and that is deliberate.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16, awaiting rows.
