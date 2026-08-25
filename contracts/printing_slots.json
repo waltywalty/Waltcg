@@ -4,23 +4,47 @@
   "_ground_truth_keeps_semantic_tokens": "`manga_rare`, never `_p4`. A positional token would make the identity scheme catalog-derived, which is what the labelled set exists to avoid.",
   "_slot_vocabulary_is_evidenced_not_assumed": {
     "claim": "Limitless's `?v=N` and apitcg's `_pN` are the same slot vocabulary.",
-    "evidence": "The image served on `?v=2` of OP01-120 is `OP01-120_p2_EN.webp`. The asset URL carries the suffix, so the binding is observed rather than inferred from the order the two sources happen to list printings in.",
-    "observed": "2026-08-25, live fetch",
-    "not_claimed": "That an image filename with NO `_pN` means the base printing. That is a convention we hold about apitcg's naming, and `image_slot` reports such a page as slot None with the filename attached rather than as slot 0."
+    "confidence": "n=1. CONFIRMED FOR EXACTLY ONE PAIRING -- `?v=2` serving `OP01-120_p2_EN.webp` -- plus base/no-suffix. One pairing is one observation of the mapping, not the mapping.",
+    "evidence": "The asset URL carries the suffix, so the binding is observed rather than inferred from the order two sources happen to list printings in.",
+    "observed": "2026-08-25, live fetch, one card",
+    "how_it_is_used": "The adapter RE-CONFIRMS the binding per card from the image filename (`slot_binding_evidence`) rather than assuming it, and every run reports confirmations and contradictions. A card where it fails is evidence ABOUT THE MAPPING, not about that card.",
+    "not_claimed": "That an image filename with NO `_pN` means the base printing. That is a convention we hold about apitcg's naming; `image_slot` reports such a page as slot None with the filename attached."
   },
   "_disagreements": [
     {
       "card": "optcg:op01:OP01-120",
-      "status": "OPEN -- recorded, deliberately not reconciled",
+      "status": "OPEN -- recorded, deliberately not reconciled. The fetch that would settle it has been attempted and did not land.",
       "limitless_says": {
         "printing_count": 5,
         "products": 3,
         "manifest": [
-          {"slot": null, "label": "Romance Dawn", "product": "op01", "treatment": "Secret Rare"},
-          {"slot": 1, "label": "Romance Dawn aa", "product": "op01"},
-          {"slot": 2, "label": "Romance Dawn manga", "product": "op01", "treatment": "Manga Art"},
-          {"slot": 3, "label": "Prize Cards serial", "product": "Championship 2023 prize card -- a THIRD product, previously unknown to this project"},
-          {"slot": 4, "label": "One Piece The Best aa", "product": "prb01"}
+          {
+            "slot": null,
+            "label": "Romance Dawn",
+            "product": "op01",
+            "treatment": "Secret Rare"
+          },
+          {
+            "slot": 1,
+            "label": "Romance Dawn aa",
+            "product": "op01"
+          },
+          {
+            "slot": 2,
+            "label": "Romance Dawn manga",
+            "product": "op01",
+            "treatment": "Manga Art"
+          },
+          {
+            "slot": 3,
+            "label": "Prize Cards serial",
+            "product": "UNKNOWN -- Championship 2023 Prize Cards serial per the print-table label, but no page has attested a product slug for it. The `?v=3` fetch returned the `?v=2` page and was refused."
+          },
+          {
+            "slot": 4,
+            "label": "One Piece The Best aa",
+            "product": "prb01"
+          }
         ],
         "observed": "2026-08-25, live fetch of the print table"
       },
@@ -32,8 +56,19 @@
       },
       "the_disagreement": "apitcg's grouping puts _p3 in prb01; Limitless's print table puts slot 3 in a Prize Cards product that this project did not know existed. The two also disagree on the count -- Limitless lists five printings, the apitcg-derived model assumed six.",
       "not_reconciled_because": "Both readings cannot be right and neither is checkable from here. Averaging them, or quietly preferring the newer one, would produce a number that no source states. The disagreement is the finding; it is recorded until a source can settle it.",
-      "what_would_settle_it": "The `?v=3` page's own product link, which names its product in the HREF slug the way every other variant page does. One fetch, on the runner."
+      "what_would_settle_it": "The `?v=3` page's own product link. ATTEMPTED 2026-08-25 and it did not arrive -- the request returned the `?v=2` page. The runner may get further; if it also lands on `?v=2`, THAT IS THE FINDING, and it will be reported as a slot mismatch rather than as an absent product."
     }
   ],
-  "entries": []
+  "entries": [],
+  "_the_response_is_not_assumed_to_be_the_request": {
+    "observed": "2026-08-25 -- a request for `?v=3` on OP01-120 returned the `?v=2` page: image `_p2`, body `Romance Dawn (OP01) Manga Art`, and `Romance Dawn manga` unlinked in the print table.",
+    "cause": "Unknown, and it does not matter. A site redirect and de-duping in the fetch path are indistinguishable from outside, and the guard is the same either way.",
+    "guard": "`verify_slot` parses the slot FROM THE PAGE and compares it to what was requested; a mismatch is recorded as unresolved and never credited to the slot that was asked for. A fetch that silently returns a neighbour is exactly how a wrong pair enters this table with everything green.",
+    "signals": [
+      "The gap in the `?v=` run. Every row but the current printing carries a link, so on `?v=2` the links run 1, 3, 4 and the missing integer names the page. Assumes nothing about markup. ABSTAINS on a complete run, which is equally the base page and the `?v=N+1` page.",
+      "The image filename suffix (`_pN`, absent for base).",
+      "The page's own canonical `?v=`. Weakest -- the tag's presence is assumed rather than observed."
+    ],
+    "signals_are_compared_never_merged": "Where two speak and disagree the answer is None with the disagreement attached. A page that cannot say which printing it is must not be recorded as any printing."
+  }
 }

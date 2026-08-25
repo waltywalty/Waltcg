@@ -3238,3 +3238,111 @@ in no slug, left unresolved.
 `pkmn:EN` 2. The five PRB reprint-side rows are still unminted, so
 `same_number_new_set_new_variant` still has no verified example — but its
 blocker is now a runner pass rather than an open question.
+
+---
+
+## ADR-0043 — Requested is not observed, and n=1 is not a mapping
+
+**Date:** 2026-08-25
+**Status:** Accepted. Corrects two claims in ADR-0042 and adds the guard the
+fetch exposed.
+
+### The fetch that answered the wrong question
+
+`?v=3` was requested for OP01-120 to settle the Prize Cards product. What came
+back was **the `?v=2` page**: image `_p2`, body `Romance Dawn (OP01) Manga
+Art`, and `Romance Dawn manga` unlinked in the print table. Site redirect, or
+de-duping somewhere in the fetch path — **indistinguishable from outside**.
+
+It does not need to be distinguished, and that is the point worth keeping:
+the guard is the same either way, so diagnosing the cause is optional and
+comparing the response to the request is not.
+
+This is the failure mode that does not announce itself. Ask for slot 3, get
+slot 2's product, write `(3, op01, "Manga Art")` into `printing_slots.json`,
+and every check downstream is green over a pair that is simply false. It is
+the same shape as the two failures this module already exists to prevent —
+attribution derived from something other than the thing being attributed — and
+it arrives through the source we trust rather than through a marketplace.
+
+### The guard: three signals, compared and never merged
+
+`verify_slot` parses the slot **from the page** and refuses on mismatch.
+
+1. **The gap in the `?v=` run.** Every row but the current printing carries a
+   link to go there, so on `?v=2` the links run 1, 3, 4 — and the missing
+   integer names the page.
+2. **The image filename suffix** (`_pN`, absent for base).
+3. **The page's own canonical `?v=`.** Weakest of the three; the tag's
+   presence is assumed rather than observed, so it never runs alone.
+
+Signal 1 is deliberately read as *a missing integer* rather than *which
+element lacks an anchor*, and that choice comes straight from the correction
+below: the page arrives as rendered markdown down one path and raw HTML down
+another, and a rule about markup has to be right about both. A gap in a
+sequence is the same in either.
+
+**Two abstentions matter more than the votes.** A complete run 1..N cannot
+discriminate — it is equally the base page (base has no `?v=` of its own to
+omit) and the `?v=N+1` page (nothing past the end is missing from 1..N) — so
+signal 1 returns nothing there rather than guessing "base". A signal that
+cannot tell two printings apart must not pick one, because it would then
+out-vote the signal that can. And where two signals speak and disagree, the
+result is *none* with the disagreement attached: a page that cannot say which
+printing it is must not be recorded as any printing.
+
+The follow-up fetch is bounded the same way it was before — only slots whose
+product no page has attested are requested — and a mismatched response leaves
+the entry unresolved with `slot_mismatch: {requested, observed}` rather than
+taking the answering page's product.
+
+### Two claims downgraded
+
+**`?v=N` ↔ `_pN` is confirmed at n=1.** One pairing on one card (`?v=2` /
+`_p2`), plus base/no-suffix. ADR-0042 stated it as established; it is a single
+observation. Rather than delete it, the adapter now **re-confirms it per card**
+from the image filename and every run reports confirmations against
+contradictions. A card where it fails is **evidence about the mapping, not
+about that card** — that sentence is in the report text, because the tempting
+reading of one contradiction is "this card is odd", and that reading is how a
+mapping survives its own counterexamples.
+
+**The page shape was never observed.** What reached the parser was
+`web_fetch`'s *rendered markdown*, not Limitless's HTML. The slug structure and
+the image filenames are real; **the anchor nesting is not**. So both
+serialisations parse, nothing depends on which arrived, and a test asserts the
+two produce identical readings. ADR-0042 said the fixtures "carry the observed
+shapes" — half right, and the half that was wrong is the half I had already
+been burned by.
+
+### The counting bug that the guard exposed
+
+A page omits its own `?v=` row, so the links always undercount by one. Adding
+the current printing back requires knowing which one it is — so
+`count_printings` reports a **lower bound with `printing_count_exact: false`**
+where the signals cannot place the page, instead of a number that reads as a
+total. Five printings is now derivable from the base page, from `?v=2` and
+from `?v=4` independently.
+
+### S2 stays open
+
+The Prize Cards product is **still unattested**: its label names it, no page
+has served a slug for it, and the fetch that would have was the one that came
+back wrong. Left open rather than closed on a plausible reading.
+
+If the runner also lands on `?v=2`, **that is the finding** — and it will be
+reported as a slot mismatch, not as an absent product. The two call for
+different next steps, and collapsing them would turn a fetch-path problem into
+a permanent "this product cannot be sourced".
+
+### What this run cost, and what it bought
+
+Three sessions on one card. What it bought is not the answer to OP01-120 —
+that answer was `op01`, which is where the row already sat. It bought the
+three guards that made the wrong answers refusable: product from the slug and
+not the title, card-level reprint line labelled as such, and now response
+compared to request. Each of those was found by a fetch, and none of them was
+found by a test.
+
+**Gate unchanged at 237 verified of 250.** Shorts: `optcg:CN-S` 16,
+`pkmn:EN` 2.

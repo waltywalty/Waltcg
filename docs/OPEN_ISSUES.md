@@ -183,44 +183,81 @@ discriminate, and it was.
 
 ## S2 — apitcg and Limitless disagree on OP01-120's printings
 
+**Still open. The fetch that would settle it was attempted and did not land.**
+
 Limitless's print table lists **five printings across three products**:
 `op01` base, `op01` alt art, `op01` manga, a **Championship 2023 Prize Cards
 serial** — a third product this project did not know existed — and `prb01`
 alt art.
 
-This project's previous model, derived from apitcg's filename grouping, was
-six printings across two products: `op01` base/`_p1`/`_p2` and `prb01`
-`_p3`/`_p4`/`_p5`. **They disagree on `_p3`**, which Limitless puts in Prize
-Cards, and on the count.
+The previous model, derived from apitcg's filename grouping, was six printings
+across two products (`op01` base/`_p1`/`_p2`, `prb01` `_p3`/`_p4`/`_p5`).
+**They disagree on `_p3`** and on the count.
 
-**Not reconciled.** Both cannot be right and neither is checkable from here;
-averaging them or quietly preferring the newer source produces a number no
-source states. Recorded in `contracts/printing_slots.json` under
-`_disagreements`. Settled by one fetch of the `?v=3` page, which names its own
-product in its HREF slug the way every other variant page does.
+**Not reconciled**, and the Prize Cards product is *still unattested*: the
+label names it, no page has served a product slug for it. A request for
+`?v=3` came back as the **`?v=2` page** — image `_p2`, body
+`Romance Dawn (OP01) Manga Art`, `Romance Dawn manga` unlinked in the print
+table. Refused rather than credited to slot 3.
 
-S2 rather than S1: no ground-truth row currently claims a Prize Cards or
-`prb01` printing of OP01-120, so nothing wrong is being counted. It becomes S1
-the moment one is minted.
+The runner may or may not get further. **If it also lands on `?v=2`, that is
+the finding**, and it will be reported as a slot mismatch rather than as an
+absent product — which is the distinction that matters, because "no product
+on the page" and "a different page answered" call for different next steps.
 
-## RESOLVED — OP01-014 / OP01-015, and pass 4 is the one that is wrong
+S2 rather than S1: no ground-truth row claims a Prize Cards or `prb01`
+printing of OP01-120, so nothing wrong is being counted. It becomes S1 the
+moment one is minted.
 
-Pass 4 claimed `OP01-014` = Tony Tony.Chopper and `OP01-015` = Jinbe. Bandai's
-list has **`OP01-014` = Jinbe and `OP01-015` = Tony Tony.Chopper**. The existing
-verified EN row is correct; pass 4 has the pair swapped — the same failure
-shape as batch 2's OP01-002/003.
+## S2 — a fetch can return a printing other than the one requested
 
-No existing row corrected. The three quarantined rows were never ingested as
-claimed. Correct rows for OP01-014 EN/JP and OP01-015 JP were minted afresh in
-batch 5 from the pair that settled the dispute — Bandai official plus Limitless
-— rather than from apitcg, which would have made them catalog-derived. All
-three landed `verified`, and `optcg:JP` cleared its target at 36/35 on them.
+Requesting `?v=3` for OP01-120 returned the `?v=2` page. Site redirect or
+de-duping in the fetch path — **indistinguishable from outside, and it does
+not need to be distinguished**, because the guard is identical either way.
 
-## RESOLVED — every required kind now has a verified example
+This is the failure mode that would not have announced itself. A fetch that
+silently returns a neighbour puts a wrong `(slot, product)` pair into
+`printing_slots.json` with every check green, and everything downstream reads
+it as sourced.
 
-`reprint` 24 verified, `promo_vs_set` 13, `same_number_different_product` 8.
-Batch 2 filled both gaps. Verified rows carrying a hard case: **116 of 60** —
-the hard-case gate passes.
+**Guarded, not assumed away.** `verify_slot` parses the slot *from the page*
+and compares it to what was requested. Three signals, compared and never
+merged:
+
+1. **The gap in the `?v=` run.** Every row but the current printing carries a
+   link, so on `?v=2` the links run 1, 3, 4 and the missing integer names the
+   page. Assumes nothing about markup — which matters, because the page
+   reaches the parser as rendered markdown down one path and raw HTML down
+   another, and a rule about *which element lacks an anchor* has to be right
+   about both. A missing integer is the same in either. **Abstains on a
+   complete run**, which is equally the base page and the `?v=N+1` page.
+2. **The image filename suffix** (`_pN`, absent for base).
+3. **The page's own canonical `?v=`.** Weakest: the tag's presence is assumed
+   rather than observed.
+
+Where two speak and disagree, the answer is *none* with the disagreement
+attached. A page that cannot say which printing it is must not be recorded as
+any printing.
+
+Open rather than resolved because the cause is unknown and it may recur on any
+card. Every run reports mismatches.
+
+## S3 — the `?v=N` ↔ `_pN` binding is confirmed at n=1
+
+`?v=2` serves `OP01-120_p2_EN.webp`. That is **one pairing on one card**, plus
+base/no-suffix. It was carried into the previous session's write-up as
+established; it is a single observation of the mapping, not the mapping.
+
+**Downgraded and instrumented rather than deleted.** The adapter re-confirms
+the binding per card from the image filename on every page it reads
+(`slot_binding_evidence`), and every run reports confirmations against
+contradictions. A card where it fails is **evidence about the mapping, not
+about that card** — that distinction is in the report text, because the
+tempting reading of a single contradiction is "this card is odd".
+
+S3 because nothing currently depends on the binding holding beyond n=1: the
+slot entries cite the page that attested each product, and the binding is what
+lets `?v=N` be *compared* to `_pN`, not what supplies a product.
 
 ## S3 — tcgdex renumbers the Celebrations Classic Collection
 
