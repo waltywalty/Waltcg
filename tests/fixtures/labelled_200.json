@@ -21,14 +21,13 @@
       "verified"
     ]
   },
-  "_status": "INCOMPLETE -- 237 of 250 verified (288 rows in the pool)",
+  "_status": "INCOMPLETE -- 239 of 250 verified (290 rows in the pool)",
   "_needed": {
-    "have_verified": 234,
-    "rows_in_pool": 285,
-    "short_by": 16,
+    "have_verified": 237,
+    "rows_in_pool": 288,
+    "short_by": 13,
     "short_per_combo": {
       "optcg:CN-S": 16,
-      "optcg:JP": 1,
       "pkmn:EN": 2
     },
     "below_detection_floor": [
@@ -3196,6 +3195,22 @@
       ]
     },
     {
+      "card_uid": "pkmn:sv03.5:002/165:base:EN",
+      "game": "pkmn",
+      "set_code": "sv03.5",
+      "number": "002/165",
+      "variant": "base",
+      "language": "EN",
+      "name": "Ivysaur",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "Beckett SV151 checklist + PokemonWizard set list, both '002/165 Ivysaur Uncommon'; pairs with existing verified sv2a:002/165 JP",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
+    },
+    {
       "card_uid": "pkmn:sv03.5:003/165:base:EN",
       "game": "pkmn",
       "set_code": "sv03.5",
@@ -3223,6 +3238,22 @@
       "confidence": "verified",
       "difficulty_class": "C1",
       "note": "group XL-2",
+      "hard_cases": [
+        "same_art_different_language"
+      ]
+    },
+    {
+      "card_uid": "pkmn:sv03.5:005/165:base:EN",
+      "game": "pkmn",
+      "set_code": "sv03.5",
+      "number": "005/165",
+      "variant": "base",
+      "language": "EN",
+      "name": "Charmeleon",
+      "source": "external_research",
+      "confidence": "verified",
+      "difficulty_class": "C1",
+      "note": "Beckett SV151 checklist + PokemonWizard set list, both '005/165 Charmeleon Uncommon'; pairs with existing verified sv2a:005/165 JP",
       "hard_cases": [
         "same_art_different_language"
       ]

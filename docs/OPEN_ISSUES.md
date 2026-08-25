@@ -257,14 +257,30 @@ Where two speak and disagree, the answer is *none* with the disagreement
 attached. A page that cannot say which printing it is must not be recorded as
 any printing.
 
-**One coupling, stated rather than papered over.** The header self-link may
-share a print row's URL shape exactly — nothing in the URL separates them —
-and left in the table it adds a "printing" labelled with the card's name and
-fills the gap that identifies the page. Self-references are excluded by
-**multiplicity**: the served slot carries several `/cards/{number}` links
-(header plus two language links) where every print row carries one. So signal
-1 depends on that exclusion where the shapes collide. It is never the other
-direction — the self-reference signal does not read the print table.
+**One coupling, permanent and stated rather than papered over.** *Observed
+2026-08-25:* the print rows carry **the same URL shape as the header
+self-link** —
+
+    [Romance Dawn](/cards/OP01-120)
+    [Romance Dawn aa](/cards/OP01-120?v=1)
+    [Prize Cards serial](/cards/OP01-120?v=3)
+
+so nothing in a URL separates "this page" from "go to printing N". Left in the
+table the header link adds a "printing" labelled with the card's *name* and
+refills the gap that identifies the page — which is exactly what happened, and
+it silenced signal 1 on every fixture until it was fixed.
+
+Self-references are excluded by **multiplicity**: the print table omits the
+printing being displayed, so the served slot is carried by the header link and
+the two language links — three times — while every print row carries its slot
+once.
+
+**Signal 1's dependency on that exclusion is permanent, not conditional.** The
+earlier wording ("where the shapes collide") implied a branch for the case
+where they do not; they always do, and that branch has been removed. An
+untaken branch tested only against fixtures is a third thing that cannot fire.
+It is still never the other direction — the self-reference signal does not
+read the print table.
 
 A weak fourth check exists and is deliberately not a signal: **`og:title`
 carries the product NAME** ("Shanks (OP01-120) • Romance Dawn"). A name can
@@ -291,6 +307,21 @@ tempting reading of a single contradiction is "this card is odd".
 S3 because nothing currently depends on the binding holding beyond n=1: the
 slot entries cite the page that attested each product, and the binding is what
 lets `?v=N` be *compared* to `_pN`, not what supplies a product.
+
+## RESOLVED — the Limitless adapter refuses other games at entry
+
+`_SELF_REF` is `[A-Za-z]{2,4}\d{2}-\d{2,4}`. It cannot match `OGN-030` — no
+digits before the dash — or `025/165`, which has no letters at all. That is
+correct for an adapter whose host is `onepiece.limitlesstcg.com`, but it was
+enforced by *nothing*: a Pokémon or Riftbound card would not have failed, it
+would have silently matched no self-reference and come back as a page that
+could not identify itself.
+
+**Same failure family as the canonical tag.** A pattern that can never match
+reads exactly like one that looked and found nothing. Now `refuse_other_games`
+raises `UnsupportedGame` at every entry point — `LimitlessAdapter.card_page`
+and `attest` — before any request is made, and the message names both numbers
+that cannot match and says why.
 
 ## S3 — tcgdex renumbers the Celebrations Classic Collection
 

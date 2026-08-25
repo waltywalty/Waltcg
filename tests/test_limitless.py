@@ -31,7 +31,8 @@ from ingest.limitless import (LimitlessAdapter, attest,  # noqa: E402
                               og_title_product_name,
                               self_reference_slot,
                               slot_binding_evidence, split_label,
-                              verify_slot)
+                              SERVES_GAME, UnsupportedGame,
+                              refuse_other_games, verify_slot)
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "fixtures", "limitless")
@@ -424,8 +425,9 @@ class ThePageSaysWhichPrintingItIs(unittest.TestCase):
         self.assertIn("cannot tell those apart", rows["why"])
 
     def test_several_missing_slots_is_a_page_this_cannot_read(self):
-        thin = V2.replace('<a href="/cards/OP01/120?v=3">Prize Cards serial</a>',
-                          "Prize Cards serial")
+        # Links 3 and 4 only: slots 1 and 2 are both missing from the run.
+        thin = V2.replace('<a href="/cards/OP01-120?v=1">Romance Dawn aa</a>',
+                          "Romance Dawn aa")
         rows = print_table_rows(thin)
         self.assertIsNone(rows["unlinked_slot"])
         self.assertIn("expected exactly one", rows["why"])
@@ -440,9 +442,9 @@ class ThePageSaysWhichPrintingItIs(unittest.TestCase):
         three times: the header card link and the two language links."""
         found = self_reference_slot(V2)
         self.assertEqual(found["slot"], 2)
+        # Three voters: the header link and the two language links. The print
+        # rows are the SAME URL shape and are not among them.
         self.assertEqual(found["count"], 3)
-        self.assertEqual(sorted(r["language"] or "-" for r in found["references"]),
-                         ["-", "en", "jp"])
         self.assertIn("self_reference_links", observed_slot(V2)["voted_by"])
 
     def test_the_self_reference_reports_what_was_served(self):
@@ -527,10 +529,10 @@ class RequestedMustEqualObserved(unittest.TestCase):
         # unlinked in the print table and slot 2 linked again.
         v3 = (V2.replace("_p2_EN.webp", "_p3_EN.webp")
                 .replace("?v=2", "?v=3")
-                .replace('<a href="/cards/OP01/120?v=3">Prize Cards serial</a>',
+                .replace('<a href="/cards/OP01-120?v=3">Prize Cards serial</a>',
                          "Prize Cards serial")
                 .replace("<tr><td>Romance Dawn manga</td></tr>",
-                         '<tr><td><a href="/cards/OP01/120?v=2">'
+                         '<tr><td><a href="/cards/OP01-120?v=2">'
                          'Romance Dawn manga</a></td></tr>'))
         pages = _Pages({("OP01", "OP01-120", None): BASE,
                         ("OP01", "OP01-120", 3): v3})
@@ -595,11 +597,11 @@ class TheAnchorNestingIsNotObserved(unittest.TestCase):
             "![](https://x/OP01-120_p2_EN.webp)\n"
             "[Romance Dawn (OP01) Manga Art](/cards/op01-romance-dawn)\n"
             "This variant has been reprinted in: One Piece The Best (PRB01)\n"
-            "[Romance Dawn](/cards/OP01/120)\n"
-            "[Romance Dawn aa](/cards/OP01/120?v=1)\n"
+            "[Romance Dawn](/cards/OP01-120)\n"
+            "[Romance Dawn aa](/cards/OP01-120?v=1)\n"
             "Romance Dawn manga\n"
-            "[Prize Cards serial](/cards/OP01/120?v=3)\n"
-            "[One Piece The Best aa](/cards/OP01/120?v=4)\n")
+            "[Prize Cards serial](/cards/OP01-120?v=3)\n"
+            "[One Piece The Best aa](/cards/OP01-120?v=4)\n")
         self.assertEqual(product_line(markdown)["set_code"], "op01")
         self.assertEqual(product_line(markdown)["treatment"], "Manga Art")
         self.assertEqual(print_table_rows(markdown)["unlinked_slot"], 2)
@@ -685,10 +687,11 @@ class TheSelfReferenceChecksItself(unittest.TestCase):
         broken = V2.replace('/cards/en/OP01-120?v=2', '/cards/en/OP01-121?v=2')
         self.assertIn("different cards", self_reference_slot(broken)["why"])
 
-    def test_bare_links_abstain_when_print_rows_share_their_shape(self):
-        """If a print row links `/cards/OP01-120?v=1`, nothing in the URL
-        separates it from the header link. The language links stay
-        authoritative and the bare ones stand down."""
+    def test_print_rows_share_the_header_url_shape_and_do_not_vote(self):
+        """OBSERVED: the print rows carry `/cards/OP01-120?v=N`, identical in
+        form to the header link. Nothing in a URL separates them, so the
+        voters are the language links plus the ONE bare link whose slot is
+        pointed at more than once."""
         shared = ('<a href="/cards/OP01-120?v=2">Shanks</a>'
                   '<a href="/cards/en/OP01-120?v=2">EN</a>'
                   '<a href="/cards/jp/OP01-120?v=2">JP</a>'
@@ -696,9 +699,18 @@ class TheSelfReferenceChecksItself(unittest.TestCase):
                   '<a href="/cards/OP01-120?v=3">Prize Cards serial</a>')
         found = self_reference_slot(shared)
         self.assertEqual(found["slot"], 2)
-        self.assertEqual(found["count"], 2)
-        self.assertIn("indistinguishable from print-table rows",
-                      found["dropped"])
+        self.assertEqual(found["count"], 3)
+
+    def test_with_no_language_link_and_no_repeat_nothing_distinguishes(self):
+        """The abstention that replaced the branch: if the page offers neither
+        a language-prefixed link nor a repeated slot, a bare link is
+        indistinguishable from a print row and the signal says so."""
+        lone = '<a href="/cards/OP01-120?v=2">Shanks</a>'
+        found = self_reference_slot(lone)
+        self.assertIsNone(found["slot"])
+        self.assertFalse(found["agreed"])
+        self.assertIn("distinguishes a self-reference from a print row",
+                      found["why"])
 
     def test_the_header_link_is_not_counted_as_a_printing(self):
         """Left in, it adds a printing labelled with the card's name and
@@ -743,3 +755,90 @@ class TheOgTitleCorroboratesAndNeverSupplies(unittest.TestCase):
         self.assertIsNone(product_line(titled))
         self.assertIsNone(parse_variant_page(titled)["set_code"])
 
+
+
+class OtherGamesAreRefusedAtEntry(unittest.TestCase):
+    """`_SELF_REF` is `[A-Za-z]{2,4}\\d{2}-\\d{2,4}`. It cannot match `OGN-030`
+    (no digits before the dash) or `025/165` (no letters at all). That is
+    fine -- the host is onepiece.limitlesstcg.com -- but a pattern that can
+    NEVER match reads exactly like one that looked and found nothing, which is
+    the canonical tag's failure wearing different clothes."""
+
+    def test_the_adapter_declares_its_game(self):
+        self.assertEqual(LimitlessAdapter.game, SERVES_GAME)
+        self.assertEqual(SERVES_GAME, "optcg")
+
+    def test_pokemon_is_refused_by_name(self):
+        with self.assertRaises(UnsupportedGame) as caught:
+            refuse_other_games("pkmn")
+        self.assertIn("serves 'optcg'", str(caught.exception))
+
+    def test_riftbound_is_refused_by_name(self):
+        with self.assertRaises(UnsupportedGame):
+            refuse_other_games("riftbound")
+
+    def test_the_two_numbers_that_cannot_match_are_named_in_the_refusal(self):
+        for number in ("OGN-030", "025/165"):
+            with self.subTest(number=number):
+                with self.assertRaises(UnsupportedGame) as caught:
+                    refuse_other_games(SERVES_GAME, number)
+                self.assertIn("not a One Piece collector number",
+                              str(caught.exception))
+
+    def test_a_one_piece_number_passes(self):
+        for number in ("OP01-120", "EB01-012", "PRB01-002"):
+            with self.subTest(number=number):
+                refuse_other_games(SERVES_GAME, number)
+
+    def test_the_refusal_fires_before_any_request_is_made(self):
+        sent = []
+
+        def transport(url, headers):
+            sent.append(url)
+            return 200, V2.encode("utf-8"), {}
+
+        with tempfile.TemporaryDirectory() as raw:
+            adapter = LimitlessAdapter(raw_root=raw, sleep=lambda _s: None,
+                                       transport=transport,
+                                       monotonic=lambda: 0.0)
+            with self.assertRaises(UnsupportedGame):
+                adapter.card_page("OGN", "OGN-030")
+        self.assertEqual(sent, [], "a request was made for a card this "
+                                   "adapter cannot parse")
+
+    def test_attest_refuses_a_foreign_game_before_fetching(self):
+        pages = _Pages({("OP01", "OP01-120", None): BASE})
+        with self.assertRaises(UnsupportedGame):
+            attest(pages, [("OP01", "OP01-120")], game="pkmn")
+        self.assertEqual(pages.calls, [])
+
+    def test_a_foreign_number_in_the_wanted_list_is_refused(self):
+        pages = _Pages({("OP01", "OP01-120", None): BASE})
+        with self.assertRaises(UnsupportedGame):
+            attest(pages, [("OGN", "OGN-030")])
+
+
+class ThePrintRowShapeCollides(unittest.TestCase):
+    """OBSERVED 2026-08-25: the print rows carry the SAME URL shape as the
+    header self-link. So the multiplicity exclusion is load-bearing on every
+    page, not a precaution against a shape that might collide -- and signal
+    1's dependency on it is permanent."""
+
+    def test_the_fixtures_use_the_observed_shape(self):
+        for name, html in (("base", BASE), ("v2", V2), ("v4", V4)):
+            with self.subTest(page=name):
+                self.assertIn('href="/cards/OP01-120?v=1"', html)
+                self.assertNotIn("/cards/OP01/120", html)
+
+    def test_signal_one_cannot_read_the_table_without_the_exclusion(self):
+        """Without it the header link refills the gap and signal 1 goes
+        quiet -- which is what happened before this was fixed."""
+        self.assertEqual(print_table_rows(V2)["unlinked_slot"], 2)
+        polluted = [r["slot"] for r in print_table(V2)] + [2]
+        self.assertEqual(sorted(polluted), [1, 2, 3, 4])
+
+    def test_all_three_signals_vote_on_the_observed_shape(self):
+        found = observed_slot(V2)
+        self.assertEqual(sorted(found["voted_by"]),
+                         ["image_filename", "self_reference_links",
+                          "unlinked_print_row"])

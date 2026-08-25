@@ -80,8 +80,47 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ingest.base import Adapter, AdapterGaveUp, RateLimited  # noqa: E402
 
 
+class UnsupportedGame(ValueError):
+    """This adapter serves One Piece and only One Piece.
+
+    `_SELF_REF` matches `OP01-120` and cannot match `OGN-030` (no digits
+    before the dash) or `025/165` (no letters at all). That is fine -- the
+    host is `onepiece.limitlesstcg.com` -- but it must be REFUSED AT ENTRY
+    rather than left to fail by not matching, because a pattern that can never
+    match a Riftbound or Pokemon number reads exactly like one that looked and
+    found nothing. Same failure family as the canonical tag that was not
+    there.
+    """
+
+
+#: The only game this adapter serves. Pokemon and Riftbound have their own
+#: Limitless sites with their own number formats; neither is this one.
+SERVES_GAME = "optcg"
+#: The One Piece collector number, which is what `_SELF_REF` is built around.
+_OPTCG_NUMBER = re.compile(r"^[A-Za-z]{2,4}\d{2}-\d{2,4}$")
+
+
+def refuse_other_games(game=SERVES_GAME, number=None):
+    """Raise unless this is a One Piece card. Called at every entry point."""
+    if game != SERVES_GAME:
+        raise UnsupportedGame(
+            f"limitless: this adapter serves {SERVES_GAME!r}, not {game!r}. "
+            "Its URL shapes, its self-reference pattern and its number format "
+            "are all One Piece. A `pkmn` or `riftbound` card would not fail "
+            "here -- it would silently match nothing, which is the failure "
+            "this refusal exists to make loud.")
+    if number is not None and not _OPTCG_NUMBER.match(str(number)):
+        raise UnsupportedGame(
+            f"limitless: {number!r} is not a One Piece collector number "
+            "(expected `OP01-120`). `OGN-030` has no digits before the dash "
+            "and `025/165` has no letters; neither can match the "
+            "self-reference pattern, so neither is asked for.")
+
+
 class LimitlessAdapter(Adapter):
     name = "limitless"
+    #: Declared, so a caller can check rather than discover.
+    game = SERVES_GAME
     key_env = None
     host = "onepiece.limitlesstcg.com"
     # Courtesy: a public fan-run site with no published quota. One request
@@ -142,6 +181,7 @@ class LimitlessAdapter(Adapter):
         unresolved. A fetch that quietly returns a neighbour is exactly how a
         wrong pair enters the table with every check green.
         """
+        refuse_other_games(self.game, number)
         index = str(number).split("-")[-1].lstrip("0") or "0"
         suffix = f"?v={variant}" if variant is not None else ""
         tried = []
@@ -242,20 +282,35 @@ def product_line(page):
     return None
 
 
+#: Sentinel for "this link carries no `?v=`" -- the base printing. Counted
+#: alongside the numbered slots so the header link on a BASE page is
+#: recognised the same way it is on a variant page.
+BASE_SLOT = "base"
+
+
 def _self_reference_slots(page):
     """Slots pointed at by MORE THAN ONE self-referencing link.
 
-    The header card link and the two language links all point at the printing
-    being displayed, so its slot carries several `/cards/{number}` links while
-    every print row carries exactly one. Multiplicity is the discriminator,
-    which matters because the header link may share a print row's URL shape
-    exactly -- nothing else in the URL separates them.
+    THE PRINT ROWS CARRY THE SAME URL SHAPE AS THE HEADER LINK. Observed:
 
-    NOTE THE COUPLING, rather than claiming three independent signals: where
-    the shapes do collide, signal 1 (the gap in the run) depends on this to
-    clear the header link out first. Where they do not collide it is
-    unnecessary. It is never the other direction -- the self-reference signal
-    does not read the print table.
+        [Romance Dawn](/cards/OP01-120)
+        [Romance Dawn aa](/cards/OP01-120?v=1)
+        [Prize Cards serial](/cards/OP01-120?v=3)
+
+    identical in form to the header card-name link. Nothing in a URL separates
+    "this page" from "go to printing N", so this exclusion is LOAD-BEARING,
+    not a precaution against a shape that might collide.
+
+    Multiplicity is what separates them, and it works because the print table
+    OMITS the printing being displayed: the served slot is carried by the
+    header link and the two language links, three times, while every print row
+    carries its slot exactly once.
+
+    THE COUPLING IS PERMANENT, not conditional. Signal 1 -- the gap in the
+    `?v=` run -- cannot read the table until this has cleared the header link
+    out, because the header link would otherwise refill the gap that
+    identifies the page. It is never the other direction: the self-reference
+    signal does not read the print table.
     """
     counts = {}
     for href, _text_ in anchors(page):
@@ -263,8 +318,8 @@ def _self_reference_slots(page):
         if not reference:
             continue
         slot = reference.group("slot")
-        if slot is not None:
-            counts[int(slot)] = counts.get(int(slot), 0) + 1
+        key = BASE_SLOT if slot is None else int(slot)
+        counts[key] = counts.get(key, 0) + 1
     return {slot for slot, count in counts.items() if count > 1}
 
 
@@ -528,25 +583,25 @@ def self_reference_slot(page):
                 "why": f"self-references name different cards "
                        f"({sorted(numbers)}); page-level anomaly"}
 
-    # THE LANGUAGE LINKS ARE THE UNAMBIGUOUS ONES. A print-table row linking a
-    # sibling printing can share the header link's bare `/cards/{number}?v=N`
-    # shape, and nothing in the URL distinguishes them -- but no print row
-    # carries a `/cards/{lang}/` prefix. So the language links are always
-    # authoritative, and the bare ones speak only when they are unanimous.
-    tagged = [ref for ref in seen if ref["language"]]
-    bare = [ref for ref in seen if not ref["language"]]
-    bare_slots = {ref["slot"] for ref in bare}
-    voters = list(tagged)
-    dropped = None
-    if len(bare_slots) == 1:
-        voters += bare
-    elif bare:
-        dropped = (f"{len(bare)} bare self-links carry "
-                   f"{len(bare_slots)} different slots, so they are "
-                   "indistinguishable from print-table rows and do not vote")
+    # WHICH LINKS ARE THE SELF-REFERENCE? Not "the bare ones", because the
+    # print rows are bare too -- observed, and identical in form. The three
+    # self-references are the LANGUAGE-PREFIXED links, which no print row
+    # carries, plus the one bare link whose slot is pointed at more than once.
+    # The print table omits the printing being displayed, so only the header
+    # link can share a slot with the language links.
+    #
+    # There is no branch here for "the shapes do not collide". They do, on
+    # every page, and a branch that cannot be taken is a third thing that
+    # cannot fire -- the same failure as the canonical tag.
+    shared = _self_reference_slots(page)
+    voters = [ref for ref in seen
+              if ref["language"]
+              or (BASE_SLOT if ref["slot"] is None else ref["slot"]) in shared]
     if not voters:
         return {"slot": None, "references": seen, "agreed": False,
-                "why": dropped or "no usable self-reference on the page"}
+                "why": "no language-prefixed self-link, and no bare link "
+                       "pointed at more than once -- nothing on this page "
+                       "distinguishes a self-reference from a print row"}
 
     slots = {ref["slot"] for ref in voters}
     if len(slots) > 1:
@@ -556,8 +611,7 @@ def self_reference_slot(page):
                        + "); page-level anomaly"}
     only = slots.pop()
     return {"slot": only, "references": seen, "agreed": True,
-            "base": only is None, "count": len(voters),
-            "dropped": dropped, "why": None}
+            "base": only is None, "count": len(voters), "why": None}
 
 
 def og_title_product_name(page):
@@ -849,7 +903,8 @@ def reconcile(parsed, set_code, number, index, url):
     return entries
 
 
-def attest(adapter=None, wanted=WANTED, resolve_slots=True):
+def attest(adapter=None, wanted=WANTED, resolve_slots=True,
+           game=SERVES_GAME):
     """One fetch per CARD, then a BOUNDED follow-up per unresolved product.
 
     Returns (attestations, entries, failures, binding).
@@ -862,9 +917,11 @@ def attest(adapter=None, wanted=WANTED, resolve_slots=True):
     that quietly returns a neighbour is how a wrong pair enters the table with
     every check green.
     """
+    refuse_other_games(game)
     adapter = adapter or LimitlessAdapter()
     fetched, failures, binding = [], [], []
     for set_code, number in wanted:
+        refuse_other_games(game, number)
         try:
             url, page = adapter.card_page(set_code, number)
         except (AdapterGaveUp, RateLimited) as exc:

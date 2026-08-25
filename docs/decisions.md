@@ -3442,3 +3442,93 @@ from the base page, from `?v=2` and from `?v=4` independently.
 
 **Gate unchanged at 237 verified of 250.** Shorts: `optcg:CN-S` 16,
 `pkmn:EN` 2. S2 remains open: Prize Cards is still unattested.
+
+---
+
+## ADR-0045 — The collision is the case, and a pattern that cannot match must say so
+
+**Date:** 2026-08-25
+**Status:** Accepted. Batch 6 lands; ADR-0044's conditional coupling becomes
+unconditional; the adapter declares its game.
+
+### Batch 6
+
+Two verified Pokémon rows — `sv03.5:002/165` Ivysaur and `sv03.5:005/165`
+Charmeleon, each dual-sourced and each pairing with an existing verified
+`sv2a` JP row. **`pkmn:EN` closes at 40/40.**
+
+**239 verified of 250, and exactly one short: `optcg:CN-S`, 16 rows.** Seven
+of eight combos have cleared both their target and the detection floor;
+`optcg:CN-S` remains the only combo below it. Its shortfall is not a
+collection problem but the corroboration rule working as designed — its
+candidates are `single_source` because their second source is Bandai's shared
+numbering, which attests the *number* and is silent on whether a Simplified
+Chinese printing exists.
+
+### The print rows carry the header's URL shape
+
+Observed:
+
+    [Romance Dawn](/cards/OP01-120)
+    [Romance Dawn aa](/cards/OP01-120?v=1)
+    [Prize Cards serial](/cards/OP01-120?v=3)
+
+identical in form to the header card-name link. ADR-0044 hedged this as "the
+header self-link *may* share a print row's URL shape" and described signal 1's
+dependency on the multiplicity exclusion as holding "where the shapes
+collide".
+
+**They always collide.** The hedge is now a statement, and the branch that
+assumed otherwise is gone — `self_reference_slot` had a path where bare links
+voted if their slots were unanimous, which cannot happen when every print row
+contributes a distinct bare slot. It was dead code reachable only from
+fixtures I wrote.
+
+That is the same class of defect as the two before it, and it is worth
+counting them together because the pattern is now unmistakable:
+
+| What | How it read | What it was |
+|---|---|---|
+| The mutant seal | committed and enforcing | never in the repository |
+| Signal 3 (`rel=canonical`) | present and abstaining | wired to an element that does not exist |
+| Bare-link voting branch | a handled case | unreachable on every real page |
+
+**An untaken branch tested only against fixtures is a third thing that cannot
+fire.** Each of these read as coverage.
+
+The exclusion itself is unchanged and correct: the print table omits the
+printing being displayed, so the served slot is carried three times — header
+plus two language links — where every print row carries its slot once.
+Multiplicity separates them, and it now also counts the base printing, so the
+header link is recognised on a base page the same way it is on a variant page.
+
+Signal 1's dependency is therefore **permanent**. Recorded as such. It remains
+one-directional: the self-reference signal does not read the print table.
+
+### The adapter now declares its game
+
+`_SELF_REF` is `[A-Za-z]{2,4}\d{2}-\d{2,4}`. It cannot match `OGN-030` — no
+digits before the dash — or `025/165`, which has no letters at all.
+
+That is correct for a host called `onepiece.limitlesstcg.com`, and it was
+enforced by nothing. A Pokémon or Riftbound card would not have raised; it
+would have matched no self-reference and returned a page that could not
+identify itself — a *finding*, apparently, about that page.
+
+`refuse_other_games` raises `UnsupportedGame` at both entry points before any
+request is made, and names both numbers that cannot match. The adapter also
+declares `game = "optcg"` so a caller can check rather than discover.
+
+This is the same failure family as the canonical tag, which is why it is worth
+fixing now rather than when a second game arrives: **a pattern that can never
+match is indistinguishable from one that looked and found nothing.** The
+distinction only exists if something asserts it.
+
+### Where this leaves the fetch
+
+Unchanged. S2 stays open — Prize Cards is still unattested, and the `?v=3`
+page is still the thing that would settle it. All three signals vote on the
+observed shape, and the printing count comes back exact from the base page,
+from `?v=2` and from `?v=4` independently.
+
+**239 verified of 250. One short: `optcg:CN-S` 16.**
