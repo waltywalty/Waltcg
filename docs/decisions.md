@@ -2955,3 +2955,136 @@ only one below the floor. Its 8 new rows are `single_source` **by this
 project's rule rather than the researcher's** — their second source is Bandai's
 shared numbering, which corroborates the NUMBER and not the Simplified Chinese
 printing. Recorded, not counted, and that is the rule working.
+
+---
+
+## ADR-0041 — A source class that cannot answer, and the one that can
+
+**Date:** 2026-08-25
+**Status:** Accepted. The fetch is deferred to the runner; the classification
+is not.
+
+### The thing that was hiding
+
+`verified` means two independent sources agree. The question nobody was asking
+is what they agreed **about** — and there is a whole class of second source
+that confirms one field of a row and is structurally silent on the rest.
+
+Two instances, arrived at from opposite directions and identical in shape:
+
+- **Shared numbering.** One Piece prints `OP01-032` on the English, Japanese
+  and Simplified Chinese printings. An English source confirms the number
+  exists and names Ashura Doji. It says nothing whatever about whether a
+  Simplified Chinese printing was ever made. This one was already known — it is
+  why batch 4's eight CN-S rows are `single_source`.
+- **Retained-number reprints.** PRB-01 reprints keep their `OPxx-xxx`. So a
+  marketplace listing reading `OP01-120 Manga` is attributed to *Romance Dawn*
+  **as a set name**, because the seller reads the number and the number says
+  `OP01`. Live eBay listings do exactly this.
+
+The second is the more dangerous, and the asymmetry is worth stating plainly:
+the first announces itself — nobody mistakes an English page for evidence about
+a Chinese printing — while the second **arrives wearing the answer**. It is a
+listing with a product name on it. It looks like product attribution. It is the
+number, restated.
+
+The consequence is the part that matters for counting: the attribution is
+*derived from* the number, so it carries no information the number did not
+already carry, and **two listings agreeing is two sources performing one
+derivation, not two observations**. Independence is what `verified` is buying,
+and derivation from a shared input destroys it silently.
+
+### Decision
+
+`resolve/corroboration.py` names two corroboration tiers — `full` and
+`number_only` — and only `full` counts toward `verified`. An **unknown tier
+does not count**: a source class nobody has classified is not a licence to
+assume the strongest one, which is the same defaulting mistake as `base`,
+`slot 1` and `parallel`.
+
+`STRUCTURALLY_NUMBER_ONLY` records the situations where a source class is
+number-only **by construction** — not because a particular source was thin, but
+because the inference it is making cannot distinguish what needs
+distinguishing. Both instances above are registered there. The generalisation
+is that this is a property of the numbering scheme rather than of any
+particular row, so it recurs on every retained-number reprint; the entry is
+written to say so.
+
+### The discriminating source
+
+Naming a source class that cannot answer is only half a finding. The other half
+is which class can — otherwise the entry reads as *unknowable* and the row
+never resolves. A test enforces that the reprint entry names one.
+
+**Limitless serves a separate variant page per printing, each naming its own
+product.** That is a source that can tell `op01` from `prb01`; a marketplace
+listing cannot, at any volume. `ingest/limitless.py` fetches those pages, and
+the step is wired into `ingest.yml` rather than run here — the sandbox proxy
+answers 403 to CONNECT for limitlesstcg.com, the same wall as the Chinese
+catalogs. The URL shape is **probed, not assumed**: four adapters in this
+project have been written against a guessed endpoint and three guesses were
+wrong, so `card_page` walks its candidates and a card that answers nowhere is a
+gap **naming every URL it tried**, never "the card has no variants".
+
+### Two levels, and only one of them is certain
+
+- **PRODUCT is certain**, because it is what the page is *for*: a variant page
+  is served per printing and titled with its own product. That claim lands at
+  tier `full`.
+- **SLOT is a reconciliation**, not a rule. Where a semantic treatment has to
+  map onto a provider's positional `_pN`, it is recorded as a per-`(set,
+  number)` entry in `contracts/printing_slots.json` **citing the page that
+  attested it** — data, not a rule, because there is no rule; the ordering is
+  whatever apitcg happened to do.
+
+Ground truth **keeps the semantic token**. `manga_rare`, not `_p4`. A
+positional token would make the identity scheme catalog-derived, which is
+precisely what the labelled set exists to avoid.
+
+### The refusal is the load-bearing part
+
+Where a page does not name a product, `attest()` writes **no entry** and
+records a failure saying so. It does not order the slots and call the first one
+the base.
+
+That temptation is not hypothetical — ordering the slots is the exact inference
+that homed `OP01-120` to `op01` in the first place. An absent entry in
+`printing_slots.json` means *we have not established this*, never *slot 1*, and
+the file says so in `_refusal_is_the_default`. An adapter that guesses when the
+page is silent is the marketplace listing with a better hostname.
+
+Fifteen mutants cover all of it, and the ones worth naming are the abstention
+mutants — a silent page read as attested, an unnamed slot falling back to slot
+order, the refusal made silent, an unreachable card recorded as *no variants*.
+All fifteen caught.
+
+### The seal was never in the repository
+
+Found while raising the mutant count: `audit/mutant_seal.json` — added last
+session, sealed at 118, and **never committed**. `.gitignore` line 25 is a
+blanket `*.json` with a negation list, and `audit/**` was not on it.
+
+The seal's whole function is to be a committed count that a skipped subset
+cannot match. Uncommitted, it was a file on one machine. `mutate.yml` checks
+the seal first and treats an unreadable seal as a failure, so the first runner
+pass would have gone red with `SEAL UNREADABLE` — the right alarm for entirely
+the wrong reason, and one that reads as a broken workflow rather than a missing
+control.
+
+`!audit/**/*.json` added, deliberately **not** added to the
+`no_provider_data` payload-key allowlist so the seal is scanned like any
+unprivileged JSON. Verified by planting `market_price` in it: untracked, the
+check did not see it at all; tracked, the check fails. Worth keeping in view —
+that check reads `git ls-files`, so **an untracked file is not scanned**, and
+"the guard passed" says nothing about a file the guard never opened.
+
+### What this does not do
+
+It does not re-home `OP01-120` and it does not mint the five PRB reprint-side
+rows. Both wait on pages this environment cannot fetch. The tier is decided,
+the refusal is built and tested, and the fetch is one runner pass away — but
+S1 stays open, and the two rows stay counted rather than demoted, because
+demoting on a suspicion moves the gate numbers on a suspicion.
+
+**Gate unchanged at 237 verified of 250.** Two shorts: `optcg:CN-S` 16 and
+`pkmn:EN` 2.

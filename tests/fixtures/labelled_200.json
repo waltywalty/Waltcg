@@ -21,7 +21,7 @@
       "verified"
     ]
   },
-  "_status": "INCOMPLETE -- 234 of 250 verified (285 rows in the pool)",
+  "_status": "INCOMPLETE -- 237 of 250 verified (288 rows in the pool)",
   "_needed": {
     "have_verified": 234,
     "rows_in_pool": 285,
@@ -476,6 +476,30 @@
       }
     },
     {
+      "card_uid": "optcg:op01:OP01-014:base:EN",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-014",
+      "variant": "base",
+      "language": "EN",
+      "name": "Jinbe",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "dispute-settled: Bandai official EN list + Limitless EN; pass 4 had 014/015 swapped"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-014:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-014",
+      "variant": "base",
+      "language": "JP",
+      "name": "Jinbe",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "ジンベエ; dispute-settled: Bandai official JP + Limitless JP"
+    },
+    {
       "card_uid": "optcg:op01:OP01-015:base:EN",
       "game": "optcg",
       "set_code": "op01",
@@ -486,6 +510,18 @@
       "source": "external_research",
       "confidence": "verified",
       "note": "C"
+    },
+    {
+      "card_uid": "optcg:op01:OP01-015:base:JP",
+      "game": "optcg",
+      "set_code": "op01",
+      "number": "OP01-015",
+      "variant": "base",
+      "language": "JP",
+      "name": "Tony Tony.Chopper",
+      "source": "external_research",
+      "confidence": "verified",
+      "note": "トニートニー・チョッパー; dispute-settled; agrees with existing verified EN row"
     },
     {
       "card_uid": "optcg:op01:OP01-016:alt_art:CN-S",
@@ -4343,12 +4379,12 @@
     {
       "dispute": "OP01-014 / OP01-015",
       "date": "2026-08-18",
-      "status": "RESOLVED -- pass 4 refuted, no existing row corrected",
+      "status": "RESOLVED -- pass 4 refuted; replacement rows landed in batch 5",
       "claim": "Pass 4 returned OP01-014 = Tony Tony.Chopper and OP01-015 = Jinbe, in EN and JP, dual-sourced. Pass 3's existing verified EN row has OP01-015 = Tony Tony.Chopper. Mutually exclusive.",
       "settled_from": "apitcg's one-piece-tcg-data op01.json, a mirror of Bandai's official card list -- the same source that settled OP01-121 and the OP01-002/003 swap.",
       "finding": "OP01-014 is JINBE and OP01-015 is TONY TONY.CHOPPER. Pass 3 is right; pass 4 has the pair swapped -- the same failure shape as batch 2's OP01-002/003.",
-      "action": "The three quarantined rows are NOT ingested as claimed. No existing row is corrected. Correct rows for OP01-014 EN/JP and OP01-015 JP are still needed and must be sourced afresh -- minting them from apitcg here would make them catalog-derived, which is the circularity the labelled set exists to avoid.",
-      "rows_still_needed": [
+      "action": "The three quarantined rows were NOT ingested as claimed and no existing row was corrected. Correct rows for OP01-014 EN/JP and OP01-015 JP were minted afresh in batch 5 from the pair that settled the dispute -- Bandai official plus Limitless -- rather than from apitcg, which would have made them catalog-derived, the circularity the labelled set exists to avoid.",
+      "rows_added": [
         "optcg:op01:OP01-014:base:EN  = Jinbe",
         "optcg:op01:OP01-014:base:JP  = Jinbe",
         "optcg:op01:OP01-015:base:JP  = Tony Tony.Chopper"
@@ -4365,7 +4401,11 @@
         "optcg:op01:OP01-120:manga_rare:EN",
         "optcg:op01:OP01-120:manga_rare:JP"
       ],
-      "note": "Left counted rather than demoted: demoting would move the gate numbers on a suspicion. Flagged on the rows so the doubt travels with them."
+      "note": "Left counted rather than demoted: demoting would move the gate numbers on a suspicion. Flagged on the rows so the doubt travels with them.",
+      "marketplace_attribution_is_untrustworthy_by_construction": "PRB-01 reprints KEEP their OPxx-xxx number. The seller reads the number, the number says OP01, and the listing says `Romance Dawn` AS A SET NAME -- for a card that may be a PRB-01 printing. Live eBay listings do exactly this. The attribution is DERIVED FROM the number, so it carries no information the number did not already carry, and a second listing agreeing with the first is two sources repeating one derivation rather than two observations. This is a property of the numbering scheme, not of these two rows: it will recur on every retained-number reprint.",
+      "corroboration_tier": "number_only",
+      "tier_registered_at": "resolve/corroboration.py -> STRUCTURALLY_NUMBER_ONLY -> retained_number_reprint. Same tier as the CN-S shared-numbering rule, and registered beside it. number_only does NOT count toward `verified`.",
+      "discriminating_source": "Limitless variant pages: a separate page per printing, each naming its own product. A marketplace listing cannot tell the two apart at any volume; this can. Fetched on the Actions runner (ingest/limitless.py, wired into ingest.yml) because the sandbox proxy answers 403 to CONNECT for limitlesstcg.com. Where a page does not name a product the reconciliation REFUSES rather than ordering the slots -- ordering the slots and calling the first one the base is the inference that put this row in op01 to begin with."
     }
   ]
 }

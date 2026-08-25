@@ -45,6 +45,13 @@ probe/out/
 # keys like any unprivileged JSON and CI fails if an observation lands in one.
 !tests/fixtures/*.json
 !ingest/targets.json
+# The mutation catalogue's seal: a count and two dates. It was written last
+# session and `*.json` swallowed it, so the mutation workflow -- which checks
+# the seal FIRST -- would have hit SEAL UNREADABLE on its first runner pass.
+# That is the failure the seal is supposed to raise, arriving for the wrong
+# reason. Like design/** and tests/fixtures/**, NOT added to the
+# no_provider_data allowlist, so it is scanned like any unprivileged JSON.
+!audit/**/*.json
 
 # ─── Documents: PDFs are not a source format ──────────────────
 # Source documents arrive as pasted text. A PDF that reaches the tree gets

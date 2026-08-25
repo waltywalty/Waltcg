@@ -127,6 +127,24 @@ jobs:
         continue-on-error: true
         run: python -m ingest.catalog --rarities --summary "$GITHUB_STEP_SUMMARY"
 
+      # THE SOURCE CLASS THAT CAN TELL TWO PRODUCTS APART. `OP01-120` has six
+      # printings across two products, and every marketplace listing attributes
+      # all six to "Romance Dawn" -- because the printed number says `OP01` and
+      # that is what a seller reads. The attribution is DERIVED FROM the number,
+      # so it corroborates nothing the number did not already carry
+      # (`resolve/corroboration.py`, `retained_number_reprint`).
+      #
+      # Limitless serves a separate variant page per printing, each naming its
+      # own product. That discriminates. The sandbox cannot reach it -- 403 on
+      # CONNECT, same as the Chinese catalogs -- so the fetch happens here.
+      #
+      # --write is deliberately ABSENT. This step reports what the pages attest;
+      # a slot entry is a reconciliation between a semantic treatment and a
+      # provider's positional `_pN` and gets read before it is committed.
+      - name: What do the Limitless variant pages actually attest?
+        continue-on-error: true
+        run: python -m ingest.limitless --attest --summary "$GITHUB_STEP_SUMMARY"
+
       # MUST come before the ingest step. Run #5 went green having ingested
       # 8,313 card identities and zero prices: tcgapi, PPT and apitcg each
       # reported "0 calls made this run" because targets.json was still the

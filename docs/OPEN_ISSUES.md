@@ -164,6 +164,32 @@ are mis-homed, a wrong identity is in ground truth. Flagged on the rows and
 left counted rather than demoted — demoting would move the gate numbers on a
 suspicion.
 
+**Marketplace attribution here is untrustworthy BY CONSTRUCTION, not by
+accident.** PRB-01 reprints keep their `OPxx-xxx` number. So the seller reads
+the number, the number says `OP01`, and the listing says *Romance Dawn* — as a
+SET NAME, for a card that may be a PRB-01 printing. Live eBay listings do
+exactly this. The attribution is **derived from the number**, which means it
+carries no information the number did not already carry, and a second listing
+agreeing with the first is two sources performing the same derivation rather
+than two observations.
+
+This is the same tier as the CN-S shared-numbering rule and is registered
+beside it: `resolve/corroboration.py`, `STRUCTURALLY_NUMBER_ONLY`
+→ `retained_number_reprint`. Corroboration tier **`number_only`**, which does
+not count toward `verified`. The generalisation is that *any* retained-number
+reprint has this property, so it will recur on every PRB-01 pair — it is a
+property of the numbering scheme, not of these two rows.
+
+**The discriminating source class is the Limitless variant page**, which serves
+a separate page per printing, each naming its own product. That is a source
+that can tell the two apart; a marketplace listing cannot, at any volume. The
+fetch runs on the Actions runner (`ingest/limitless.py`, wired into
+`ingest.yml`) because the sandbox proxy answers 403 to CONNECT for
+limitlesstcg.com. Until it has run, this stays open — and where a page does not
+name a product, `attest()` records a refusal rather than ordering the slots and
+calling the first one the base. Ordering the slots is the inference that put
+this row in `op01` to begin with.
+
 ## RESOLVED — OP01-014 / OP01-015, and pass 4 is the one that is wrong
 
 Pass 4 claimed `OP01-014` = Tony Tony.Chopper and `OP01-015` = Jinbe. Bandai's
@@ -171,9 +197,11 @@ list has **`OP01-014` = Jinbe and `OP01-015` = Tony Tony.Chopper**. The existing
 verified EN row is correct; pass 4 has the pair swapped — the same failure
 shape as batch 2's OP01-002/003.
 
-No existing row corrected. The three quarantined rows are not ingested as
-claimed, and correct rows for OP01-014 EN/JP and OP01-015 JP still need
-sourcing afresh: minting them from apitcg would make them catalog-derived.
+No existing row corrected. The three quarantined rows were never ingested as
+claimed. Correct rows for OP01-014 EN/JP and OP01-015 JP were minted afresh in
+batch 5 from the pair that settled the dispute — Bandai official plus Limitless
+— rather than from apitcg, which would have made them catalog-derived. All
+three landed `verified`, and `optcg:JP` cleared its target at 36/35 on them.
 
 ## RESOLVED — every required kind now has a verified example
 

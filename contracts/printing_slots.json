@@ -1,0 +1,8 @@
+{
+  "_schema": "waltcg printing-slot reconciliation v1",
+  "_what": "Per-(set, number, variant) mapping from a SEMANTIC treatment token to a provider's POSITIONAL slot. Data, sourced per entry -- never a rule.",
+  "_why": "apitcg identifies printings by position: OP01-120 is `_p1`..`_p5`, which says which asset file it is and nothing about what the treatment IS. Ground truth uses semantic tokens (`manga_rare`, `parallel`) because a positional token would make the identity scheme catalog-derived -- the card_uid would then encode one provider's file naming, and a provider that renumbered its assets would silently rewrite our identities.\n\nSo the two vocabularies are reconciled HERE, per card, each entry citing the page that attested it. Where no page attests the treatment, there is no entry and the reconciliation REFUSES -- it does not fall back to position order.",
+  "_refusal_is_the_default": "An absent entry means `we have not established this`, never `slot 1`. Ordering the slots and assuming the first is the base is exactly the inference that put OP01-120's manga rows in the wrong product.",
+  "_populated_by": "python -m ingest.limitless --attest, on the Actions runner. The egress proxy answers 403 to CONNECT for limitlesstcg.com from the sandbox.",
+  "entries": []
+}
