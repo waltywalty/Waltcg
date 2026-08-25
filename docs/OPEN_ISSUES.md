@@ -304,13 +304,67 @@ character aloud *without being offered a candidate* is fine; that is a
 reading, not a confirmation. The distinction is whether a candidate was
 supplied before the answer.
 
+### Who read it is an error-profile field
+
+`read_by` is **not attribution**. Different readers fail differently, and the
+difference decides what they may supply.
+
+Recorded as `reader_reliability` — a profile key — and deliberately **not a
+tier**. A tier says what a *source class* can establish; this says how a
+*reader* fails. That conflation has already been corrected twice
+(`number_only` meaning both "which field" and "how strongly", then per-source
+tiers unable to distinguish SILENT from WEAK). A third instance is not needed.
+
+| Profile | Failure mode | Self-detecting |
+|---|---|---|
+| `human_holder` | misreading, fatigue | yes |
+| `human_from_image` | misreading, plus what the image lost | yes |
+| `ai_from_image` | **confident substitution** of a visually similar character | **no** |
+
+An AI reader's weakest case is dense-stroke Simplified Chinese at banner size
+over foil, and the failure is not a visible stumble — it is a clean, assured,
+wrong answer. An unclassified reader is **not** assumed reliable, the same
+defaulting rule as an unknown corroboration tier.
+
+This profile is about reading **glyphs off artwork**. Parsing text a server
+sent us — `ingest/limitless.py` — is a different act and the profile does not
+apply to it.
+
+### `unsure_is_unresolved` needs a visible stumble
+
+The protocol's main safeguard on the name assumes the reader **can notice
+being unsure**. Where the failure mode is confident substitution, the escape
+hatch is not weaker — it is **inoperative**. The reader does not abstain
+because it does not know it should, and the row comes back looking clean.
+
+So a note alone does not cover it. **If a reader cannot detect its own
+failure, the mitigation cannot be self-report**; it has to be structural, and
+the allocation follows the checksum:
+
+- The **number** is checksummed against Bandai's record. A substituted digit
+  yields a number that record does not carry, or one naming a different card.
+  A non-self-detecting reader may read it — the checksum catches what the
+  reader cannot.
+- The **name** has no checksum. That is exactly where an undetectable
+  substitution is unrecoverable, so a non-self-detecting reader **may not
+  supply it**. It goes to a self-detecting reader or to
+  `name_attestation: unresolved`.
+
+`may_read(profile, field)` returns the refusal with its reason, and
+`physical_card_row_is_well_formed` rejects a row whose reader supplied a field
+it may not.
+
+**The reader does not demote the source class.** `physical_card` is still
+`optical` about the name; what changes is which reader may supply it. Those
+are different questions and the code keeps them apart.
+
 ### Required provenance
 
 Every `physical_card` row: `reading_method`, `read_by`, `read_on`, `checksum`,
-`name_attestation`. Plus `imaged_by` and `image_ref` when the method is
-`photograph`. A `direct` row claiming an `imaged_by` is refused — nothing was
-photographed, so there is no photographer to hold responsible for the wrong
-copy.
+`name_attestation`, `reader_reliability`. Plus `imaged_by` and `image_ref`
+when the method is `photograph`. A `direct` row claiming an `imaged_by` is
+refused — nothing was photographed, so there is no photographer to hold
+responsible for the wrong copy.
 
 ### What would falsify this
 

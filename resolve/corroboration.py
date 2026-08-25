@@ -376,9 +376,104 @@ SECOND_OPTICAL_READING = {
                               "is a finding worth keeping.",
 }
 
+#: WHO READ IT IS AN ERROR-PROFILE FIELD, not attribution.
+#:
+#: This is deliberately NOT a tier. A tier says what a SOURCE CLASS can
+#: establish; this says how a particular READER fails. Folding one into the
+#: other is the conflation that has now been corrected twice -- `number_only`
+#: meaning both "which field" and "how strongly", and then per-source tiers
+#: unable to say SILENT versus WEAK. A third instance is not needed.
+#:
+#: `self_detecting` is the load-bearing entry. The protocol's main safeguard on
+#: the name is `unsure_is_unresolved`, and that rule ASSUMES THE READER CAN
+#: NOTICE BEING UNSURE. Where the failure mode is confident substitution, the
+#: escape hatch is not weaker -- it is INOPERATIVE, and the row comes back
+#: looking clean.
+READER_PROFILES = {
+    "human_holder": {
+        "what": "A person reading the printed text off the card in hand.",
+        "failure_mode": "Misreading, and fatigue on long runs.",
+        "self_detecting": True,
+        "why": "A person who cannot make out a character generally knows it. "
+               "The stumble is visible to the person stumbling, which is what "
+               "makes `unsure_is_unresolved` a working control.",
+    },
+    "human_from_image": {
+        "what": "A person reading the printed text off a photograph.",
+        "failure_mode": "Misreading, plus whatever the image lost -- glare, "
+                        "focus, resolution, crop.",
+        "self_detecting": True,
+        "why": "Same as above, and an illegible image is legibly illegible.",
+    },
+    "ai_from_image": {
+        "what": "A model reading glyphs off card artwork.",
+        "failure_mode": "CONFIDENT SUBSTITUTION of a visually similar "
+                        "character. Not a visible stumble -- a clean, "
+                        "assured, wrong answer.",
+        "self_detecting": False,
+        "weakest_case": "Dense-stroke Simplified Chinese characters at banner "
+                        "size over foil.",
+        "why": "The failure produces no uncertainty signal, so "
+               "`unsure_is_unresolved` never fires. The reader does not "
+               "abstain because it does not know it should.",
+        "not_the_same_as": "Parsing text a server SENT us, as in "
+                           "`ingest/limitless.py`. That is documentary and "
+                           "this profile does not apply to it. The profile is "
+                           "about reading GLYPHS OFF ARTWORK.",
+    },
+}
+
+#: Fields whose reading has no checksum, so a confident substitution in them
+#: is unrecoverable. The number is checksummed against the documentary record
+#: -- a substituted digit yields a number that record does not carry, or one
+#: naming a different card -- so it is not on this list.
+UNCHECKSUMMED_FIELDS = ("name",)
+
+
+def failure_is_self_detecting(reader_profile) -> bool:
+    """Can this reader notice its own failure?
+
+    An unknown profile is NOT assumed to be self-detecting. Same defaulting
+    rule as an unknown corroboration tier: unclassified is not a licence to
+    assume the favourable case.
+    """
+    profile = READER_PROFILES.get(reader_profile)
+    return bool(profile and profile["self_detecting"])
+
+
+def may_read(reader_profile, field):
+    """May this reader's reading of `field` be recorded at all?
+
+    Returns (allowed, why). The rule: a reader whose failure is not
+    self-detecting may read fields that carry a CHECKSUM, because the checksum
+    catches what the reader cannot. It may not supply a field where nothing
+    would catch it -- there the reading is indistinguishable from a
+    fabrication, and `unsure_is_unresolved` will not fire to save it.
+    """
+    if reader_profile not in READER_PROFILES:
+        return False, (f"unknown reader profile {reader_profile!r}; an "
+                       "unclassified reader is not assumed to be a reliable "
+                       "one")
+    if failure_is_self_detecting(reader_profile):
+        return True, "the reader can notice its own failure and abstain"
+    if field not in UNCHECKSUMMED_FIELDS:
+        return True, (f"{field} is checksummed against the documentary "
+                      "record, which catches what this reader cannot")
+    return False, (
+        f"{field} carries no checksum and this reader's failure mode is not "
+        "self-detecting, so `unsure_is_unresolved` would never fire. Read it "
+        "with a self-detecting reader or record it UNRESOLVED -- a confident "
+        "substitution here is indistinguishable from a correct reading and "
+        "nothing downstream would catch it.")
+
+
 #: Fields every `physical_card` row must carry, whatever the method.
+#: `reader_reliability` is the profile key -- WHO read it, as an error
+#: profile rather than as attribution. Required, because an unrecorded reader
+#: is an unclassified one and `may_read` refuses those.
 PHYSICAL_CARD_PROVENANCE = ("reading_method", "read_by", "read_on",
-                            "checksum", "name_attestation")
+                            "checksum", "name_attestation",
+                            "reader_reliability")
 #: Extra fields required per method.
 METHOD_PROVENANCE = {
     "direct": (),
@@ -413,10 +508,36 @@ def physical_card_row_is_well_formed(row):
                         "for the wrong copy")
     if row.get("checksum") not in (None, *CHECKSUM):
         problems.append(f"unknown checksum {row['checksum']!r}")
-    if row.get("name_attestation") not in (None, "optical_only", "full"):
+    if row.get("name_attestation") not in (None, "optical_only",
+                                           "unresolved", "full"):
         problems.append(f"unknown name_attestation "
                         f"{row['name_attestation']!r}")
+    problems.extend(_reader_problems(row))
     return not problems, problems
+
+
+def _reader_problems(row):
+    """Does the reader's error profile permit the fields this row supplies?
+
+    The name is the one that matters. A reader whose failure is not
+    self-detecting cannot supply it, because nothing downstream would catch a
+    confident substitution and `unsure_is_unresolved` will not fire -- the
+    reader does not abstain because it does not know it should.
+    """
+    profile = row.get("reader_reliability")
+    if profile is None:
+        return []                       # already reported as missing
+    if profile not in READER_PROFILES:
+        return [f"unknown reader_reliability {profile!r}; an unclassified "
+                "reader is not assumed to be a reliable one"]
+    problems = []
+    supplies_name = (row.get("name")
+                     and row.get("name_attestation") != "unresolved")
+    if supplies_name:
+        allowed, why = may_read(profile, "name")
+        if not allowed:
+            problems.append(f"reader {profile!r} supplied a name: {why}")
+    return problems
 
 
 def reading_is_re_checkable(row):

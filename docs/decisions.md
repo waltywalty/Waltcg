@@ -3756,3 +3756,91 @@ practical error rate and a disagreement between two readers is a finding, but
 `composes` refuses `optical` with `optical` and that is deliberate.
 
 **239 verified of 250.** One short: `optcg:CN-S` 16, awaiting rows.
+
+---
+
+## ADR-0048 — Who read it is an error profile, and one profile breaks the safeguard
+
+**Date:** 2026-08-25
+**Status:** Accepted. Extends ADR-0046/0047's pre-registration, still before
+any row.
+
+### The observation
+
+`read_by` is not attribution. A model reading glyphs off card artwork fails
+differently from a person holding the card: its weakest case is dense-stroke
+Simplified Chinese at banner size over foil, and its failure mode is
+**confident substitution of a visually similar character** — not a visible
+stumble.
+
+So `optical_only` understates it when the reader is a model. The name has no
+second channel **and** the single channel it has is a poor instrument for that
+script.
+
+### It is not a tier, and that is the right call
+
+Recorded as `reader_reliability`, a profile on the row.
+
+A tier says what a **source class** can establish. This says how a **reader**
+fails. They are different questions, and folding one into the other is the
+conflation this project has now corrected twice: `number_only` meaning both
+*which field* and *how strongly*, then per-source tiers unable to distinguish
+SILENT from WEAK. A third instance would have been the same mistake in the
+same place.
+
+Concretely, keeping them apart means a poor reader **does not demote
+`physical_card`**. The class is still `optical` about the name; what changes
+is which reader may supply it. A test asserts no profile key ever appears
+where a tier or channel is expected.
+
+### The consequence that a note alone would not cover
+
+The protocol's main safeguard on the name is `unsure_is_unresolved`, and that
+rule **assumes the reader can notice being unsure**. A visible stumble fires
+it. A confident wrong character does not.
+
+So on exactly the case described, the escape hatch is not weaker — it is
+**inoperative**. The reader does not abstain because it does not know it
+should, and the row comes back looking clean. That is the worst available
+failure shape for this pipeline, because every other control here is
+downstream of a reader who flags their own doubt.
+
+**If a reader cannot detect its own failure, the mitigation cannot be
+self-report.** It has to be structural.
+
+### The allocation follows the checksum
+
+- The **number** is checksummed against Bandai's record. A substituted digit
+  produces a number the record does not carry, or one naming a different card.
+  A non-self-detecting reader may read it: the checksum catches what the
+  reader cannot.
+- The **name** has no checksum — there is no Simplified Chinese catalog
+  source, which is the gap ADR-0046 registered. That is precisely where an
+  undetectable substitution is unrecoverable, so a non-self-detecting reader
+  **may not supply it**. It goes to a self-detecting reader, or to
+  `name_attestation: unresolved`.
+
+This reuses machinery that already existed rather than adding a mechanism:
+`unresolved` was already the standard's answer for a field that could not be
+read, and this makes it reachable for the case that needs it most.
+
+An unclassified reader is refused for **both** fields — the same defaulting
+rule as an unknown corroboration tier and an unknown variant token.
+Unclassified is not a licence to assume the favourable case.
+
+### Scope
+
+The profile is about reading **glyphs off artwork**. Parsing text a server
+sent us — `ingest/limitless.py` — is a different act with different failure
+modes, and the entry says so, because a profile that quietly widened to cover
+every read would be doing what these tiers keep doing.
+
+### Where this leaves the CN-S batch
+
+Unchanged in scope, sharper in what it will record. Rows whose name a model
+read come in with `name_attestation: unresolved` rather than a character
+string, and the identity fields — which are what the resolver is tested on —
+are unaffected. If that makes the SC names thinner than hoped, that is the
+standard reporting what it actually knows.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16.

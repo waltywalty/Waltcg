@@ -15,7 +15,12 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from resolve.corroboration import (CHECKSUM, IDENTITY_FIELDS,  # noqa: E402
+from resolve.corroboration import (CHANNELS, CHECKSUM,  # noqa: E402
+                                   IDENTITY_FIELDS,
+                                   READER_PROFILES,
+                                   UNCHECKSUMMED_FIELDS,
+                                   failure_is_self_detecting,
+                                   may_read,
                                    NOT_REACHED, PHYSICAL_CARD_PROTOCOL,
                                    PHYSICAL_CARD_PROVENANCE,
                                    STRUCTURALLY_NUMBER_ONLY, TIERS, attests,
@@ -250,6 +255,7 @@ class TheProtocolIsRecordedNotRemembered(unittest.TestCase):
     def test_a_complete_row_passes(self):
         ok, problems = physical_card_row_is_well_formed(
             {"reading_method": "direct", "read_by": "Walton",
+             "reader_reliability": "human_holder",
              "read_on": "2026-08-26", "checksum": "name_against_number",
              "name_attestation": "optical_only"})
         self.assertTrue(ok, problems)
@@ -269,10 +275,12 @@ class PhotographingIsStillOneChannel(unittest.TestCase):
     artifact, one reading."""
 
     PHOTO = {"reading_method": "photograph", "read_by": "Roger",
+             "reader_reliability": "human_from_image",
              "imaged_by": "Walton", "image_ref": "sha256:9f2c",
              "read_on": "2026-08-26", "checksum": "name_against_number",
              "name_attestation": "optical_only"}
     DIRECT = {"reading_method": "direct", "read_by": "Walton",
+              "reader_reliability": "human_holder",
               "read_on": "2026-08-26", "checksum": "name_against_number",
               "name_attestation": "optical_only"}
 
@@ -382,3 +390,129 @@ class TheIllegibleGlyphRouteIsClosed(unittest.TestCase):
         instead = ILLEGIBLE_GLYPH_ROUTE["what_to_do_instead"]
         self.assertIn("WITHOUT being offered a candidate", instead)
         self.assertIn("not a confirmation", instead)
+
+
+class WhoReadItIsAnErrorProfile(unittest.TestCase):
+    """`read_by` is not attribution. Different readers fail differently, and
+    the difference decides what they may supply.
+
+    Deliberately NOT a tier: a tier says what a SOURCE CLASS can establish,
+    this says how a READER fails. That conflation has been corrected twice
+    already -- `number_only` meaning both `which field` and `how strongly`,
+    then per-source tiers unable to say SILENT versus WEAK. A third instance
+    is not needed.
+    """
+
+    def test_a_human_notices_their_own_stumble(self):
+        self.assertTrue(failure_is_self_detecting("human_holder"))
+        self.assertTrue(failure_is_self_detecting("human_from_image"))
+
+    def test_a_model_reading_glyphs_does_not(self):
+        """Confident substitution of a visually similar character. Not a
+        visible stumble -- a clean, assured, wrong answer."""
+        self.assertFalse(failure_is_self_detecting("ai_from_image"))
+        profile = READER_PROFILES["ai_from_image"]
+        self.assertIn("CONFIDENT SUBSTITUTION", profile["failure_mode"])
+        self.assertIn("foil", profile["weakest_case"])
+
+    def test_an_unclassified_reader_is_not_assumed_reliable(self):
+        """Same defaulting rule as an unknown corroboration tier."""
+        self.assertFalse(failure_is_self_detecting("some_new_ocr_tool"))
+        self.assertFalse(failure_is_self_detecting(None))
+
+    def test_the_profile_does_not_apply_to_parsing_served_text(self):
+        """Reading glyphs off artwork is not the same act as parsing a
+        response body, and ingest/limitless.py is the second thing."""
+        self.assertIn("does not apply",
+                      READER_PROFILES["ai_from_image"]["not_the_same_as"])
+
+
+class UnsureIsUnresolvedNeedsAVisibleStumble(unittest.TestCase):
+    """The protocol's main safeguard on the name assumes the reader can NOTICE
+    being unsure. Where the failure is confident substitution the hatch is not
+    weaker -- it is inoperative, and the row comes back looking clean."""
+
+    def test_a_reader_that_cannot_abstain_may_not_supply_the_name(self):
+        allowed, why = may_read("ai_from_image", "name")
+        self.assertFalse(allowed)
+        self.assertIn("would never fire", why)
+        self.assertIn("indistinguishable from a correct reading", why)
+
+    def test_it_may_still_read_a_checksummed_field(self):
+        """The checksum catches what the reader cannot: a substituted digit
+        yields a number the record does not carry, or one naming a different
+        card."""
+        allowed, why = may_read("ai_from_image", "number")
+        self.assertTrue(allowed)
+        self.assertIn("checksummed", why)
+
+    def test_the_name_is_the_field_with_no_checksum(self):
+        self.assertEqual(UNCHECKSUMMED_FIELDS, ("name",))
+
+    def test_a_self_detecting_reader_may_supply_either(self):
+        for field in ("name", "number"):
+            with self.subTest(field=field):
+                self.assertTrue(may_read("human_from_image", field)[0])
+
+    def test_an_unknown_reader_may_supply_neither(self):
+        for field in ("name", "number"):
+            with self.subTest(field=field):
+                self.assertFalse(may_read("some_new_ocr_tool", field)[0])
+
+
+class TheRowEnforcesTheAllocation(unittest.TestCase):
+
+    BASE = {"reading_method": "photograph", "read_by": "a model",
+            "imaged_by": "Walton", "image_ref": "sha256:9f",
+            "read_on": "2026-08-26", "checksum": "name_against_number",
+            "name_attestation": "optical_only"}
+
+    def test_a_row_must_record_who_read_it_as_a_profile(self):
+        ok, problems = physical_card_row_is_well_formed(dict(self.BASE))
+        self.assertFalse(ok)
+        self.assertIn("missing 'reader_reliability'", problems)
+
+    def test_an_ai_read_name_is_refused(self):
+        ok, problems = physical_card_row_is_well_formed(
+            dict(self.BASE, reader_reliability="ai_from_image",
+                 name="阿修罗童子"))
+        self.assertFalse(ok)
+        self.assertIn("supplied a name", " ".join(problems))
+
+    def test_the_same_row_passes_with_the_name_unresolved(self):
+        """The escape the standard already had, now reachable for the case
+        that needs it."""
+        ok, problems = physical_card_row_is_well_formed(
+            dict(self.BASE, reader_reliability="ai_from_image",
+                 name="阿修罗童子", name_attestation="unresolved"))
+        self.assertTrue(ok, problems)
+
+    def test_a_human_reader_may_supply_the_name(self):
+        ok, problems = physical_card_row_is_well_formed(
+            dict(self.BASE, reader_reliability="human_from_image",
+                 read_by="Roger", name="阿修罗童子"))
+        self.assertTrue(ok, problems)
+
+    def test_an_unclassified_reader_is_refused_by_name(self):
+        ok, problems = physical_card_row_is_well_formed(
+            dict(self.BASE, reader_reliability="whoever", name="X"))
+        self.assertFalse(ok)
+        self.assertIn("unknown reader_reliability 'whoever'",
+                      " ".join(problems))
+
+    def test_reader_reliability_is_not_a_tier(self):
+        """It never appears where a tier or a channel is expected."""
+        for profile in READER_PROFILES:
+            with self.subTest(profile=profile):
+                self.assertNotIn(profile, TIERS)
+                self.assertNotIn(profile, CHANNELS)
+        self.assertIsNone(composes(set(READER_PROFILES)))
+
+    def test_the_reader_does_not_change_what_the_class_establishes(self):
+        """A poor reader does not demote `physical_card`; it constrains what
+        that reader may supply. The two are different questions."""
+        self.assertEqual(attests("physical_card", "name"), "optical")
+        found = row_is_verifiable(
+            ("physical_card", "shared_numbering_reference"),
+            checksum_passed=True)
+        self.assertTrue(found["verified"])
