@@ -12,6 +12,8 @@ adapter for those is a person typing. See contracts/SOURCE_MAP.md.
 
 from __future__ import annotations
 
+import urllib.parse
+
 import datetime as _dt
 import json
 import os
@@ -96,8 +98,16 @@ class TcgApiAdapter(Adapter):
         observed = self._now()
         records = []
         for card in cards:
+            # QUOTED. `Rare Candy` has a space in it, and http.client refuses
+            # a request line containing one -- `InvalidURL: URL can't contain
+            # control characters`. It raised from inside the transport, so it
+            # was not an adapter failure the runner could record as a gap: it
+            # killed the whole ingest run. Five consecutive daily runs died
+            # here on the first card whose name has a space.
             payload = self.get(
-                self.SEARCH.format(name=card["name"], game=card["game_id"]),
+                self.SEARCH.format(
+                    name=urllib.parse.quote(str(card["name"]), safe=""),
+                    game=urllib.parse.quote(str(card["game_id"]), safe="")),
                 label=f"search-{card['card_uid']}")
             for hit in find(payload, "data", "results", "cards") or []:
                 as_of = _date(find(hit, "updated_at", "updatedAt", "as_of")) or observed

@@ -859,3 +859,38 @@ class TheFxAdapterRespectsAStatedRateLimit(unittest.TestCase):
         record = again.fetch()[0]
         self.assertEqual(record.as_of.date().isoformat(), "2026-08-17")
         self.assertGreaterEqual(record.observed_at, record.as_of)
+
+
+class ACardNameWithASpaceDoesNotKillTheRun(unittest.TestCase):
+    """`InvalidURL: URL can't contain control characters` on
+    `/v1/search?q=Rare Candy&game=55`. It raised from inside the transport, so
+    it was not an adapter failure the runner could record as a gap -- it took
+    the whole ingest run down. Five consecutive daily runs died on the first
+    card whose name has a space."""
+
+    def test_the_name_is_percent_encoded(self):
+        import urllib.parse
+        from ingest.adapters import TcgApiAdapter
+        url = TcgApiAdapter.SEARCH.format(
+            name=urllib.parse.quote("Rare Candy", safe=""), game="55")
+        self.assertNotIn(" ", url)
+        self.assertIn("Rare%20Candy", url)
+
+    def test_http_client_accepts_the_encoded_path(self):
+        """The check that matters: the failure was in http.client's own
+        validation, so the assertion has to be that validation."""
+        import http.client
+        import urllib.parse
+        from ingest.adapters import TcgApiAdapter
+        url = TcgApiAdapter.SEARCH.format(
+            name=urllib.parse.quote("Rare Candy", safe=""), game="55")
+        parts = urllib.parse.urlsplit(url)
+        target = parts.path + ("?" + parts.query if parts.query else "")
+        http.client.HTTPConnection("example.invalid")._validate_path(target)
+
+    def test_the_unencoded_form_is_what_http_client_rejects(self):
+        """Pins the diagnosis rather than trusting the fix."""
+        import http.client
+        with self.assertRaises(http.client.InvalidURL):
+            http.client.HTTPConnection(
+                "example.invalid")._validate_path("/v1/search?q=Rare Candy")

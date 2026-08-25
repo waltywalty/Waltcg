@@ -33,6 +33,7 @@ from ingest.limitless import (LimitlessAdapter, attest,  # noqa: E402
                               slot_binding_evidence, split_label,
                               SERVES_GAME, UnsupportedGame,
                               refuse_other_games, verify_slot)
+from ingest.limitless import _SELF_REF  # noqa: E402
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "fixtures", "limitless")
@@ -335,10 +336,19 @@ class TheUrlShapeIsProbed(unittest.TestCase):
         self.assertEqual(adapter.endpoints_used["OP01-OP01-120"], url)
         self.assertEqual(parse_variant_page(body)["set_code"], "op01")
 
-    def test_leading_zeros_are_stripped_for_the_index_shape(self):
+    def test_the_number_shape_keeps_the_printed_number_verbatim(self):
+        """`/cards/OP01-070`, zero and all -- that is what the page's own
+        self-reference links carry."""
         adapter, tried = self._adapter(lambda url: (200, V2))
         adapter.card_page("OP01", "OP01-070")
-        self.assertIn("/OP01/70", tried[0])
+        self.assertTrue(tried[0].endswith("/cards/OP01-070"), tried[0])
+
+    def test_the_fallback_index_shape_still_strips_leading_zeros(self):
+        """Kept as a candidate, and it is a guess: it answered HTTP 500."""
+        adapter, tried = self._adapter(lambda url: (404, "nope"))
+        with self.assertRaises(AdapterGaveUp):
+            adapter.card_page("OP01", "OP01-070")
+        self.assertIn("/OP01/70", tried[-1])
 
     def test_giving_up_names_every_url_it_tried(self):
         adapter, tried = self._adapter(lambda url: (404, "nope"))
@@ -842,3 +852,50 @@ class ThePrintRowShapeCollides(unittest.TestCase):
         self.assertEqual(sorted(found["voted_by"]),
                          ["image_filename", "self_reference_links",
                           "unlinked_print_row"])
+
+
+class TheEndpointWasInTheObservedDataAllAlong(unittest.TestCase):
+    """Run 21 attested zero: `/cards/OP01/120` returned HTTP 500 and
+    `/cards/op/OP01/120` returned 404. Every candidate was a guess -- while
+    the page's own header and language links carried `/cards/OP01-120`, which
+    IS the card page. It was used as a signal and never recognised as the
+    endpoint."""
+
+    def test_the_first_candidate_is_the_observed_self_reference_shape(self):
+        first = LimitlessAdapter.CARD_CANDIDATES[0]
+        self.assertEqual(first.format(number="OP01-120", set_code="OP01",
+                                      index="120"),
+                         "https://onepiece.limitlesstcg.com/cards/OP01-120")
+
+    def test_the_endpoint_matches_the_pages_own_self_reference(self):
+        """The href the parser reads as signal 3 and the URL the adapter
+        requests are now the same shape. They were not, and that is why six
+        fetches produced six 500s and 404s."""
+        url = LimitlessAdapter.CARD_CANDIDATES[0].format(
+            number="OP01-120", set_code="OP01", index="120")
+        found = _SELF_REF.search(url)
+        self.assertIsNotNone(found, "the adapter's own URL is not recognised "
+                                    "as a self-reference by the parser")
+        self.assertEqual(found.group("number"), "OP01-120")
+
+    def test_the_probe_reported_every_url_rather_than_claiming_no_variants(self):
+        """The part that worked. A total failure names what was tried, which
+        is what made the candidate list diagnosable at all."""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        tried = []
+
+        def transport(url, headers):
+            tried.append(url)
+            return (500 if "onepiece" in url else 404), b"", {}
+
+        adapter = LimitlessAdapter(raw_root=tmp.name, sleep=lambda _s: None,
+                                   transport=transport, monotonic=lambda: 0.0)
+        with self.assertRaises(AdapterGaveUp) as caught:
+            adapter.card_page("OP01", "OP01-120")
+        message = str(caught.exception)
+        self.assertEqual(len(tried), len(LimitlessAdapter.CARD_CANDIDATES))
+        for url in tried:
+            self.assertIn(url, message)
+        self.assertIn("HTTP 500", message)
+        self.assertIn("HTTP 404", message)

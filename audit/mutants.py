@@ -780,4 +780,12 @@ MUTANTS = [
      'resolve/corroboration.py',
      '    if profile not in READER_PROFILES:\n        return [f"unknown reader_reliability {profile!r}',
      '    if False:\n        return [f"unknown reader_reliability {profile!r}'),
+    ('endpoint: the guessed index shape is tried before the observed one',
+     'ingest/limitless.py',
+     '        "https://onepiece.limitlesstcg.com/cards/{number}",\n        "https://limitlesstcg.com/cards/op/{number}",',
+     '        "https://onepiece.limitlesstcg.com/cards/{set_code}/{index}",\n        "https://limitlesstcg.com/cards/op/{number}",'),
+    ('tcgapi: the card name goes into the URL unencoded again',
+     'ingest/adapters.py',
+     '                    name=urllib.parse.quote(str(card["name"]), safe=""),',
+     '                    name=str(card["name"]),'),
 ]

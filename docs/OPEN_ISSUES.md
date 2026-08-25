@@ -372,6 +372,59 @@ A Simplified Chinese catalog source appearing and disagreeing with a row
 admitted under this standard. That is a real possibility and the reason the
 rows carry their provenance.
 
+## RESOLVED — the Limitless endpoint was in the observed data all along
+
+**Run 21 attested zero.** Every candidate URL failed:
+
+    /cards/OP01/120       -> HTTP 500
+    /cards/op/OP01/120    -> HTTP 404
+
+All three candidates were guesses — while the page's own header and language
+links carry **`/cards/OP01-120`**, which *is* the card page. That href was
+observed two sessions ago and read as *signal 3*; it was never recognised as
+the **endpoint**. The URL was sitting in the parser the whole time.
+
+**The 500 was the diagnostic and it was ignorable.** A 404 says "no such
+page"; a 500 says the host recognised enough to try and broke. Host right,
+path shape wrong — which is exactly what it turned out to be.
+
+Fixed: the observed shape is now the first candidate and is labelled as the
+only non-guess in the list. A test asserts the adapter's own URL is
+recognised by `_SELF_REF` — the endpoint it requests and the self-reference it
+parses are now the same shape, which they were not, and that mismatch is the
+whole bug.
+
+**What worked:** the probe reported every URL tried with its status rather
+than claiming the cards have no variants. Without that the run would have read
+as "six cards, nothing attested" and the candidate list would not have been
+diagnosable at all. That is the design earning its keep — but it does not
+excuse three guesses when the answer was already in the repository.
+
+## S2 — the daily ingest has crashed for five consecutive runs
+
+```
+http.client.InvalidURL: URL can't contain control characters.
+'/v1/search?q=Rare Candy&game=55' (found at least ' ')
+```
+
+An unencoded card name in the tcgapi search URL. `Rare Candy` has a space,
+`http.client` refuses a request line containing one, and it raised **from
+inside the transport** — so it was not an adapter failure the runner could
+record as a gap. It took the whole run down, on the first card whose name has
+a space.
+
+Runs 17–21 all failed here. GOAL D1 wants ≥90 consecutive days with zero
+silent gaps; this was neither silent nor a gap — it was a crash — but it has
+been costing a full run a day.
+
+Fixed with `urllib.parse.quote`. Three tests: that the name is encoded, that
+`http.client`'s own `_validate_path` accepts the result, and that it rejects
+the unencoded form — the last one pins the diagnosis rather than trusting the
+fix.
+
+**Still S2, not resolved:** the fix is committed but unproven against the live
+service. The next scheduled run is the evidence.
+
 ## S2 — apitcg and Limitless disagree on OP01-120's printings
 
 **Still open. The fetch that would settle it was attempted and did not land.**

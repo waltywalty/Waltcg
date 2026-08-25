@@ -127,12 +127,22 @@ class LimitlessAdapter(Adapter):
     # every two seconds, and one request per CARD rather than per printing.
     min_interval_seconds = 2.0
 
-    #: Candidate URL shapes, most likely first. NOT a guess dressed as a
-    #: constant -- `card_page` probes them and records which answered.
+    #: Candidate URL shapes, most likely first.
+    #:
+    #: THE FIRST ONE IS OBSERVED, THE REST ARE GUESSES AND ARE MARKED AS SUCH.
+    #: `/cards/OP01-120` is the href the page's own header and language links
+    #: carry -- it was in the observed self-reference data all along, used as a
+    #: SIGNAL and never recognised as the ENDPOINT. Run 21 attested zero
+    #: because every candidate here was a guess: `/cards/OP01/120` returned
+    #: HTTP 500 and `/cards/op/OP01/120` returned 404.
+    #:
+    #: The 500 was the diagnostic. A 404 says "no such page"; a 500 says the
+    #: host recognised enough to try and broke, which meant the host was right
+    #: and the path shape was wrong.
     CARD_CANDIDATES = (
+        "https://onepiece.limitlesstcg.com/cards/{number}",
+        "https://limitlesstcg.com/cards/op/{number}",
         "https://onepiece.limitlesstcg.com/cards/{set_code}/{index}",
-        "https://limitlesstcg.com/cards/op/{set_code}/{index}",
-        "https://onepiece.limitlesstcg.com/cards/{set_code}/{number}",
     )
 
     def __init__(self, *args, **kwargs):
