@@ -973,6 +973,18 @@ checkout.
 
 ## ADR-0015 — 250 labelled cards, and why the split is not proportional
 
+> **AMENDED 2026-08-25 (see ADR-0054).** Everything below assumes GROUND TRUTH
+> IS CORRECT, and never says so. Measured precision is capped at `(1 - e)`
+> where `e` is the ground-truth error rate, so the table's thresholds are
+> reachable only while `e` is small — and `e` has never been estimated. Three
+> errors are already known in this set, all found by cross-batch comparison
+> rather than by a check. At n=250 the 0.98 threshold allows five errors; if
+> `e` is around 1%, label noise consumes half that budget before the resolver
+> is asked anything. The numbers below are unchanged and still correct as
+> arithmetic; what was missing is the premise.
+
+
+
 - **Status:** Accepted
 - **Date:** 2026-08-17
 - **Scope:** `tests/fixtures/labelled_200.json`, `resolve/candidates.py`
@@ -4329,3 +4341,92 @@ it exists to catch:
   * It reads source, not behaviour.
 
 **239 verified of 250.** One short: `optcg:CN-S` 16.
+
+---
+
+## ADR-0054 — The threshold assumed the labels were right
+
+**Date:** 2026-08-25
+**Status:** Accepted. Amends ADR-0015. The measurement is drawn and committed;
+the answers do not exist yet.
+
+### The premise nobody wrote down
+
+Measured precision is capped at **`(1 - e)`**, where `e` is the ground-truth
+error rate — a perfect resolver disagrees with a wrong label. ADR-0015 sets
+the gate at 0.98 and never states that this only works while `e` is small.
+
+Three errors are already known in this set, all found by **cross-batch
+comparison rather than by any check**, and that comparison's coverage is thin:
+31 numbers were ever actually compared. The uncaught rate has never been
+estimated. At n=250 the 0.98 threshold allows five errors; if `e` is around
+1%, label noise consumes half the budget before the resolver is asked
+anything.
+
+The arithmetic in ADR-0015 is unchanged and still correct. What was missing is
+its premise, and it now carries an amendment note at the top pointing here.
+
+### N=30 screens; it does not certify
+
+Computed rather than asserted, and pinned by a test because the last bisection
+in this repository was inverted and returned 0.0 for every input:
+
+| N, zero disagreements | 95% bound on `e` |
+|---:|---:|
+| **30** | **≤ 9.5%** |
+| 100 | ≤ 3.0% |
+| **149** | **≤ 2.0%** ← what the gate needs |
+| 239 | ≤ 1.2% |
+
+Thirty rows is four to five times too coarse for the threshold. It is a good
+**screen**: at `e = 10%` a clean sample of 30 happens only 5% of the time. So
+it finds a gross problem cheaply and licenses nothing else, and if it returns
+two or more disagreements nobody needs 149 rows to know there is a problem.
+
+Worth noticing the shape of the alternative: 149 is 62% of the whole verified
+set, so the real choice is *screen* or *re-verify essentially everything*.
+There is not much useful ground in between.
+
+`render()` prints this table beside every result, because a rate without its
+interval reads as a measurement.
+
+### The contamination is targeted, not noisy
+
+The proposal stated it as optimistic bias — the researcher assembled most of
+this set and may recall rather than re-derive. True, and sharper than that:
+**where the recalled memory is of the original mistake, the re-derivation
+reproduces it and the comparison agrees.**
+
+So the bias is not evenly distributed noise. It is blind precisely to errors
+arising from the researcher's own systematic habits — and all three known
+errors are exactly that class. The instrument is least sensitive to what it is
+most needed for. A fresh researcher, or a session with no access to this
+project, is the clean version; this one bounds `e` **from below**.
+
+Every render says so, and a mutant fails the build if that sentence is
+softened to "an estimate".
+
+### Protocol
+
+The name is withheld — the field all three known errors live in, and the
+answer. A test asserts no drawn row's name appears anywhere in the request.
+
+The draw is **committed before any answer exists**
+(`contracts/reverification_draw.json`, seed pinned, reproducibility asserted).
+The blinding is a sequence, not an intention: a sample chosen after seeing
+results is not a sample. Same discipline as the art calls.
+
+Comparison is mechanical, orthography normalised — the claim under test is
+*which card*, not which spelling. Abstentions leave the denominator rather
+than counting as agreement, because counting them is how a thin sample reads
+as a clean one. Disagreements are **findings**: a disagreement says two
+readings differ, not which one is the error, and nothing is corrected or
+demoted on its strength.
+
+### What this does not do
+
+It does not block the sixteen CN-S rows, and it does not fix anything. It
+measures what the gate's central number is worth.
+
+**239 verified of 250**, of which 1 is machine-checkable and `e` is
+unestimated.

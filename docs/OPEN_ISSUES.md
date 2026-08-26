@@ -304,6 +304,74 @@ character aloud *without being offered a candidate* is fine; that is a
 reading, not a confirmation. The distinction is whether a candidate was
 supplied before the answer.
 
+## S1 — ADR-0015's threshold assumes ground truth is correct, and that is unmeasured
+
+**Measured precision is capped at `(1 - e)`**, where `e` is the ground-truth
+error rate: a perfect resolver disagrees with a wrong label. ADR-0015 sets the
+gate at 0.98 and never states the assumption underneath it — that `e` is
+small enough not to matter.
+
+**Three errors are already known in this set** — the OP01-002/003 name swap,
+OP01-121 named as the wrong character, and the same card under two set-code
+spellings. All were found by **cross-batch comparison, not by any check**, and
+the coverage of that comparison is thin (`name_disagreement_coverage` reports
+31 numbers ever actually compared). The uncaught rate has never been
+estimated.
+
+At 250 rows, 0.98 allows **5 errors**. If `e` is around 1%, label noise alone
+consumes half that budget before the resolver is asked anything. The gate's
+central number currently rests on an unestimated quantity.
+
+### The measurement, and what N can bound
+
+Blind re-verification, same shape as the art-call protocol: draw a sample,
+send **`game / set_code / number / variant / language`** and withhold the
+**name** — the field all three known errors live in, and the answer. The
+researcher re-derives; the comparison is mechanical; disagreements are
+findings, and nothing is corrected or demoted on their strength.
+
+**N=30 cannot certify the threshold.** The arithmetic, computed rather than
+asserted:
+
+| N, zero disagreements | 95% bound on `e` |
+|---:|---:|
+| **30** | **≤ 9.5%** |
+| 100 | ≤ 3.0% |
+| **149** | **≤ 2.0%** ← what the gate needs |
+| 239 (all of it) | ≤ 1.2% |
+
+So thirty rows is a **screen**, not a certification: if `e` were 10% a clean
+sample of 30 happens only 5% of the time, so it will find a gross problem
+cheaply, and a clean result licenses nothing except moving on to a real
+sample. Staged deliberately — if the screen finds two or more disagreements,
+nobody needs 149 rows to know there is a problem.
+
+Note the second option is nearly the whole set. At 149 of 239 you are 62% of
+the way to re-verifying everything, and doing all 239 buys `e ≤ 1.2%`.
+
+### The contamination is worse than optimistic
+
+The researcher assembled most of this set and may recall a name rather than
+re-derive it. That biases the estimate optimistic — a **floor** on `e`, never
+unbiased. Sharper, and stated because it changes what the number is worth:
+**where the recalled memory is of the original mistake, the re-derivation
+reproduces it and the comparison agrees.** The bias is not even noise. It is
+blind precisely to errors arising from the researcher's own systematic
+habits — and all three known errors are exactly that class.
+
+A fresh researcher, or a session with no access to this project, is the clean
+instrument. This one bounds `e` from below.
+
+### Status
+
+The draw is committed in `contracts/reverification_draw.json` **before any
+answer exists** — the blinding is a sequence, not an intention, and a sample
+chosen after seeing results is not a sample. Seed pinned; a test asserts the
+committed draw reproduces from it.
+
+Does not block the CN-S rows. It is a separate measurement of what the number
+means.
+
 ## S1 — 238 of 239 verified rows have never been tested by the gate
 
 **The retroactive sweep.** `ingest` is gated now — a claim about rows arriving
