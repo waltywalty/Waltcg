@@ -41,6 +41,12 @@ jobs:
       - name: No provider data committed
         run: python -m audit.checks.no_provider_data --verbose
 
+      # THE STANDARD MUST BE REACHED, not merely exist. `upgrade()` never
+      # called it for four ADRs while every test passed, so this discovers
+      # the write paths rather than trusting a list.
+      - name: No unguarded elevation
+        run: python -m audit.checks.no_unguarded_elevation --verbose
+
       - name: Guard catches what it claims to
         # A gate that cannot fail is not a gate. Prove the three rules fire on
         # a scratch repository before trusting the clean result above.

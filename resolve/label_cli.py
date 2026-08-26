@@ -66,6 +66,32 @@ _NOT_INHERITED = frozenset({"confidence", "source", "verified_from",
                             "inherited_fields", "adjudication"})
 
 
+def row_is_admissible(row):
+    """May this row enter the set at a SCORED confidence?
+
+    A row claiming `verified` is claiming two independent sources agree. Where
+    it names a source class the standard has classified, the standard decides.
+    Where it names one nobody has classified, it must SAY SO -- `other:` --
+    rather than being taken at its word, which is the same rule `upgrade`
+    applies and for the same reason.
+    """
+    from resolve.corroboration import FIELD_ATTESTATION
+
+    declared = str(row.get("source_class") or "")
+    if not declared:
+        # No source class named. Historically every row was like this, so
+        # this is the rung the set already stands on -- not a licence, a
+        # boundary. `docs/OPEN_ISSUES.md` carries the ratchet.
+        return True, ""
+    ok, refusal = second_source_is_admissible(declared, row)
+    if not ok:
+        return False, (f"declares source_class {declared!r} and cannot be "
+                       f"admitted at {row.get('confidence')!r}: {refusal}")
+    if declared in FIELD_ATTESTATION and declared != "physical_card":
+        return True, ""
+    return True, ""
+
+
 def ingest(rows, labelled_path=LABELLED, dry_run=False,
            supersede_unstated=False):
     """Merge externally-researched rows into the labelled set.
@@ -179,6 +205,16 @@ def ingest(rows, labelled_path=LABELLED, dry_run=False,
                            + ("" if previous.get("confidence") != "unstated"
                               else ". Pass --supersede-unstated: an `unstated` "
                                    "row is not a competing claim"))
+        # THE GATE, AT THE POINT OF ADMISSION. `ingest` produced 238 of the
+        # 239 verified rows and never consulted the standard: a row arriving
+        # with `confidence: verified` was taken at its word. The audit
+        # `no_unguarded_elevation` found this by construction rather than by
+        # anyone remembering to look, which is the whole reason it exists.
+        if not why and row.get("confidence") in SCORED:
+            admissible, refusal = row_is_admissible(row)
+            if not admissible:
+                why.append(refusal)
+
         if why:
             rejected.append({"index": index, "row": row, "why": why})
         else:
@@ -239,14 +275,14 @@ def second_source_is_admissible(second_source, card):
     if name == "physical_card":
         well_formed, problems = physical_card_row_is_well_formed(card)
         if not well_formed:
-            return False, (f"{card['card_uid']} claims a physical_card second "
+            return False, (f"{card.get('card_uid', 'row')} claims a physical_card second "
                            "source but does not carry what one requires: "
                            + "; ".join(problems))
         first = card.get("source_class") or "shared_numbering_reference"
         found = row_is_verifiable((first, name),
                                   checksum_passed=bool(card.get("checksum")))
         if not found["verified"]:
-            return False, (f"{card['card_uid']}: {first!r} plus {name!r} does "
+            return False, (f"{card.get('card_uid', 'row')}: {first!r} plus {name!r} does "
                            "not establish " + ", ".join(found["missing"])
                            + ". " + "; ".join(found["by_field"][f]
                                               for f in found["missing"]))
@@ -625,6 +661,11 @@ def review(queue_path=QUEUE, decide=None, limit=None):
             hard = HARD_CASE.get(candidate["priority"])
             if hard:
                 row["hard_case"] = hard
+            # ELEVATION-EXEMPT(no-confidence-write): adjudication admits a
+            # row, it does not rate one -- the row carries
+            # `resolver_confidence`, never `confidence`, so nothing here can
+            # reach a SCORED rung. Machine-verified: the audit refuses this
+            # claim if it detects a confidence write.
             labelled["cards"].append(row)
             existing.add(uid)
         accepted += 1

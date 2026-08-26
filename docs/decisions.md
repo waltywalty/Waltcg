@@ -4225,3 +4225,107 @@ the four One Piece treasure rares.
 
 **239 verified of 250.** One short: `optcg:CN-S` 16 — ten upgrades and six new
 rows, on the split identified from the file.
+
+---
+
+## ADR-0053 — The audit that discovers decision points, and shipped inert
+
+**Date:** 2026-08-25
+**Status:** Accepted. Answers "don't find #8 by hand — build the audit that
+finds all of them at once."
+
+### Two species, because they need different tests
+
+The ADR-0045 table held one kind. It holds two, and they read identically
+green:
+
+**INERT** — the check cannot fire. Nothing it could be run against would make
+it complain. *Remedy: prove it can fail.* Two shapes, because their remedies
+differ: **by construction** (an unreachable branch, a signal wired to an
+element that does not exist) and **by scope** (it fires, over a universe that
+excludes the target — a scanner reading `git ls-files` never sees an untracked
+file).
+
+**ORPHANED** — the check fires perfectly. Nothing calls it at the moment of
+decision. *Remedy: prove something invokes it — at the decision point.*
+
+A test written for the wrong species passes and teaches nothing. Exercising an
+orphaned check directly proves it works, which was never in doubt; asserting
+an inert check is reachable proves it is called, which was also never in
+doubt.
+
+`audit/defect_taxonomy.py` holds all seven instances with the remedy actually
+applied, and `tests/test_defect_taxonomy.py` **asserts the named remedy test
+exists** — a registry of remedies whose remedies have been renamed away is the
+stale list it exists to catalogue.
+
+### The audit
+
+`audit/checks/no_unguarded_elevation.py`. Decision points are **discovered**:
+
+    site(F) <=> (writes a confidence field OR admits an opaque row)
+                AND F is inside the persistence closure
+
+Not "writes to the set AND sets confidence" — that conjunction misses
+`ingest()`, which produced **238 of the 239 verified rows** and never touches
+a confidence field. It appends rows it did not construct.
+
+**Two call graphs, opposite conservatism.** Reaching a sink over-approximates
+(a missed edge is a missed site, a silent pass); reaching a gate
+under-approximates (a spurious edge is a fake guard, also a silent pass).
+
+**Default-deny sinks.** Every path-proving rule the red team was handed, it
+defeated — argparse defaults, f-string joins, `pathlib` `/`, write-and-rename
+— and each defeat produced a silent pass on a function containing a literal
+elevation. So a write whose destination cannot be read keeps the obligation.
+
+Designed against **21 evasions** from three adversarial passes. The ones that
+shaped it: aliasing the collection before mutating it, a class splitting
+mutation from persistence across sibling methods, and a data-driven patch with
+no literal anywhere.
+
+### It shipped inert, and that is the finding
+
+The first working version reported **clean** against a brand-new module
+containing an unguarded elevation. `git ls-files` returns only *tracked*
+files, and a new module is untracked at the moment it is written — so the
+audit built to catch a new write path could not see a new write path.
+
+That is `inert / by_scope`, the species catalogued an hour earlier in the same
+commit, in `no_provider_data`, which has the identical bug.
+
+Three more of its own defects surfaced the same way: a mode flag counted as a
+path (`open(p, "w")` classified as a named destination, defeating default-deny
+with an argument that is not a path); the alias-*binding* statement read as a
+collection write, making every reporter a decision point; and R-consume
+checked in the site rather than along the path, which refused every wrapper.
+
+None was caught by a test. All four were caught by attacking the audit with
+the corpus it was designed against — which is the only thing that separates a
+check that can fail from one that cannot.
+
+### What it found
+
+**`ingest` was unguarded**, exactly as predicted. A row arriving with
+`confidence: verified` was taken at its word. Now `row_is_admissible` runs at
+the point of admission: a row naming a classified source class is judged by
+the standard, and one naming an unclassified source must say so with `other:`
+rather than being waved through.
+
+`review` is exempt with a **machine-verified** claim — `no-confidence-write`,
+refused by the audit if a confidence write is detected — and the exemption
+roster is count-sealed, so an allowlist cannot grow silently.
+
+### What this audit still cannot see
+
+Stated here because a check that reads as stronger than it is, is the defect
+it exists to catch:
+
+  * It proves an edge to the gate **exists**, not that the gate refuses. A
+    gate called on one exemplar row and applied to a batch passes.
+  * `getattr`, `eval`, `exec` are refused rather than resolved.
+  * A guard behind a condition satisfies R-consume; conditional guarding is
+    not detected.
+  * It reads source, not behaviour.
+
+**239 verified of 250.** One short: `optcg:CN-S` 16.
