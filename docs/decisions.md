@@ -4468,6 +4468,14 @@ It buys something only in the **failure** case — precision lands roughly
 between the resolver and the ruler. That is a real scenario and a real use,
 and it has a trigger, so it is held in reserve rather than pre-paid.
 
+> **CORRECTED 2026-08-25 (ADR-0056).** The precondition above is not met, and
+> the trigger as stated is wrong. `e ≲ 1 - p` requires the resolver's INPUT to
+> be independent of the label. Precision today is measured on SELF-RECORDS —
+> the row goes in and its own uid is expected back — so correlated error is
+> total and the bound carries no information at all. The trigger is therefore
+> not "precision lands low"; it is "we need `e` and no independent measurement
+> exists yet.
+
 The error-budget argument stands on its own and is worth keeping: this
 resolver feeds EV models carrying an uncalibrated submission-selection
 haircut, community-sourced pull rates, and single-digit grade-level comps.
@@ -4504,3 +4512,83 @@ the answer is a paragraph; building an apparatus to hold it would have been
 the wrong response to "not more machinery".
 
 **239 verified of 250.** One short: `optcg:CN-S` 16.
+
+---
+
+## ADR-0056 — `e ≲ 1 − p` needs an independent input, and there isn't one
+
+**Date:** 2026-08-25
+**Status:** Accepted. Corrects ADR-0055, which recorded the bound without its
+precondition and built a reserve trigger on top of it.
+
+### The correction
+
+ADR-0055 argued that ground-truth errors show up as disagreements, so
+`e ≲ 1 − p`, so passing the gate at 0.98 largely certifies its own premise.
+The algebra is fine. **The precondition is not met, and I did not state it.**
+
+The bound requires the resolver's **input to be independent of the label**.
+Precision today is measured on **self-records**: `_self_records` builds the
+input from the labelled row's own fields and expects that row's own
+`card_uid`. Input and expectation are the same data twice. A wrong label is
+fed in and expected back, so correlated error is not residual — **it is
+total**, and `1 − p` carries no information about `e` whatsoever.
+
+Sharper than that, and this is the part that settles it: `card_uid` is
+`{game}:{set_code}:{number}:{variant}:{language}`. **`name` is not in it.** A
+row naming the wrong character resolves exactly as well as a correct one, at
+any resolver quality. All three known errors in this set are name errors. The
+measurement is *structurally incapable* of seeing the error class we have
+actually observed.
+
+So the argument is not conditional-and-currently-unmet. On this instrument it
+is **void**.
+
+### What the self-record number actually is
+
+**1.0000, on 239 of 239.** It is a **no-merge / no-collision check**: it proves
+the resolver keeps 290 distinct rows distinct and does not fold two printings
+into one. That is a real property and precisely the one that broke when
+`_p1`/`_p2` suffixes were dropped and 286 rows merged into 234 collisions.
+
+It is **not a resolution check**, because nothing independent is being
+identified. Quoting 1.0000 as "resolver precision" overstates it by a wide
+margin, and the number now carries that caveat at the point it is computed,
+in the assertion message, and in `_self_records`' docstring — not only here,
+because a caveat that lives in an ADR is not attached to the number a reader
+sees.
+
+### When the bound becomes available
+
+When precision is measured **catalog entry in → labelled uid out**. Then a
+wrong label disagrees with a correctly resolved catalog entry and lands in
+`1 − p`, and correlated error drops to the genuinely residual case of the
+resolver and the labeller making the *same* mistake from *different* inputs.
+
+That measurement does not exist yet. Building it is the precondition for the
+whole ADR-0055 argument, and it is a larger and more useful piece of work than
+the 149 re-derivations — it measures the thing the resolver is for.
+
+### The reserve trigger changes shape
+
+ADR-0055 held the 149-row sample in reserve behind "precision lands low and
+the resolver is exonerated." That exoneration route runs through `e ≲ 1 − p`
+and is therefore unavailable.
+
+Corrected: **if precision is still self-record-measured when a real number is
+needed, the 149 is back on the table sooner than ADR-0055 implies** — because
+there is no other route to `e`. The cheaper path is the catalog-in
+measurement, which both makes the bound available and measures resolution;
+the 149 is the fallback if that is not built.
+
+### The pattern
+
+Three corrections in three turns, each one arithmetic or a premise I could
+have checked and didn't: the abstention floor at n=16, the contaminated art
+caller, the N=30 bound. This is the fourth, and it is the worst of them,
+because I used the unstated premise to argue *against* doing more work. An
+argument that concludes "we can stop here" deserves more scrutiny than one
+that concludes "do more", and it got less.
+
+**239 verified of 250.** Self-record precision 1.0000, which is not a
+resolution measurement.

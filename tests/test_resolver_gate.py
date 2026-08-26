@@ -111,7 +111,34 @@ class ResolverQuality(unittest.TestCase):
         return precision, recall, wrong
 
     def _self_records(self):
-        """Each labelled card, presented as a provider would present it."""
+        """Each labelled card, presented as a provider would present it.
+
+        WHAT THIS MEASURES, AND WHAT IT DOES NOT. The record is built FROM THE
+        LABELLED ROW and the expected answer is that row's own `card_uid` --
+        which is `{game}:{set_code}:{number}:{variant}:{language}`, derived
+        from the same fields. Input and expectation are the same data twice.
+
+        So this is a NO-MERGE / NO-COLLISION CHECK, not a resolution check. It
+        proves the resolver keeps 290 distinct rows distinct and does not fold
+        two printings into one -- which is a real property, and exactly the one
+        that broke when `_p1`/`_p2` suffixes were dropped and 286 rows merged.
+        It does NOT prove the resolver can identify a card, because nothing
+        independent is being identified.
+
+        Two consequences worth carrying wherever the number is quoted:
+
+          * A LABEL ERROR IS INVISIBLE HERE. `name` is not in the uid, so a row
+            naming the wrong character resolves exactly as well as a correct
+            one. All three known errors in this set are of that class.
+          * THEREFORE `e <= 1 - p` DOES NOT HOLD on this measurement. That
+            bound needs the resolver's input to be independent of the label,
+            and here it is the label. Correlated error is total, not residual.
+            See ADR-0056.
+
+        The bound becomes available when precision is measured CATALOG ENTRY IN
+        -> LABELLED UID OUT, because then a wrong label disagrees with a
+        correctly resolved catalog entry and lands in `1 - p`.
+        """
         return [({"source": "probe", "game": c["game"], "language": c["language"],
                   "number": c["number"], "set_code": c["set_code"],
                   "variant": c["variant"], "name": c["name"]}, c["card_uid"])
@@ -121,8 +148,11 @@ class ResolverQuality(unittest.TestCase):
         precision, recall, wrong = self._score(self._self_records())
         self.assertGreaterEqual(
             precision, self.data["_gate"]["precision_threshold"],
-            f"precision {precision:.4f} ({_counts_note(self.data)}); "
-            f"wrong matches: {wrong}")
+            f"self-record precision {precision:.4f} "
+            f"({_counts_note(self.data)}); wrong matches: {wrong}. NOTE: this "
+            "is a no-merge/no-collision check, not a resolution check -- the "
+            "input is built from the labelled row and the expected uid is "
+            "derived from the same fields. See `_self_records`.")
 
     def test_recall_is_reported_even_when_precision_passes(self):
         precision, recall, _ = self._score(self._self_records())

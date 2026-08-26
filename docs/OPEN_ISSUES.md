@@ -393,10 +393,21 @@ tighten a label bound from 9.5% to 2% optimises the wrong term.
 > `e ≤ 9.5%` (95%) — a **floor-biased** bound, because a contaminated reader
 > cannot see its own systematic errors. `e` is **not** certified below the 2%
 > the 0.98 threshold assumes, and any precision claim is conditional on that
-> bound. Measuring precision `p` itself implies `e ≲ 1 - p` absent correlated
-> error, so passing the gate largely certifies its own premise; the 149-row
-> sample is held in reserve for the case where precision lands low and the
-> resolver is exonerated.
+> bound.
+>
+> The bound `e ≲ 1 − p` is **not available on the current measurement**.
+> It requires the resolver's input to be independent of the label, and
+> precision is measured on **self-records** — the row goes in and its own
+> `card_uid` is expected back — so correlated error is total rather than
+> residual. `name` is not even a component of the uid, so a name error, the
+> class all three known errors belong to, cannot produce a disagreement at any
+> resolver quality. The bound becomes available when precision is measured
+> **catalog entry in → labelled uid out**.
+>
+> Consequently the **self-record figure of 1.0000 is a no-merge/no-collision
+> result, not a resolution result**, and the 149-row sample is back on the
+> table sooner than ADR-0055 implied: if a real `e` is needed while precision
+> is still self-record-measured, there is no exoneration route.
 
 Two things that wording fixes over the first draft: it is **conditional on the
 screen coming back clean** rather than asserting the bound in advance, and it
