@@ -44,6 +44,15 @@ jobs:
       # THE STANDARD MUST BE REACHED, not merely exist. `upgrade()` never
       # called it for four ADRs while every test passed, so this discovers
       # the write paths rather than trusting a list.
+      # A MEASUREMENT, NOT A GATE. The gated precision figure is computed on
+      # self-records and cannot fail; this one feeds a provider's own
+      # presentation and can. Reported every run so its coverage -- which is
+      # blocked by rate limits and script mismatch, not by design -- stays
+      # visible.
+      - name: Precision, catalog entry in -> labelled uid out
+        continue-on-error: true
+        run: python -m audit.checks.catalog_precision --verbose
+
       - name: No unguarded elevation
         run: python -m audit.checks.no_unguarded_elevation --verbose
 

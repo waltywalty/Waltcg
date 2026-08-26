@@ -67,6 +67,30 @@ def _counts_note(data):
             + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) + ")")
 
 
+def _blocked_note(data, combos=()):
+    """Name a combination that is waiting on something external.
+
+    A LABEL ON THE RED, NEVER A WAY OUT OF IT. The target is unchanged and the
+    assertion still fails -- moving the line to fit what is reachable is the
+    same move as backfilling provenance onto rows that never had it. What this
+    adds is that a reader of the failure can tell "nobody has done the work"
+    from "the work is waiting on an object", which are different problems with
+    different next steps.
+    """
+    blocked = (data.get("_gate") or {}).get("blocked") or {}
+    relevant = [c for c in (combos or blocked) if c in blocked]
+    if not relevant:
+        return ""
+    notes = []
+    for combo in sorted(relevant):
+        entry = blocked[combo]
+        notes.append(f"\n  {combo}: {entry['state']} since "
+                     f"{entry['since']}, review {entry['review_on']} -- "
+                     f"{entry['reason']} TARGET UNCHANGED at "
+                     f"{entry['target_unchanged']}: {entry['why_the_target_is_not_amended']}")
+    return "".join(notes)
+
+
 class ResolverQuality(unittest.TestCase):
     """Precision: of the matches the resolver was willing to use in a signal,
     how many were right. Recall: of the cards it should have matched, how many
@@ -254,7 +278,10 @@ class TheLabelledSetIsComplete(unittest.TestCase):
         below = {combo: have.get(combo, 0)
                  for combo in self.gate["required_per_combo"]
                  if have.get(combo, 0) < floor}
-        self.assertFalse(below, f"below the {floor}-card detection floor: {below}")
+        self.assertFalse(
+            below,
+            f"below the {floor}-card detection floor: {below}"
+            + _blocked_note(self.data, below))
 
     def test_each_combo_meets_its_own_target(self):
         import collections
@@ -263,7 +290,10 @@ class TheLabelledSetIsComplete(unittest.TestCase):
         short = {combo: (have.get(combo, 0), want)
                  for combo, want in self.gate["required_per_combo"].items()
                  if have.get(combo, 0) < want}
-        self.assertFalse(short, f"(have, want) per combo: {short}")
+        self.assertFalse(
+            short,
+            f"(have, want) per combo: {short}"
+            + _blocked_note(self.data, short))
 
     def test_twenty_hard_cases(self):
         from resolve.hard_cases import hard_cases_of

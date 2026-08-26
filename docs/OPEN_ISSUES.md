@@ -304,6 +304,74 @@ character aloud *without being offered a candidate* is fine; that is a
 reading, not a confirmation. The distinction is whether a candidate was
 supplied before the answer.
 
+## S2 — the resolver is never given the set totals it needs to bridge a number
+
+**Found by the catalog-in measurement on its first run**, and it is exactly
+the class of defect self-records cannot produce.
+
+`printed_from_bare("011", 78)` returns `011/078` correctly. But
+`numbers_denote_same_printing("011", "011/078")` returns **`CannotBridge`**,
+because the set total is not passed to it — and the resolver does not supply
+one. `ingest/targets.json` carries `_set_totals`; nothing connects them.
+
+So a provider serving a bare `011` for a card the labelled set knows as
+`011/078` is **refused**, not mis-resolved. That is the safe direction — the
+gate's asymmetry is deliberate, a missed card is a card you do not trade — but
+in production those cards carry no price at all.
+
+**Not fixed here.** It is a change to the thing being measured, found by the
+measurement, and it deserves its own decision rather than being folded into
+the commit that built the instrument.
+
+## RUNNING, UNCERTIFIED — precision, catalog entry in → labelled uid out
+
+Built and running. Unlike the gated self-record figure, **this measurement can
+fail, and today it does.**
+
+| | |
+|---|---:|
+| verified rows | 239 |
+| catalog entries | 3,879 |
+| **pairable** | **7** (2.9%) |
+| resolved and usable | 0 |
+| refused by the resolver | 7 |
+| precision | **undefined** — an empty denominator is not a result |
+
+### Getting the join right took three attempts, and two were wrong
+
+**Name-only join — invalid.** It paired the labelled Base Set Blastoise with a
+`bw8` Blastoise. Character names repeat across dozens of sets.
+
+**Set+name, first match — invalid.** It paired labelled `sv03.5:003/165`
+Venusaur ex with catalog `sv03.5/198`, a *different printing of the same
+character in the same set*. Non-negotiable 3 says those are different cards,
+and the pairing would have scored the resolver **wrong for being right**.
+
+**Set+name, unique on both sides** — valid, and it leaves 7 rows. Ambiguity is
+reported, never resolved by taking the first match.
+
+That is the fundamental difficulty, stated rather than worked around: **you
+cannot pair a catalog entry to a labelled row without using the number, and
+the number is the thing being measured.** What remains is the subset where
+set+name happens to be unique.
+
+### What limits coverage, and none of it is this measurement's design
+
+1. **`optcg` and `riftbound` have no catalog at all** — apitcg rate-limited
+   for several consecutive runs, so 109 labelled rows have nothing to measure
+   against.
+2. **The catalog names cards in the local script**, the labelled set in Latin,
+   so `pkmn:JP`, `pkmn:CN-S` and `pkmn:CN-T` cannot join on name.
+3. **Set coverage barely overlaps** — 6 shared sets out of 31 labelled and 201
+   catalogued.
+
+### On the count
+
+Deliberately **not** gated and asserts no threshold. The 250-row count
+licenses a precision *claim*; taking the measurement never needed to wait for
+it. The certified claim comes when the count closes; the interval is reported
+now.
+
 ## S1 — ADR-0015's threshold assumes ground truth is correct, and that is unmeasured
 
 **Measured precision is capped at `(1 - e)`**, where `e` is the ground-truth

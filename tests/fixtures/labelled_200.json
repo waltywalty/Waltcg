@@ -19,7 +19,18 @@
     "sizing_note": "250, not 200. At n=200 a ZERO-error sweep gives a 95% lower bound of 0.9851 -- it clears 0.98, but a single wrong match drops it to 0.9765 and the claim fails. 250 survives one error (0.9812). The binding constraint is the error budget, not the sample size. See docs/decisions.md ADR-0015.",
     "scored_on": [
       "verified"
-    ]
+    ],
+    "blocked": {
+      "optcg:CN-S": {
+        "state": "blocked_on_external",
+        "since": "2026-08-25",
+        "review_on": "2026-10-06",
+        "reason": "The physical Simplified Chinese cards are inaccessible for several weeks. `physical_card` is the only source class that attests a CN-S PRINTING -- a documentary EN or JP source attests the shared NUMBER and is structurally silent on whether a CN-S printing exists (resolve/corroboration.py: shared_numbering_across_languages). So the shortfall is not a research backlog; it is waiting on an object.",
+        "target_unchanged": 30,
+        "why_the_target_is_not_amended": "Moving the line to fit what is reachable is the same move as backfilling `source_class` onto 238 rows: it makes the number go green without changing what is known. The gate stays HONESTLY RED. This block is a label on the red, not a licence to ignore it.",
+        "deferred_not_abandoned": true
+      }
+    }
   },
   "_status": "INCOMPLETE -- 239 of 250 verified (290 rows in the pool)",
   "_needed": {

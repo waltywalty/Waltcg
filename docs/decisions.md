@@ -4592,3 +4592,91 @@ that concludes "do more", and it got less.
 
 **239 verified of 250.** Self-record precision 1.0000, which is not a
 resolution measurement.
+
+---
+
+## ADR-0057 — The measurement that can fail, and the three joins it took to get there
+
+**Date:** 2026-08-25
+**Status:** Accepted. Builds what ADR-0056 named as the precondition. Runs
+uncertified.
+
+### Decoupling the count from the work
+
+The 250-row threshold licenses a precision **claim**. It was never a
+prerequisite for taking a measurement, and the current gated figure is void
+anyway — self-records cannot fail. So the next step did not need row 240.
+
+`optcg:CN-S` is marked **`blocked_on_external`** with a reason and a review
+date, and **the target is unchanged at 30**. The gate stays honestly red.
+Moving the line to fit what is reachable is the same move as backfilling
+`source_class` onto 238 rows: the number goes green and nothing is known that
+was not known before. The block is a label on the red, and the assertion still
+fails — it just now tells a reader that the work is waiting on an object
+rather than on somebody's attention.
+
+### Three joins, two of them wrong
+
+The measurement feeds a provider's own presentation and expects our uid. To
+score it you must pair a catalog entry with a labelled row, and the pairing
+must not be the thing being measured.
+
+**Name only — invalid.** Paired the labelled Base Set Blastoise with a `bw8`
+Blastoise. Character names repeat across dozens of sets.
+
+**Set + name, first match — invalid, and worse.** Paired labelled
+`sv03.5:003/165` Venusaur ex with catalog `sv03.5/198`: a different printing
+of the same character in the same set. Non-negotiable 3 says those are
+different cards, and the pairing would have scored the resolver **wrong for
+being right** — a measurement that manufactures failures is worse than one
+that manufactures passes, because it sends someone to fix code that works.
+
+**Set + name, unique on both sides — valid**, and it yields 7 rows.
+
+That is the fundamental difficulty and it is stated in the module rather than
+worked around: **you cannot pair a catalog entry to a labelled row without
+using the number, and the number is what needs measuring.** What survives is
+the subset where set and name happen to be unique.
+
+### The result, and it is a real one
+
+**7 pairable of 239. All 7 refused. Precision undefined** — an empty
+denominator is not a result, and reporting it as 1.0 would be the
+clean-report-over-zero-comparisons defect one more time.
+
+Where the self-record figure is 1.0000 on 239 of 239, this one cannot resolve
+a single pairable row. Both numbers are correct; they measure different
+things, and only one of them can fail.
+
+**It found a resolver defect on its first run.** `printed_from_bare("011", 78)`
+returns `011/078` correctly, but `numbers_denote_same_printing("011",
+"011/078")` returns `CannotBridge` because the set total is never passed —
+and `ingest/targets.json` carries `_set_totals` that nothing connects to the
+resolver. Filed S2. **Not fixed here**: it is a change to the thing being
+measured, found by the measurement, and it deserves its own decision rather
+than being folded into the commit that built the instrument.
+
+### Coverage is blocked by three things, none of them design
+
+109 rows have no catalog at all (`optcg` and `riftbound`, apitcg rate-limited
+for several consecutive runs). The catalog names cards in the local script
+while the labelled set uses Latin, so the Japanese and Chinese combos cannot
+join on name. And set coverage barely overlaps — 6 shared of 31 labelled
+against 201 catalogued.
+
+All three are live items with owners. None is a reason to not have built this.
+
+### The bisection was inverted, in the function warning about inverted bisections
+
+`clopper_pearson_lower` returned `0.0000` for every imperfect input while the
+perfect cases passed on a closed-form early return — so `250/250 → 0.9881`
+looked right and `249/250 → 0.0000` was never seen. The docstring warning
+about exactly this failure sat directly above it.
+
+Caught because the test pins the **one-error** case against ADR-0015's own
+table, not only the clean sweep. Pinning only the clean sweep would have
+passed. That is the `inert` remedy working: a test that asserts the check can
+be wrong, not only that it can be right.
+
+**239 verified of 250.** `optcg:CN-S` blocked_on_external, target unchanged,
+review 2026-10-06.
