@@ -4430,3 +4430,77 @@ measures what the gate's central number is worth.
 
 **239 verified of 250**, of which 1 is machine-checkable and `e` is
 unestimated.
+
+---
+
+## ADR-0055 — Screen, then stop, and say what the number is conditional on
+
+**Date:** 2026-08-25
+**Status:** Accepted. Closes the question ADR-0054 opened without closing the
+gap it found — deliberately.
+
+### The call
+
+Run the 30-row blind screen in a fresh session. **Do not run the 149.** Record
+the limitation as a bounded, conditional claim rather than spending a second
+labelled-set build to remove the condition.
+
+### Why, and it is not mainly cost
+
+The strongest argument is not the price of 149 re-derivations. It is that
+**the 149 is largely redundant with the measurement it would license.**
+
+Ground-truth errors show up as disagreements. If the resolver agrees with the
+labels on fraction `p`, then `e ≲ 1 - p`: every ground-truth error either
+falls in the disagreements or was masked by the resolver making the same
+error. So measuring precision 0.99 bounds `e` near 1%, and **passing the gate
+at 0.98 bounds `e ≲ 2%` — precisely what the 149 was for.**
+
+The circularity is not vicious, it is self-limiting: you cannot measure 0.98
+against ground truth carrying 8% errors. The one real gap is *correlated*
+error, resolver and labeller producing the same wrong answer, and the labelled
+set is built non-catalog-derived specifically so that the two do not share a
+source.
+
+Which relocates the whole question. The 149 buys nothing in the success case.
+It buys something only in the **failure** case — precision lands roughly
+0.90–0.98, resolver debugging comes up empty, and blame must be apportioned
+between the resolver and the ruler. That is a real scenario and a real use,
+and it has a trigger, so it is held in reserve rather than pre-paid.
+
+The error-budget argument stands on its own and is worth keeping: this
+resolver feeds EV models carrying an uncalibrated submission-selection
+haircut, community-sourced pull rates, and single-digit grade-level comps.
+Tightening a label bound from 9.5% to 2% optimises the wrong term by a wide
+margin.
+
+### Two corrections to the claim as first drafted
+
+**It has to be conditional on the screen coming back clean.** The first
+drafting asserted `e ≤ 9.5%` before the screen had run.
+
+**And 9.5% is itself optimistic.** A clean sample from a contaminated reader
+bounds *the error rate that reader can still re-derive*, not `e` — which is
+the whole reason the screen goes to a fresh session. Presenting it as `e`
+would be the familiar defect: a bound that reads stronger than it is.
+
+### What is deliberately not decided
+
+ADR-0015's 0.98 was chosen without `e` in the model, and a threshold derived
+conditional on `e` is the principled fix. It is **not** taken here, because
+re-deriving the gate's central number as a side effect of a thread about
+sampling is how a number stops meaning what its ADR says.
+
+When it is taken up: the argument above suggests it may move the number very
+little, since the binding constraint is the same measurement either way. What
+it would change is the interpretation — the gate stated honestly as a claim
+about **joint resolver-plus-label quality**, which is what it has measured all
+along.
+
+### What was not built
+
+Nothing. No module, no tests, no mutants. The request was a judgement call and
+the answer is a paragraph; building an apparatus to hold it would have been
+the wrong response to "not more machinery".
+
+**239 verified of 250.** One short: `optcg:CN-S` 16.

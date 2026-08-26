@@ -362,15 +362,64 @@ habits — and all three known errors are exactly that class.
 A fresh researcher, or a session with no access to this project, is the clean
 instrument. This one bounds `e` from below.
 
+### DECIDED 2026-08-25 — screen, then stop. The 149 is not run.
+
+**The bound is largely redundant with the measurement it conditions.**
+Ground-truth errors show up as disagreements, so if the resolver agrees with
+the labels on fraction `p`, then `e ≲ 1 - p` — every ground-truth error either
+appears in the disagreements or was masked by the resolver making the *same*
+error. Measuring 0.99 bounds `e` near 1%. **Passing the gate at 0.98 bounds
+`e ≲ 2%`, which is what the 149 would have certified.**
+
+The relationship is not viciously circular; it is self-limiting. You cannot
+measure 0.98 against ground truth carrying 8% errors. The one gap is
+*correlated* error — resolver and labeller producing the same wrong answer —
+and the set is built non-catalog-derived specifically to avoid that.
+
+So the 149 buys almost nothing in the success case. It matters only in the
+**failure** case: precision lands between roughly 0.90 and 0.98, resolver
+debugging comes up empty, and blame has to be apportioned between the resolver
+and the ruler. **Held in reserve with that trigger, not pre-paid.**
+
+Independently: the resolver feeds EV models whose own error bars are far
+wider — an uncalibrated submission-selection haircut, community-sourced pull
+rates, single-digit grade-level comps. Spending a second labelled-set build to
+tighten a label bound from 9.5% to 2% optimises the wrong term.
+
+### The claim that ships instead
+
+> Resolver precision is measured **against this ground truth**. A clean 30-row
+> blind screen, run in a fresh session, bounds ground-truth error at
+> `e ≤ 9.5%` (95%) — a **floor-biased** bound, because a contaminated reader
+> cannot see its own systematic errors. `e` is **not** certified below the 2%
+> the 0.98 threshold assumes, and any precision claim is conditional on that
+> bound. Measuring precision `p` itself implies `e ≲ 1 - p` absent correlated
+> error, so passing the gate largely certifies its own premise; the 149-row
+> sample is held in reserve for the case where precision lands low and the
+> resolver is exonerated.
+
+Two things that wording fixes over the first draft: it is **conditional on the
+screen coming back clean** rather than asserting the bound in advance, and it
+says the 9.5% is itself optimistic rather than presenting it as `e`.
+
+### Not decided here
+
+**ADR-0015's 0.98 was chosen without `e` in the model.** A threshold derived
+conditional on `e` is the principled fix and is deliberately NOT taken as a
+side effect of this thread. Worth weighing when it is: given the argument
+above it may move the number very little, since the binding constraint is the
+same measurement either way. What it would change is the interpretation — the
+gate stated honestly as a claim about **joint resolver-plus-label quality**,
+which is what it has always measured.
+
 ### Status
 
 The draw is committed in `contracts/reverification_draw.json` **before any
 answer exists** — the blinding is a sequence, not an intention, and a sample
 chosen after seeing results is not a sample. Seed pinned; a test asserts the
-committed draw reproduces from it.
+committed draw reproduces from it. It awaits a fresh session.
 
-Does not block the CN-S rows. It is a separate measurement of what the number
-means.
+Does not block the CN-S rows.
 
 ## S1 — 238 of 239 verified rows have never been tested by the gate
 
