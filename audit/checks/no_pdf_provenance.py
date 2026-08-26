@@ -95,10 +95,21 @@ CID_ARTIFACT = re.compile(r"\(cid:\d+\)")
 
 
 def tracked_files():
+    # Tracked PLUS untracked-not-ignored: a doc written this minute is
+    # untracked, and this check runs before the commit that would track it.
+    # Same `inert / by_scope` bug as `no_provider_data` had. `*.pdf` is
+    # gitignored, so `--exclude-standard` keeps a local PDF out of scope while
+    # bringing an undeclared new `docs/*.md` in.
     out = subprocess.run(["git", "ls-files"], cwd=REPO, capture_output=True, text=True)
     if out.returncode != 0:
         raise SystemExit(f"git ls-files failed: {out.stderr}")
-    return [f for f in out.stdout.splitlines() if f.strip()]
+    paths = {f for f in out.stdout.splitlines() if f.strip()}
+    others = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=REPO, capture_output=True, text=True)
+    if others.returncode == 0:
+        paths |= {f for f in others.stdout.splitlines() if f.strip()}
+    return sorted(paths)
 
 
 def read_text(path):

@@ -95,6 +95,33 @@ def tracked_files():
     return [f for f in out.stdout.splitlines() if f.strip()]
 
 
+def scannable_files():
+    """Tracked files PLUS untracked ones git would commit next.
+
+    THIS CHECK WAS BLIND TO EVERY FILE NOT YET ADDED. `git ls-files` returns
+    tracked paths only, so a payload written this minute was invisible until
+    somebody committed it -- and the check that would have caught it runs
+    BEFORE the commit. It reported `clean` about a universe that excluded the
+    file in question, which is `inert / by_scope` in
+    `audit/defect_taxonomy.py`: the check works, it was never pointed at the
+    thing.
+
+    Noticed while auditing the mutant seal, written down in ADR-0042, and NOT
+    FIXED for three sessions -- then reproduced verbatim in
+    `no_unguarded_elevation`. Noting a defect is not fixing it.
+
+    `--exclude-standard` respects `.gitignore`, so a payload sitting in
+    `raw/` -- where it belongs -- is still not scanned. The files added here
+    are exactly the ones the next `git add -A` would commit.
+    """
+    paths = set(tracked_files())
+    out = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
+                         cwd=REPO, capture_output=True, text=True)
+    if out.returncode == 0:
+        paths |= {f for f in out.stdout.splitlines() if f.strip()}
+    return sorted(paths)
+
+
 def read(path):
     try:
         with open(os.path.join(REPO, path), encoding="utf-8", errors="replace") as f:
@@ -105,12 +132,19 @@ def read(path):
 
 def check(verbose=False):
     violations = []
-    files = tracked_files()
+    # RULE 1 IS TRACKED-ONLY ON PURPOSE. Its claim is "tracked at all means
+    # somebody used --force". An untracked file under `raw/` is the system
+    # working correctly, and flagging it would train people to ignore this
+    # check -- which is a slower way of turning it off.
+    tracked = tracked_files()
+    files = scannable_files()
     if verbose:
-        print(f"scanning {len(files)} tracked files")
+        print(f"scanning {len(files)} files "
+              f"({len(tracked)} tracked, {len(files) - len(tracked)} "
+              "untracked and not ignored -- the ones the next commit takes)")
 
     # 1 -- forbidden paths
-    for f in files:
+    for f in tracked:
         for pat in FORBIDDEN_PATH_PATTERNS:
             if pat.search(f):
                 violations.append(

@@ -1,5 +1,5 @@
 {
   "_note": "THE SEAL. The mutation workflow asserts the discovered mutant count equals this number, so a silently-skipped subset reads as FAILURE rather than as green. Same instrument as the ledger seal, pointed at the auditor.\n\nRaise it in the same commit that adds mutants, never afterwards: a seal updated to match a broken run is not a seal.",
-  "expected_mutants": 222,
+  "expected_mutants": 226,
   "sealed_on": "2026-08-25"
 }

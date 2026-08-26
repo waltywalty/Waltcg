@@ -84,13 +84,19 @@ INSTANCES = [
                     "shipped repo -- and `no_provider_data`, which reads "
                     "`git ls-files`, could not see it either.",
         "remedy_applied": "The seal is tracked, and deliberately outside the "
-                          "payload-key allowlist so it is scanned. Verified "
-                          "by planting `market_price` in it: untracked, the "
-                          "scan did not see it at all; tracked, the scan "
-                          "fails.",
-        "test": "tests/test_labelled_ingest.py::"
-                "TheMutationHarnessIsInTheRepository -- a missing seal is a "
-                "failure, not a pass.",
+                          "payload-key allowlist so it is scanned. AND THE "
+                          "SCOPE BUG ITSELF IS FIXED: `no_provider_data` and "
+                          "`no_pdf_provenance` now read tracked files PLUS "
+                          "untracked-not-ignored ones -- the files the next "
+                          "`git add -A` would take. It was NOTED in ADR-0042 "
+                          "and left unfixed for three sessions, then "
+                          "reproduced verbatim in `no_unguarded_elevation`. "
+                          "Noting a defect is not fixing it, and this entry "
+                          "said `remedy applied` while the remedy was a "
+                          "sentence in a document.",
+        "test": "tests/test_pdf_provenance.py::"
+                "TheScopeIncludesFilesNotYetTracked -- plants an untracked "
+                "payload and an undeclared doc and asserts both are caught.",
     },
     {
         "name": "signal 3 was wired to a rel=canonical that does not exist",

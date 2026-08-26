@@ -304,6 +304,72 @@ character aloud *without being offered a candidate* is fine; that is a
 reading, not a confirmation. The distinction is whether a candidate was
 supplied before the answer.
 
+## S1 — 238 of 239 verified rows have never been tested by the gate
+
+**The retroactive sweep.** `ingest` is gated now — a claim about rows arriving
+tomorrow. The 239 already in the set were admitted while the check was not
+called, so "the gate is wired" and "ground truth passes the gate" are
+different statements and only the first was true.
+
+| Verdict | Rows |
+|---|---:|
+| PASS — the gate read evidence and approved it | **1** |
+| VACUOUS — the gate approved because there was nothing to read | **238** |
+| FAIL — the gate read evidence and refused it | **0** |
+
+**Nothing fails. Nothing is demoted. And that is not reassurance.**
+
+Zero rows carry `source_class`. One carries an `upgraded` block naming a
+second source. So for 238 rows the gate returns `True` because there is no
+input — not because the row passed. Reporting that as `239/239 PASS` would be
+a clean bill of health issued without an examination, which is this project's
+recurring defect arriving one layer above the checks it has been fixing.
+
+**What the 239 actually carry:** `source: external_research` on all of them,
+`attested_by` on 2, `upgraded` on 1. Nothing else. They were admitted under a
+regime that recorded `confidence` as an **assertion** rather than as a
+derivation from named sources, so there is no machine-readable record of which
+two sources agreed for 238 of them.
+
+The count is still 239. What has changed is what "239 verified" means: **239
+rows asserted verified by a researcher, of which 1 can be re-checked from the
+file.** Every combination is affected; the vacuity is uniform, not
+concentrated.
+
+S1 because ground truth is what the resolver is measured against and its
+evidentiary basis is weaker than the number implies. Not S2: no row is known
+wrong, and the sweep found no contradiction.
+
+**Not fixed here, deliberately.** Backfilling `source_class` onto 238 rows
+from their prose notes would be manufacturing the evidence the gate reads, and
+the gate would then pass on values I wrote to make it pass. That is worse than
+an honest vacuum. `audit/checks/sweep_ground_truth.py` is a REPORT, not a
+gate — a description that can fail a build gets silenced rather than read.
+
+## RESOLVED — the `git ls-files` scope bug, in both audits, actually fixed
+
+**Noted in ADR-0042. Not fixed for three sessions. Then reproduced verbatim in
+`no_unguarded_elevation`.**
+
+`no_provider_data` and `no_pdf_provenance` both read `git ls-files`, which
+returns TRACKED paths only. A payload or a document written this minute is
+untracked — and these checks run *before* the commit that would track it. They
+reported `clean` about a universe that excluded the file in question.
+
+Both now read tracked files **plus untracked-not-ignored** ones: exactly what
+the next `git add -A` would commit. `--exclude-standard` respects
+`.gitignore`, so a payload sitting in `raw/` — where it belongs — is still out
+of scope. Flagging that would train people to ignore the check, which is a
+slower way of turning it off.
+
+**Rule 1 of `no_provider_data` stays tracked-only on purpose.** Its claim is
+"tracked at all means somebody used `--force`", and an untracked file under a
+forbidden path is the system working.
+
+Demonstrated failing before being called fixed — the `inert / by_scope` remedy
+is *prove it can fail*, and this entry previously claimed a remedy that was a
+sentence in a document.
+
 ## RESOLVED — `upgrade` existed and was wired to nothing
 
 **Asked: is `physical_card` a valid `--second-source`? Answer: yes, and that

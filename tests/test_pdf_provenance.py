@@ -260,3 +260,63 @@ class TheCheckerIsItselfClean(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TheScopeIncludesFilesNotYetTracked(unittest.TestCase):
+    """`inert / by_scope`, and the remedy the taxonomy demands for it: prove
+    it can fail.
+
+    Both audits read `git ls-files`, which returns TRACKED paths only. A
+    document written this minute is untracked, and these checks run BEFORE the
+    commit that would track it -- so they reported `clean` about a universe
+    that excluded the file in question. Noted in ADR-0042, not fixed for three
+    sessions, then reproduced verbatim in `no_unguarded_elevation`.
+    """
+
+    REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _probe(self, relative, body):
+        path = os.path.join(self.REPO, relative)
+        self.assertFalse(os.path.exists(path), f"{relative} already exists")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(body)
+        self.addCleanup(lambda: os.path.exists(path) and os.remove(path))
+        return path
+
+    def test_an_undeclared_doc_is_caught_before_it_is_tracked(self):
+        from audit.checks import no_pdf_provenance
+        self._probe("docs/_probe_undeclared.md",
+                    "# A document nobody declared the provenance of\n")
+        violations = no_pdf_provenance.check()
+        self.assertTrue(
+            any("_probe_undeclared" in str(v) for v in violations),
+            "an untracked docs/ file was invisible to the provenance check")
+
+    def test_a_payload_is_caught_before_it_is_tracked(self):
+        from audit.checks import no_provider_data
+        self._probe("audit/_probe_payload.json",
+                    '{"card_uid": "x", "marketPrice": 9.99}\n')
+        violations = no_provider_data.check()
+        self.assertTrue(
+            any("_probe_payload" in str(v) for v in violations),
+            "an untracked payload was invisible to the data guard")
+
+    def test_a_gitignored_payload_stays_out_of_scope(self):
+        """`--exclude-standard` respects .gitignore, so a payload sitting in
+        `raw/` -- where it belongs -- is still not scanned. Flagging it would
+        train people to ignore this check, which is a slower way of turning it
+        off."""
+        from audit.checks import no_provider_data
+        os.makedirs(os.path.join(self.REPO, "raw"), exist_ok=True)
+        self._probe("raw/_probe_payload.json", '{"marketPrice": 9.99}\n')
+        violations = no_provider_data.check()
+        self.assertFalse(any("_probe_payload" in str(v) for v in violations))
+
+    def test_rule_one_stays_tracked_only(self):
+        """Its claim is `tracked at all means somebody used --force`. An
+        untracked file under a forbidden path is the system working."""
+        from audit.checks import no_provider_data
+        source = open(os.path.join(self.REPO, "audit", "checks",
+                                   "no_provider_data.py"), encoding="utf-8").read()
+        self.assertIn("for f in tracked:", source)
+        self.assertIn("TRACKED-ONLY ON PURPOSE", source)
