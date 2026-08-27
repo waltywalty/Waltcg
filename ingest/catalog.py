@@ -39,7 +39,8 @@ from ingest.runner import load_expectations                       # noqa: E402
 from resolve.identity import (RIFTBOUND_SET_ALIASES,              # noqa: E402
                               RIFTBOUND_SETS, TCGAPI_GAME_ID,
                               TCGAPI_GAME_SLUG, TCGAPI_KNOWN_SLUGS,
-                              card_uid, parse_collector_number,
+                              CannotBridge, card_uid, normalise_name,
+                              parse_collector_number, printed_from_bare,
                               variant_from_external_id,
                               variant_from_number, variant_from_rarity)
 from store.cross_grader import rarity_band                        # noqa: E402
@@ -857,11 +858,123 @@ def _is_sealed_product(hit) -> bool:
             and hit.get("rarity") in (None, ""))
 
 
+def bridge_numbers(catalog, set_totals):
+    """The provider's bare `localId` -> the number PRINTED on the card.
+
+    THE GAP THIS CLOSES. `printed_from_bare` has existed and been tested for
+    several sessions; `_set_totals` has been collected from every adapter and
+    written into `targets.json` for as long. Nothing joined them. So the
+    catalog built `pkmn:swsh10.5:011:base:EN` from tcgdex's bare `11` while
+    the card says `011/078` and the labelled row says `011/078` -- two uids
+    for one card, and the price lands on the one nothing else refers to.
+    Measured against the labelled set before the fix: of the five rows where
+    the catalog and the labels both spoke, five disagreed, and four of the
+    five disagreed on the number alone.
+
+    A POST-PASS, NOT A STEP IN `_row`. Totals arrive per adapter, per
+    language, while rows are being built -- so a row built before its set's
+    total landed would silently stay bare, and which rows those were would
+    depend on adapter ordering. And `preserve_from_cache` reinstates rows from
+    the persisted catalog after the build, which a step inside `_row` never
+    sees at all. Run once, over everything, when every total is known.
+
+    THREE THINGS THIS REFUSES TO DO:
+
+      * It never strips a denominator. `printed_from_bare` is one-directional
+        for the reason its docstring gives, and this only ever adds.
+      * It never bridges without a total. An unknown total leaves the row bare
+        and COUNTED -- `no_set_total` in the report -- because a bare number
+        that is honest about being bare can still be fixed later, and a
+        defaulted one cannot.
+      * IT NEVER MERGES. If bridging two rows lands them on one card_uid and
+        they carry different names, both are left bare and the collision is
+        reported. Bridging is a rename, and a rename that collides is exactly
+        the merge non-negotiable 3 exists to prevent -- a silent one, arriving
+        through a fix.
+
+    Returns `(catalog, report)` with the catalog rebuilt, never mutated in
+    place: `preserve_from_cache` and `_cache_stamps` both read the original.
+    """
+    bridged_catalog, report = {}, {}
+    for combo, entry in (catalog or {}).items():
+        counts = {"bridged": 0, "self_printed": 0, "no_set_total": 0,
+                  "unreadable": 0, "refused_collision": 0}
+        missing, rows = set(), []
+        for card in entry.get("cards", []):
+            # THE LANGUAGE COMES FROM THE CARD, not from the combo key.
+            # Splitting `"pkmn:CN-S"` works and splitting `("pkmn", "CN-S")`
+            # does not, and the failure would be a silent one -- every row
+            # counted `no_set_total` and nothing bridged, which reads as a
+            # provider gap rather than as a key-shape bug.
+            totals = (set_totals or {}).get(card.get("language")) or {}
+            number = str(card.get("number") or "")
+            total = totals.get(card.get("set_code"))
+            if parse_collector_number(number).total is not None:
+                counts["self_printed"] += 1
+                rows.append((card, card))
+                continue
+            if total in (None, ""):
+                counts["no_set_total"] += 1
+                missing.add(str(card.get("set_code")))
+                rows.append((card, card))
+                continue
+            try:
+                printed = printed_from_bare(number, total)
+                uid = card_uid(card["game"], card["set_code"], printed,
+                               card["variant"], card["language"])
+            except (CannotBridge, KeyError, ValueError):
+                # No index in the number, or a uid the builder would have
+                # refused. Unreadable is TRACKED, never defaulted.
+                counts["unreadable"] += 1
+                rows.append((card, card))
+                continue
+            rows.append((card, dict(card, number=printed, card_uid=uid)))
+
+        # THE MERGE CHECK, before anything is adopted. Grouped by the uid each
+        # row WOULD take, so a collision between a bridged row and a row that
+        # already carried its denominator is caught too.
+        by_uid = {}
+        for original, candidate in rows:
+            by_uid.setdefault(candidate["card_uid"], []).append(
+                (original, candidate))
+        collisions = []
+        final = []
+        for uid, group in by_uid.items():
+            names = {normalise_name(str(c.get("name") or ""))
+                     for _o, c in group}
+            if len(group) > 1 and len(names) > 1:
+                collisions.append({"card_uid": uid,
+                                   "names": sorted(names)[:4],
+                                   "numbers": sorted(
+                                       {str(o.get("number")) for o, _c in group})})
+                for original, candidate in group:
+                    if original is not candidate:
+                        counts["refused_collision"] += 1
+                    final.append(original)
+                continue
+            for original, candidate in group:
+                if original is not candidate:
+                    counts["bridged"] += 1
+                final.append(candidate)
+
+        deduped = {row["card_uid"]: row for row in final}
+        bridged_catalog[combo] = dict(
+            entry, cards=sorted(deduped.values(),
+                                key=lambda r: r["card_uid"]))
+        counts["sets_without_totals"] = sorted(missing)
+        counts["collisions"] = collisions[:10]
+        report[combo] = counts
+    return bridged_catalog, report
+
+
 def to_targets(catalog, gaps, combo_status=None, endpoints=None,
                unmapped_rarities=None, unbandable=None,
                stages=None, not_a_card=None, cache=None,
                set_totals=None):
     """The shape the daily runner reads. Card identities only -- no prices."""
+    # BEFORE ANYTHING IS ROUTED. A target's card_uid is what the price lands
+    # on, so the bridge has to run on the way out, not on the way in.
+    catalog, number_bridge = bridge_numbers(catalog, set_totals)
     per_source = {name: {"cards": []} for name in
                   ("tcgapi", "pokemonpricetracker", "apitcg", "pricecharting",
                    "manual")}
@@ -929,6 +1042,13 @@ def to_targets(catalog, gaps, combo_status=None, endpoints=None,
         # without them the number bridge has to refuse every comparison
         # between a bare provider number and a printed one.
         "_set_totals": set_totals or {},
+        # WHAT THE TOTALS WERE ACTUALLY USED FOR, per combo. A bare number
+        # that could not be bridged is `no_set_total` with its set named, not
+        # a silently-bare uid; a bridge that would have merged two cards is
+        # `refused_collision` with both names. The totals sat in this file for
+        # sessions with nothing reading them, and a count of zero bridges
+        # would have said so on the first run.
+        "_number_bridge": number_bridge,
         # WHEN EACH COMBINATION'S CATALOG WAS ACTUALLY BUILT. The card lists
         # below are grouped by source for the runner; this is the same data
         # asked the other question, and it is what `load_cached_catalog` reads

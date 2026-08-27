@@ -56,6 +56,13 @@ jobs:
       - name: No unguarded elevation
         run: python -m audit.checks.no_unguarded_elevation --verbose
 
+      # THE SAME INVERTED BISECTION SHIPPED TWICE, the second time inside the
+      # docstring warning about the first. A hard gate, not a report: every
+      # interval estimator in the tree is discovered by name and has to
+      # survive one battery, so a new one fails until it is declared.
+      - name: Interval estimators
+        run: python -m audit.checks.interval_properties --verbose
+
       - name: Guard catches what it claims to
         # A gate that cannot fail is not a gate. Prove the three rules fire on
         # a scratch repository before trusting the clean result above.

@@ -4680,3 +4680,185 @@ be wrong, not only that it can be right.
 
 **239 verified of 250.** `optcg:CN-S` blocked_on_external, target unchanged,
 review 2026-10-06.
+
+---
+
+## ADR-0058 — Knowledge recorded is not a control
+
+**Date:** 2026-08-27
+**Status:** Accepted. Closes the recurrence ADR-0057 created. Supersedes
+nothing; adds a gate that ADR-0015's sizing note and ADR-0057's postmortem
+both assumed was unnecessary.
+
+### The recurrence
+
+The same defect shipped twice, in two different files, three sessions apart.
+
+* `c333ec3` — the Wilson/beta lower bound in `tests/test_resolver_gate.py`
+  had its bisection inverted. It returned `0.0` for every input with an error
+  in it. `assertLess(bound, threshold)` passes on `0.0`, so the gate went
+  green while measuring nothing.
+* `ea2f9a4` — `audit/checks/catalog_precision.py:clopper_pearson_lower`
+  shipped with the identical inversion. It was caught in the same session,
+  but only because the test happened to pin the one-error case.
+
+The second one was written **inside a docstring warning about the first**. The
+comment said "the last bisection in this repository was inverted and returned
+0.0 for every input"; the code under it was inverted and returned 0.0 for
+every input.
+
+That is the finding, and it is not about bisections. A warning next to code
+reads exactly like a warning next to correct code. The remedy for a defect
+class is never a note describing the defect class — it is a thing the code has
+to survive. This is the same lesson as the ADR-0045 table (a list of decision
+points that goes stale silently) and it gets the same shape of fix.
+
+### Why a clean-sweep pin was not enough
+
+Both inverted implementations reproduced every zero-error bound exactly,
+because a clean sweep returns from the closed form `alpha ** (1/n)` and never
+reaches the bisection at all. A pinned table of perfect samples is green on
+both bugs.
+
+`tests/test_interval_properties.py:test_a_clean_sweep_only_pin_would_have_missed_both_inversions`
+asserts precisely that: the inverted function matches every zero-error pin to
+five places and misses every error-carrying pin. The one-error rows are the
+instrument; the zero-error rows are company.
+
+### The decision
+
+`audit/checks/interval_properties.py` — one battery, applied to every interval
+estimator in the tree, with the roster **discovered rather than listed**.
+
+* Discovery is by function name (`NAME_PATTERN`) over every `.py` in the
+  working tree, tracked or not. A new estimator is a FAILURE until somebody
+  declares it in `CONTRACTS`, and a `CONTRACTS` entry that no longer resolves
+  is a failure too — the roster is checked in both directions.
+* Orientation is normalised, not assumed. A lower bound on precision and an
+  upper bound on an error rate are one object read from opposite ends
+  (`lower_success(n, n-e) = 1 - upper_error(n, e)`), so each contract declares
+  its orientation and its second argument and the battery converts everything
+  to `L(n, errors)`. Declaring the orientation wrongly is not a way through:
+  the pins are applied after normalisation.
+* The pins answer to the binomial. Each constant `p` satisfies
+  `sum_{k >= n-e} C(n,k) p^k (1-p)^(n-k) = alpha`, and `verify_pins()` checks
+  that equation rather than trusting whichever function produced the number.
+  A pin computed by running the code it pins is not a pin.
+* Properties beyond the pins: range in `[0, 1]`, monotone down in errors,
+  monotone up in `n`, never above the point estimate, zero for an all-error
+  sample, zero for an empty one, and alpha actually honoured.
+
+Three estimators are covered today: `catalog_precision.clopper_pearson_lower`,
+`reverification_sample.clopper_pearson_upper`, and the gate's own
+`PrecisionIsReportedWithItsInterval._lower_bound`.
+
+### What it found on its first run
+
+The gate's `_lower_bound` raised `ZeroDivisionError` on an empty sample. It is
+guarded at its only call site, so nothing was broken in production — but the
+two other estimators both answer `0.0` there, and the disagreement was
+invisible until one battery asked all three the same question. Fixed in the
+same commit.
+
+### What was NOT done
+
+**Consolidating the three implementations into one.** It is the obvious move
+and it is deferred deliberately: the gate's helper is pinned to ADR-0015's
+sizing note and reads as documentation of that sizing, and merging it into a
+shared utility trades a duplication problem for an indirection problem in a
+file whose whole job is to be readable. The battery makes the duplication
+*checked* rather than *safe*. If a fourth copy appears, consolidate then.
+
+### What this cannot see
+
+It tests estimators, not their callers — a correct bound compared with a `>`
+that should be a `<` passes here. Discovery is by name, so an interval
+function called `spread()` is invisible. And a function correct on the grid
+and wrong between its points passes; the monotonicity properties cover that
+space, and they are properties, not proofs.
+
+---
+
+## ADR-0059 — The totals were in the file and nothing read them
+
+**Date:** 2026-08-27
+**Status:** Accepted. Fixes a production defect found by ADR-0057's
+measurement. Does not close the coverage question that measurement raised.
+
+### The defect
+
+`resolve/identity.py:printed_from_bare` converts a provider's bare `localId`
+into the number printed on the card. It has been written, tested and
+mutation-covered for several sessions. `ingest/catalog.py` collects
+`set_totals` from every adapter and writes them to `ingest/targets.json` as
+`_set_totals` — 4 languages, 700+ sets.
+
+Nothing joined them. `CatalogBuilder._row` built the `card_uid` from the
+provider's bare number, so tcgdex's `11` became
+`pkmn:swsh10.5:011:base:EN` while the card — and the labelled row — both say
+`011/078`. Two `card_uid`s for one card. **A price fetched against the catalog
+uid lands on an identifier nothing else in the system refers to**, which
+presents as a card with no price rather than as an error.
+
+This is the `orphaned` species in `audit/defect_taxonomy.py`: the function
+fires correctly, nothing calls it at the decision point.
+
+### Measured, before and after
+
+Against the 290 labelled rows, using the catalog in `targets.json`:
+
+| | before | after |
+|---|---|---|
+| labelled rows whose uid appears in the catalog | 0 | 4 |
+| catalog rows bridged bare → printed | 0 | 3,292 |
+| bridge refused, set total unknown | — | 419 |
+| bridge refused, no readable index | — | 168 |
+| collisions refused | — | 0 |
+
+Only five labelled rows had a catalog row that the number bridge could speak
+to at all; all five disagreed on the uid, and four disagreed on the number
+alone. Those four now agree. **The fifth still disagrees** — catalog `base`
+against labelled `ur` on `pkmn:sv03.5:205/165` — which is the rarity→variant
+mapping, a different defect, left open rather than folded in.
+
+The other 285 are coverage, not correctness: 259 labelled rows are in sets the
+catalog does not carry, and 22 are in sets it carries but does not list. That
+is the apitcg rate-limit ceiling, unchanged by this.
+
+### The design, and three refusals
+
+`bridge_numbers(catalog, set_totals)` is a **post-pass**, called at the top of
+`to_targets`, not a step inside `_row`. Totals arrive per adapter while rows
+are being built, so a row built before its set's total landed would silently
+stay bare and *which rows* would depend on adapter ordering. And
+`preserve_from_cache` reinstates rows after the build, which a step inside
+`_row` never sees.
+
+1. **It never strips a denominator.** One direction only, for the reason
+   `printed_from_bare` gives: stripping `173/151` and `173/165` to `173`
+   merges the Simplified Chinese Pikachu into the English one.
+2. **It never bridges without a total.** 419 rows stay bare and are COUNTED,
+   with their set codes named in `_number_bridge.sets_without_totals`. All of
+   them are promo sets (`SV-P`, `M-P`, `mep`) whose printed denominator is a
+   letter code, not a count. A further 168 carry no readable index at all
+   (`SV001`, `TG15`, `CC001` — Shiny Vault, Trainer Gallery, Celebrations
+   Classic, which print as `SV001/SV122`). Both are tracked misses. A miss
+   that is counted can be fixed; a default cannot.
+3. **It never merges.** If bridging two rows lands them on one `card_uid` and
+   their names differ, BOTH stay bare and the collision is reported with both
+   names. Bridging is a rename, and a rename that collides is exactly the
+   merge non-negotiable 3 exists to prevent — arriving, this time, through a
+   fix. Identical names on one uid are the existing cross-source dedupe and
+   are still deduped.
+
+`_number_bridge` is written into `targets.json` per combo. A count of zero
+bridges would have said, on the first run, that the totals were sitting in the
+file with nothing reading them.
+
+### What this does not fix
+
+The variant defect on `sv03.5:205`. `NUMBER_VARIANT_GAMES` is `{riftbound}` by
+deliberate choice, so a Pokémon variant is never derived from the number and
+wiring the totals into `set_size` would be exporting one game's conventions to
+another. The catalog's `ur` gap comes from the rarity string, and it belongs
+with the rarity rules.

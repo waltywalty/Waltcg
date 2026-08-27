@@ -665,6 +665,13 @@ class PrecisionIsReportedWithItsInterval(unittest.TestCase):
         set is sized at 250 rather than at whatever clears the threshold
         today.
         """
+        if n <= 0:
+            # An empty sample bounds nothing. Guarded at the call site here,
+            # but the function is shared property-tested by
+            # `audit/checks/interval_properties.py`, which found this as a
+            # ZeroDivisionError -- the two other estimators in the repository
+            # both answer 0 for an empty sample and this one crashed.
+            return 0.0
         if errors == 0:
             return 0.05 ** (1.0 / n)
         try:

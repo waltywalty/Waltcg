@@ -304,24 +304,63 @@ character aloud *without being offered a candidate* is fine; that is a
 reading, not a confirmation. The distinction is whether a candidate was
 supplied before the answer.
 
-## S2 — the resolver is never given the set totals it needs to bridge a number
+## FIXED — the resolver is never given the set totals it needs to bridge a number
 
 **Found by the catalog-in measurement on its first run**, and it is exactly
-the class of defect self-records cannot produce.
+the class of defect self-records cannot produce. Fixed 2026-08-27, ADR-0059.
 
-`printed_from_bare("011", 78)` returns `011/078` correctly. But
-`numbers_denote_same_printing("011", "011/078")` returns **`CannotBridge`**,
-because the set total is not passed to it — and the resolver does not supply
-one. `ingest/targets.json` carries `_set_totals`; nothing connects them.
+`printed_from_bare("011", 78)` returned `011/078` correctly and nothing called
+it. The catalog built `pkmn:swsh10.5:011:base:EN` from tcgdex's bare `11`
+while the card — and the labelled row — both say `011/078`, so a price
+fetched against the catalog uid landed on an identifier nothing else referred
+to. That presents as a card with no price rather than as an error.
 
-So a provider serving a bare `011` for a card the labelled set knows as
-`011/078` is **refused**, not mis-resolved. That is the safe direction — the
-gate's asymmetry is deliberate, a missed card is a card you do not trade — but
-in production those cards carry no price at all.
+`ingest/catalog.py:bridge_numbers` now runs as a post-pass inside
+`to_targets`, and `targets.json` carries `_number_bridge` per combo.
 
-**Not fixed here.** It is a change to the thing being measured, found by the
-measurement, and it deserves its own decision rather than being folded into
-the commit that built the instrument.
+| | before | after |
+|---|---:|---:|
+| labelled rows whose uid appears in the catalog | 0 | 4 |
+| catalog rows bridged bare → printed | 0 | 3,292 |
+| refused, set total unknown | — | 419 |
+| refused, no readable index | — | 168 |
+| refused, would have merged two cards | — | 0 |
+
+Only five labelled rows had a catalog row the bridge could speak to at all.
+Four now agree. The fifth is below.
+
+## S2 — the catalog calls `sv03.5:205/165` a base card and the label calls it `ur`
+
+The one uid the number bridge did **not** close. Catalog says
+`pkmn:sv03.5:205/165:base:EN`, the labelled row says
+`pkmn:sv03.5:205/165:ur:EN` — same card, same number, different variant, so
+still two price series.
+
+The number is now right, so this is purely the rarity→variant mapping in
+`resolve/identity.py:_RARITY_RULES`. **Not fixed by widening
+`NUMBER_VARIANT_GAMES`**: it is `{riftbound}` deliberately, and deriving a
+Pokémon variant from its number would export one game's conventions to
+another. It needs a rarity rule, and it needs someone to check what tcgdex
+actually sends for an Ultra Rare.
+
+Cost of leaving it: one known card, and an unknown number of others in sets
+the catalog does not yet cover.
+
+## S3 — 587 catalog rows carry a number the bridge cannot read
+
+Counted, named, and not defaulted — `_number_bridge` in `targets.json`.
+
+* **419 have no set total.** All promo sets: `SV-P`, `M-P`, `mep`. Their
+  printed denominator is a letter code, not a count, so no total exists to
+  supply.
+* **168 have no readable index.** `SV001` (Shining Fates Shiny Vault), `TG15`
+  (Trainer Gallery), `CC001` (Celebrations Classic), `SH1` (Dragon Majesty
+  Shiny). They print as `SV001/SV122` — a lettered numerator *and*
+  denominator, which `parse_collector_number` does not read.
+
+Both leave the row bare rather than guessing. A miss that is counted can be
+fixed; a default cannot. The second group is the tractable one: it is a
+parser rule, not missing data.
 
 ## RUNNING, UNCERTIFIED — precision, catalog entry in → labelled uid out
 
@@ -1165,3 +1204,23 @@ Carried from CLAUDE.md, still true. Treat with suspicion, do not "fix":
 - JP market coverage — no clean API; manual entry for v1
 - Grade-level comp thinness — most of the universe has single-digit graded
   sales per quarter
+
+## FIXED — the same inverted bisection shipped twice
+
+Wilson/beta at `c333ec3`, Clopper-Pearson at `ea2f9a4`, and the second was
+written inside the docstring warning about the first. Both returned `0.0` for
+every sample with an error in it, and `0.0` passes an `assertLess` silently.
+
+Closed 2026-08-27 by `audit/checks/interval_properties.py` (ADR-0058): one
+battery, applied to every interval estimator in the tree, roster **discovered
+by name rather than listed**, pins anchored to the binomial's defining
+equation and carrying the one-error cases that both bugs failed. A new
+estimator is a failure until it is declared.
+
+Found on its first run: the gate's own `_lower_bound` raised
+`ZeroDivisionError` on an empty sample while the other two answered `0.0`.
+Fixed in the same commit.
+
+**Not done:** the three implementations are still three implementations. The
+battery makes the duplication checked, not safe. If a fourth appears,
+consolidate.
