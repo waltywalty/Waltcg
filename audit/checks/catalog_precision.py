@@ -46,7 +46,7 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO)
 
-from resolve.identity import (canonical_set_code,  # noqa: E402
+from resolve.identity import (CannotBridge, canonical_set_code,  # noqa: E402
                               normalise_name, numbers_denote_same_printing)
 from resolve.resolver import Resolver  # noqa: E402
 
@@ -146,15 +146,30 @@ def _same_set(entry, row):
     return str(left).lower() == str(right).lower()
 
 
-def _numbers_agree(catalog_number, labelled_number):
+def _numbers_agree(catalog_number, labelled_number, set_total=None):
+    """Do these two numbers denote one printing?
+
+    THE SET TOTAL IS THE WHOLE POINT. Without it
+    `numbers_denote_same_printing("11", "011/078")` raises `CannotBridge` --
+    the same orphaned wiring this module found in the resolver, present in the
+    module that found it. The bare `except Exception` below used to swallow
+    that into a naked string comparison, which turned "we could not tell"
+    into "different card" silently: exactly the confusion `CannotBridge`
+    exists to prevent.
+
+    On a genuine `CannotBridge` the fallback is still string equality, and
+    that is honest -- two identical strings denote the same printing whether
+    or not a total exists to derive one from the other. What is not honest is
+    reaching it without having tried.
+    """
     try:
-        return numbers_denote_same_printing(catalog_number,
-                                            labelled_number) is True
-    except Exception:
+        return numbers_denote_same_printing(catalog_number, labelled_number,
+                                            set_total=set_total) is True
+    except CannotBridge:
         return str(catalog_number) == str(labelled_number)
 
 
-def pair(rows, entries, how="set_and_name"):
+def pair(rows, entries, how="set_and_name", set_totals=None):
     """(row, entry) pairs, the rows that did not pair, and why.
 
     AMBIGUITY IS NOT A PAIR. A set routinely holds several printings of one
@@ -187,7 +202,10 @@ def pair(rows, entries, how="set_and_name"):
                            row.get("name"))]
         else:
             matches = [e for e in candidates
-                       if _numbers_agree(e["number"], row.get("number"))]
+                       if _numbers_agree(
+                           e["number"], row.get("number"),
+                           (set_totals or {}).get(e.get("language"), {}).get(
+                               e.get("set_code")))]
         key = (row.get("game"), row.get("language"),
                str(_canonical(row)).lower(), normalise_name(row.get("name")))
         if not matches:
@@ -211,9 +229,16 @@ def _canonical(card):
                               card.get("set_code"))[0]
 
 
-def score(pairs, pool):
-    """Feed the catalog entry; expect the labelled uid."""
-    resolver = Resolver(pool)
+def score(pairs, pool, set_totals=None):
+    """Feed the catalog entry; expect the labelled uid.
+
+    `set_totals` is passed through to the resolver. Without it every bare
+    provider number is refused for want of a printed counterpart, which is a
+    property of the WIRING and not of the resolver's judgement -- and reading
+    those refusals as a measurement of the resolver is how the gap stayed
+    invisible.
+    """
+    resolver = Resolver(pool, set_totals=set_totals)
     used = right = 0
     wrong, refused = [], []
     for row, entry in pairs:
@@ -241,11 +266,13 @@ def measure(labelled_path=LABELLED, targets_path=TARGETS):
     pool = data["cards"]
     scored = [c for c in pool if c.get("confidence") in ("verified",)]
     entries = load_catalog(targets_path)
+    with open(targets_path, encoding="utf-8") as handle:
+        set_totals = json.load(handle).get("_set_totals") or {}
     out = {"scored_rows": len(scored), "catalog_entries": len(entries),
            "joins": {}}
     for how in JOINS:
-        pairs, unpaired = pair(scored, entries, how)
-        result = score(pairs, pool)
+        pairs, unpaired = pair(scored, entries, how, set_totals)
+        result = score(pairs, pool, set_totals)
         result["paired"] = len(pairs)
         result["unpaired"] = len(unpaired)
         result["unpaired_by_combo"] = dict(collections.Counter(

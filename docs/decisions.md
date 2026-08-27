@@ -4862,3 +4862,101 @@ deliberate choice, so a Pokémon variant is never derived from the number and
 wiring the totals into `set_size` would be exporting one game's conventions to
 another. The catalog's `ur` gap comes from the rarity string, and it belongs
 with the rarity rules.
+
+---
+
+## ADR-0060 — The other half of the same wiring, in the resolver and in the instrument that found it
+
+**Date:** 2026-08-27
+**Status:** Accepted. Completes ADR-0059, which fixed one of three places the
+set totals were missing. The measurement that found the defect had it too.
+
+### Three places, one defect
+
+ADR-0059 wired `_set_totals` into `ingest/catalog.py` so the catalog's own
+`card_uid`s agree with the labelled set. That was necessary and not
+sufficient. The same orphaned wiring was in two more places:
+
+1. **`resolve/resolver.py:Resolver._fuzzy`** indexes its catalog by
+   `normalise_number`, an exact key. `normalise_number("11")` is `"11"` and
+   `normalise_number("011/078")` is `"11/78"`, so a price source answering
+   `11` for a card printed `011/078` produced *"no card in pkmn/EN with number
+   '11'"* — true, and useless. **This is the half `ingest` cannot fix**: a
+   price source answers with whatever IT calls the card, not with what our
+   catalog calls it.
+2. **`audit/checks/catalog_precision.py:score`** built its `Resolver` without
+   totals, so every pairable row was refused. Read as a measurement of the
+   resolver's judgement, it was a measurement of the wiring.
+3. **`catalog_precision._numbers_agree`** called
+   `numbers_denote_same_printing` with no total and wrapped it in
+   `except Exception: return str(a) == str(b)`. That swallowed `CannotBridge`
+   into a naked string comparison — turning *"we could not tell"* into
+   *"different card"*, which is exactly the confusion `CannotBridge` was
+   created to prevent. The instrument built to find orphaned wiring contained
+   three instances of it.
+
+### What the resolver now does, and what keeps it safe
+
+`Resolver(catalog, set_totals=...)` gains `_bridged_pool`, a **last resort**:
+
+* **It runs only when the exact lookup found nothing.** It can add a match and
+  can never change one. A resolver built without `set_totals` behaves exactly
+  as it did before — the absence of totals is the old behaviour, not a looser
+  variant of it.
+* **It bridges the RECORD forward** (bare → printed), never the catalog
+  backward. Stripping `173/151` and `173/165` to `173` is the merge
+  `printed_from_bare` deliberately has no function for, and this is where it
+  would otherwise arrive.
+* **It supplies candidates, not an answer.** The pool is scored on name and
+  set_code and still has to clear `SIGNAL_THRESHOLD`.
+* **It is never silent.** A resolution reached through the bridge says so in
+  its `why`, because it is a weaker claim than one that matched outright.
+* **The refusal distinguishes two facts.** "We have no card count for this
+  set" and "there is no such card" now read differently.
+
+### The measurement moved
+
+| join | before | after |
+|---|---|---|
+| `set_and_name` — paired | 7 | 7 |
+| `set_and_name` — resolved | **0** | **2** |
+| `set_and_name` — precision | undefined | 1.0000, 95% LB **0.2236** |
+| `field` — paired | **0** | **10** |
+| `field` — resolved | 0 | **5** |
+| `field` — precision | undefined | 1.0000, 95% LB **0.5493** |
+
+The measurement produces a number for the first time. **The number is nearly
+worthless and the lower bound says so**: 0.5493 on n=5 is compatible with a
+resolver that is wrong half the time. What changed is that it can now move.
+
+### Two things the refusals revealed
+
+**The `set_and_name` join is producing wrong pairs, and only the resolver's
+refusal is hiding it.** Two of its five refusals are
+`pkmn:sv03.5:003/165` ← catalog `sv03.5/198` and
+`pkmn:sv03.5:009/165` ← catalog `sv03.5/200`. Those are *different printings
+of the same character in the same set* — the exact hazard `pair()`'s ambiguity
+rule exists to catch, arriving in the case the rule does not cover: one
+labelled row, one catalog entry, same name, different printing. Had the
+resolver answered, it would have answered correctly and been **scored wrong
+for being right**. The 2/2 on this join is luck.
+
+This is the strongest argument yet for committing the pairing to an
+adjudicated artifact rather than re-deriving it: *the join is a known source
+of wrong pairs and the measurement has no way to tell.*
+
+**The resolver refuses every Japanese row on the NAME, not the number.** All
+five `field`-join refusals are `pkmn:JP` rows where the number now bridges
+cleanly (`S12a/014` → `014/172`) and the name comparison fails, because the
+catalog names cards in the local script and the labelled set uses Latin. That
+is blocker 2 from ADR-0057, relocated from "cannot pair" to "pairs and is
+refused" — which is a better place for it, because it is now visible in a
+bucket with a reason attached.
+
+### What was not changed
+
+`normalise_number` still keeps denominators, and the resolver still does not
+index a card under more than one key. Broadening candidate generation —
+indexing `011/078` under `11` as well — would make retrieval loose and rely
+entirely on scoring to stay correct. That may be right eventually; it is a
+larger decision than this one and it is not needed to close the gap.

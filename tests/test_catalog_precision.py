@@ -119,13 +119,71 @@ class ItActuallyRuns(unittest.TestCase):
             self.assertIn(how, result["joins"])
 
     def test_it_can_fail_where_self_records_cannot(self):
-        """The whole point. Self-records score 1.0000 on 239/239; this one
-        does not resolve a single pairable row on the current catalog."""
+        """The whole point. Self-records score 1.0000 on 239/239 and CANNOT
+        score otherwise -- they are a no-merge check. This one resolves a
+        provider's own presentation, and it spent its first run resolving
+        nothing at all: every pairable row was refused because the set totals
+        never reached the resolver.
+
+        That is now wired (ADR-0060), so the assertion is no longer "it
+        resolves nothing". It is that the denominator is SMALL and honestly
+        reported: a handful of rows, a lower bound far from any threshold, and
+        refusals that are visible rather than absent.
+        """
         result = C.measure()["joins"]["set_and_name"]
-        self.assertEqual(result["right"], 0,
-                         "if this now passes, the measurement has started "
-                         "working -- update the ADR rather than the test")
+        self.assertGreater(result["paired"], 0)
+        self.assertLess(result["paired"], 30,
+                        "coverage grew past the point where this test's "
+                        "framing holds -- re-read the ADR before widening it")
+        if result["used"]:
+            self.assertLess(result["lower_bound"], 0.9,
+                            "a lower bound this high on a denominator this "
+                            "small would mean the arithmetic is wrong, not "
+                            "that the resolver is good")
+        self.assertEqual(result["used"] + len(result["refused"]),
+                         result["paired"],
+                         "a paired row that was neither used nor refused has "
+                         "gone missing from the accounting")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheTotalsReachBothHalvesOfTheMeasurement(unittest.TestCase):
+    """The orphaned wiring this module found in the resolver was present in
+    this module too. `_numbers_agree` raised `CannotBridge` on every bare
+    number and an `except Exception` swallowed it into a naked string
+    comparison, and `score` built its Resolver without totals -- so all seven
+    pairs were refused for want of wiring and that read as a measurement of
+    the resolver's judgement.
+    """
+
+    ROW = {"card_uid": "pkmn:swsh10.5:011/078:base:EN", "game": "pkmn",
+           "language": "EN", "set_code": "swsh10.5", "number": "011/078",
+           "variant": "base", "name": "Pikachu"}
+    ENTRY = {"source": "tcgdex", "game": "pkmn", "language": "EN",
+             "set_code": "swsh10.5", "number": "11", "name": "Pikachu"}
+    TOTALS = {"EN": {"swsh10.5": 78}}
+
+    def test_the_field_join_pairs_a_bare_number_only_with_the_total(self):
+        blind, _ = C.pair([self.ROW], [self.ENTRY], "field")
+        self.assertEqual(blind, [], "paired without a total -- the bridge "
+                                    "cannot have been consulted")
+        wired, _ = C.pair([self.ROW], [self.ENTRY], "field", self.TOTALS)
+        self.assertEqual(len(wired), 1)
+
+    def test_score_passes_the_totals_to_the_resolver(self):
+        pairs = [(self.ROW, self.ENTRY)]
+        blind = C.score(pairs, [self.ROW])
+        self.assertEqual(blind["used"], 0)
+        self.assertEqual(len(blind["refused"]), 1)
+        wired = C.score(pairs, [self.ROW], self.TOTALS)
+        self.assertEqual(wired["used"], 1)
+        self.assertEqual(wired["right"], 1)
+
+    def test_cannot_bridge_still_falls_back_to_string_equality(self):
+        """Two identical strings denote the same printing whether or not a
+        total exists. What was dishonest was reaching that without trying."""
+        self.assertTrue(C._numbers_agree("SV001", "SV001"))
+        self.assertFalse(C._numbers_agree("SV001", "SV002"))

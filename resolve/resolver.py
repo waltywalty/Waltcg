@@ -43,7 +43,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .identity import (GAMES, LANGUAGES, card_uid, parse_card_uid,
+from .identity import (CannotBridge, GAMES, LANGUAGES, card_uid,
+                       parse_card_uid, printed_from_bare,
                        variant_from_rarity)
 
 # Below this, a fuzzy match is written but never used in a signal.
@@ -147,10 +148,16 @@ class Resolver:
     outright.
     """
 
-    def __init__(self, catalog, xrefs=None, overrides=None):
+    def __init__(self, catalog, xrefs=None, overrides=None, set_totals=None):
         self.catalog = [dict(c) for c in catalog]
         self.xrefs = dict(xrefs or {})
         self.overrides = dict(overrides or {})
+        # {language: {set_code: official card count}}. Optional, and its
+        # ABSENCE IS THE OLD BEHAVIOUR EXACTLY -- a resolver built without it
+        # refuses a bare number just as it always did, rather than falling
+        # back to a looser comparison. See `_bridged_pool`.
+        self.set_totals = {str(k): dict(v or {})
+                           for k, v in (set_totals or {}).items()}
         self._by_key = {}
         for card in self.catalog:
             key = (card["game"], card["language"],
@@ -175,6 +182,52 @@ class Resolver:
 
         return self._fuzzy(record)
 
+    def _bridged_pool(self, record, game, language, number):
+        """A last resort for a BARE provider number: derive what the card says.
+
+        THE HALF THAT INGEST CANNOT FIX. `ingest/catalog.py:bridge_numbers`
+        makes the catalog's own uids agree with the labels, but a price source
+        answers with whatever IT calls the card, and tcgdex answers `11` for a
+        card printed `011/078`. The exact key lookup above misses, and the
+        resolver reported "no card with number 11" -- true, and useless.
+
+        THREE THINGS KEEP THIS SAFE:
+
+          * It runs ONLY when the exact lookup found nothing, so it can add a
+            match and can never change one. A resolver built without
+            `set_totals` behaves exactly as it did before.
+          * It bridges the RECORD FORWARD (bare -> printed), never the catalog
+            backward. Stripping `173/151` and `173/165` to `173` is the merge
+            `printed_from_bare` refuses to have a function for.
+          * It supplies CANDIDATES, not an answer. Everything the pool
+            produces is still scored on name and set_code and still has to
+            clear `SIGNAL_THRESHOLD`.
+
+        Returns `(pool, printed_number_or_None, why_not)`. `why_not` is
+        non-empty when the bridge could not be attempted, so the refusal says
+        which of "we have no total" and "there is no such card" it was.
+        """
+        totals = self.set_totals.get(str(language)) or {}
+        if not self.set_totals:
+            return [], None, ""
+        total = totals.get(record.get("set_code"))
+        if total in (None, ""):
+            return [], None, (
+                f"and no official card count for {record.get('set_code')!r} "
+                f"in {language}, so a bare number could not be bridged to the "
+                "printed one")
+        try:
+            printed = printed_from_bare(record.get("number"), total)
+        except CannotBridge as exc:
+            return [], None, f"and the number could not be bridged ({exc})"
+        bridged = normalise_number(printed)
+        if bridged == number:
+            return [], None, ""
+        return (self._by_key.get((game, language, bridged), []),
+                printed,
+                f"and nothing at {printed!r} either, which is what "
+                f"{record.get('number')!r} bridges to in a set of {total}")
+
     def _fuzzy(self, record) -> Resolution:
         game = record.get("game")
         language = record.get("language")
@@ -193,10 +246,16 @@ class Resolver:
                 f"of {len(LANGUAGES)} printings.")
 
         pool = self._by_key.get((game, language, number), [])
+        bridged_from = None
+        why_not = ""
+        if not pool:
+            pool, bridged_from, why_not = self._bridged_pool(
+                record, game, language, number)
         if not pool:
             return Resolution(
                 None, 0.0, None,
-                f"no card in {game}/{language} with number {number!r}")
+                f"no card in {game}/{language} with number {number!r}"
+                + (f"; {why_not}" if why_not else ""))
 
         # A provider states a rarity, never our variant token. Deriving one is
         # the ONLY thing separating a Treasure Rare from the ordinary card it
@@ -269,5 +328,13 @@ class Resolver:
                               f"below the {CANDIDATE_FLOOR} floor",
                               candidates=scored[:5])
 
-        return Resolution(best.card_uid, best.confidence, "fuzzy", best.why,
+        why = best.why
+        if bridged_from is not None:
+            # NEVER SILENT. A match that only exists because the number was
+            # bridged is a weaker claim than one that matched outright, and the
+            # review queue has to be able to see which it was.
+            why += (f"; reached by bridging the bare number "
+                    f"{record.get('number')!r} to {bridged_from!r} using the "
+                    f"set's official card count")
+        return Resolution(best.card_uid, best.confidence, "fuzzy", why,
                           candidates=scored[:5])

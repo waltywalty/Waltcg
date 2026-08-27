@@ -25,6 +25,7 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from ingest.catalog import bridge_numbers, to_targets            # noqa: E402
+from resolve.resolver import Resolver                            # noqa: E402
 
 
 def row(number, uid=None, name="Pikachu", set_code="swsh10.5",
@@ -177,3 +178,79 @@ class TheBridgeIsWiredIn(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+CARD = {"card_uid": "pkmn:swsh10.5:011/078:base:EN", "game": "pkmn",
+        "language": "EN", "set_code": "swsh10.5", "number": "011/078",
+        "variant": "base", "name": "Pikachu"}
+
+
+def record(number="11", name="Pikachu", set_code="swsh10.5"):
+    return {"source": "tcgdex", "game": "pkmn", "language": "EN",
+            "set_code": set_code, "number": number, "name": name}
+
+
+class TheResolverBridgesABareNumber(unittest.TestCase):
+    """The half `ingest` cannot fix.
+
+    `bridge_numbers` makes the catalog's own uids agree with the labels, but a
+    PRICE SOURCE answers with whatever it calls the card. tcgdex says `11` for
+    a card printed `011/078`, the resolver's key lookup missed, and it reported
+    "no card in pkmn/EN with number '11'" -- true, and useless. Five of the
+    seven pairs in the catalog-in measurement were refused for exactly this.
+    """
+
+    def test_without_totals_a_bare_number_is_still_refused(self):
+        """The absence of totals is the OLD BEHAVIOUR EXACTLY. A resolver that
+        quietly got looser when nobody configured it would be a change nobody
+        asked for, arriving in the safest-looking way."""
+        result = Resolver([CARD]).resolve(record())
+        self.assertIsNone(result.card_uid)
+        self.assertEqual(result.why,
+                         "no card in pkmn/EN with number '11'")
+
+    def test_with_totals_it_resolves_to_the_printed_uid(self):
+        result = Resolver([CARD], set_totals={"EN": {"swsh10.5": 78}}
+                          ).resolve(record())
+        self.assertEqual(result.card_uid, CARD["card_uid"])
+        self.assertTrue(result.usable_in_signals)
+
+    def test_a_bridged_match_says_so(self):
+        """Never silent. A match that exists only because the number was
+        bridged is a weaker claim than one that matched outright."""
+        result = Resolver([CARD], set_totals={"EN": {"swsh10.5": 78}}
+                          ).resolve(record())
+        self.assertIn("bridging the bare number", result.why)
+        self.assertIn("011/078", result.why)
+
+    def test_the_bridge_only_runs_when_the_exact_lookup_missed(self):
+        """It can ADD a match and can never change one."""
+        exact = dict(CARD, card_uid="pkmn:swsh10.5:11:base:EN", number="11")
+        result = Resolver([exact, CARD],
+                          set_totals={"EN": {"swsh10.5": 78}}).resolve(record())
+        self.assertEqual(result.card_uid, "pkmn:swsh10.5:11:base:EN")
+        self.assertNotIn("bridging", result.why)
+
+    def test_it_never_bridges_backwards(self):
+        """A printed record against a bare catalog stays unresolved. Stripping
+        `173/151` and `173/165` to `173` is the merge `printed_from_bare`
+        refuses to have a function for, and it would arrive here instead."""
+        bare = dict(CARD, card_uid="pkmn:swsh10.5:11:base:EN", number="11")
+        result = Resolver([bare], set_totals={"EN": {"swsh10.5": 78}}
+                          ).resolve(record("011/078"))
+        self.assertIsNone(result.card_uid)
+
+    def test_an_unknown_total_names_the_missing_count(self):
+        """"We have no total" and "there is no such card" are different facts,
+        and the refusal has to say which one it is."""
+        result = Resolver([CARD], set_totals={"EN": {"base1": 102}}
+                          ).resolve(record())
+        self.assertIsNone(result.card_uid)
+        self.assertIn("no official card count", result.why)
+
+    def test_a_bridged_candidate_still_has_to_clear_the_threshold(self):
+        """CANDIDATES, not an answer. The pool the bridge produces is scored
+        on name and set_code like any other."""
+        result = Resolver([CARD], set_totals={"EN": {"swsh10.5": 78}}
+                          ).resolve(record(name="Charizard"))
+        self.assertFalse(result.usable_in_signals)

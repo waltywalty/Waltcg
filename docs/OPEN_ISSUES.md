@@ -365,16 +365,21 @@ parser rule, not missing data.
 ## RUNNING, UNCERTIFIED — precision, catalog entry in → labelled uid out
 
 Built and running. Unlike the gated self-record figure, **this measurement can
-fail, and today it does.**
+fail.** Its first run resolved nothing at all — every pairable row refused —
+and that turned out to be the wiring, not the resolver (ADR-0060).
 
-| | |
-|---|---:|
-| verified rows | 239 |
-| catalog entries | 3,879 |
-| **pairable** | **7** (2.9%) |
-| resolved and usable | 0 |
-| refused by the resolver | 7 |
-| precision | **undefined** — an empty denominator is not a result |
+| | first run | now |
+|---|---:|---:|
+| verified rows | 239 | 239 |
+| catalog entries | 3,879 | 3,879 |
+| pairable, `set_and_name` | 7 | 7 |
+| pairable, `field` | 0 | **10** |
+| resolved and usable | **0** | **7** |
+| precision, `field` | undefined | 1.0000, 95% LB **0.5493** |
+
+**The number is nearly worthless and the lower bound says so.** 0.5493 on n=5
+is compatible with a resolver that is wrong half the time. What changed is
+that it can now move.
 
 ### Getting the join right took three attempts, and two were wrong
 
@@ -1224,3 +1229,37 @@ Fixed in the same commit.
 **Not done:** the three implementations are still three implementations. The
 battery makes the duplication checked, not safe. If a fourth appears,
 consolidate.
+
+## S2 — the `set_and_name` join produces wrong pairs and cannot tell
+
+Two of the five `set_and_name` refusals are
+`pkmn:sv03.5:003/165` ← catalog `sv03.5/198` and `pkmn:sv03.5:009/165` ←
+catalog `sv03.5/200`. Those are **different printings of the same character in
+the same set** — the hazard `pair()`'s ambiguity rule exists to catch,
+arriving in the shape the rule does not cover: one labelled row, one catalog
+entry, same name, different printing.
+
+Had the resolver answered, it would have answered **correctly** and been
+scored **wrong**. The 2/2 on that join is luck, not evidence.
+
+This is the argument for committing the pairing to an adjudicated artifact
+with its own provenance rather than re-deriving it each run: the join is a
+known source of wrong pairs, and nothing downstream can detect one.
+
+Cost of leaving it: the `set_and_name` precision figure is not trustworthy in
+either direction. The `field` join is unaffected — it pairs on numbers, which
+is a weaker independence claim but not a wrong-pair generator.
+
+## S3 — the resolver refuses every Japanese row on the name, not the number
+
+All five `field`-join refusals are `pkmn:JP` rows whose numbers now bridge
+cleanly (`S12a/014` → `014/172`). The name comparison fails: the catalog names
+cards in the local script, the labelled set uses Latin, and `name_similarity`
+scores those near zero.
+
+Relocated, not new — it was ADR-0057's blocker 2, previously showing up as
+"cannot pair". It is in a better place now: visible in a bucket with a reason
+attached rather than absent from the denominator.
+
+The fix is a transliteration or a JP-name column on the labelled rows, and it
+is worth more pairs than any refinement of the join.
