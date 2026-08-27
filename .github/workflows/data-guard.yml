@@ -63,6 +63,13 @@ jobs:
       - name: Interval estimators
         run: python -m audit.checks.interval_properties --verbose
 
+      # THE THIRD DEFECT SPECIES. A check can fire, be called at the decision
+      # point, and have its REFUSAL caught and turned into a verdict -- which
+      # both prior remedies pass cleanly. Found `except CannotBridge: return
+      # str(a) == str(b)` and a rate limit answered with `False`.
+      - name: No suppressed refusal
+        run: python -m audit.checks.no_suppressed_refusal --verbose
+
       - name: Guard catches what it claims to
         # A gate that cannot fail is not a gate. Prove the three rules fire on
         # a scratch repository before trusting the clean result above.

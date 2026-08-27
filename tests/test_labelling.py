@@ -114,14 +114,26 @@ class TheCatalogFiltersToWhatIsWorthGrading(unittest.TestCase):
         catalog = {"pkmn:EN": {"sources": ["tcgapi"],
                                "cards": [dict(CATALOG[0], external_id="1")]}}
         targets = to_targets(catalog, [])
+        # WIDENED DELIBERATELY (ADR-0062), and the list stays closed so the
+        # next widening is a decision too. `rarity` and `artist` are the
+        # provider's own words about the CARD -- the same class as `name`,
+        # and the only two fields it states that are independent of the
+        # number. That independence is why they are here: the number is what
+        # the catalog-in measurement measures, so a pairing oracle cannot use
+        # it. Still no price, no population, no payload.
         allowed = {"card_uid", "game", "language", "name", "number",
-                   "set_code", "external_id", "game_id"}
+                   "set_code", "external_id", "game_id", "rarity", "artist"}
         for source, entry in targets.items():
             if not isinstance(entry, dict) or "cards" not in entry:
                 continue
             for row in entry["cards"]:
                 extra = set(row) - allowed
                 self.assertFalse(extra, f"{source} target carries {extra}")
+                for banned in ("price", "amount", "currency", "population",
+                               "pop", "value", "usd", "eur", "market"):
+                    self.assertFalse(
+                        [k for k in row if banned in k.lower()],
+                        f"{source} target carries a {banned} field")
 
 
 class CandidatesAreWeightedTowardWhatBreaksResolution(unittest.TestCase):

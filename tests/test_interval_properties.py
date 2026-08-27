@@ -101,13 +101,12 @@ class TheBatteryCatchesTheInversion(unittest.TestCase):
         the pins refuse. The contract cannot launder a function."""
         wrong = dict(LOWER, orientation="upper_on_errors")
         self.assertTrue(IP.battery("mis-declared", IP.resolve(
-            "audit.checks.catalog_precision:clopper_pearson_lower"), wrong))
+            "audit.interval:clopper_pearson_lower"), wrong))
 
     def test_a_bound_that_ignores_alpha_fails(self):
         def deaf(n, right, alpha=0.05):
-            return IP.resolve(
-                "audit.checks.catalog_precision:clopper_pearson_lower")(
-                    n, right, 0.05)
+            return IP.resolve("audit.interval:clopper_pearson_lower")(
+                n, right, 0.05)
         failures = IP.battery("deaf", deaf, LOWER)
         self.assertTrue(any("alpha is ignored" in f for f in failures),
                         "\n".join(failures))
@@ -189,12 +188,28 @@ class DiscoveryIsStructural(unittest.TestCase):
         self.assertFalse([k for k in found if ":test_" in k
                           or k.rsplit(".", 1)[-1].startswith("test_")])
 
-    def test_the_exemption_roster_is_sealed_at_zero(self):
+    def test_the_exemption_roster_is_sealed_and_named(self):
+        """The seal is not enough on its own: a count of one is satisfied by
+        ANY one exemption, so the entry itself is pinned. Swapping which
+        function is exempt is a decision, not a wash."""
         _found, exempt = IP.discover()
         self.assertEqual(len(exempt), IP.EXPECTED_EXEMPTIONS)
-        self.assertEqual(IP.EXPECTED_EXEMPTIONS, 0,
-                         "an estimator has been declared not-an-estimator; "
-                         "that is a decision, and it belongs in an ADR")
+        self.assertEqual(sorted(exempt), ["audit.interval:binomial_tail"],
+                         "the exemption roster changed. An estimator declared "
+                         "not-an-estimator belongs in an ADR, not in a diff "
+                         "that keeps the count the same.")
+
+    def test_the_exempt_function_would_actually_fail_the_battery(self):
+        """An exemption is only honest if the function genuinely is not a
+        bound. `binomial_tail` is a probability mass: 1.0 on an empty sample
+        where a lower bound is 0.0, and monotone the other way."""
+        tail = IP.resolve("audit.interval:binomial_tail")
+        self.assertEqual(tail(0, 0, 0.5), 1.0)
+        self.assertGreater(tail(10, 5, 0.9), tail(10, 5, 0.1))
+        failures = IP.battery("binomial_tail", tail, LOWER)
+        self.assertTrue(failures, "the exempt function passes the battery, so "
+                                  "the exemption is hiding nothing and should "
+                                  "be a contract instead")
 
 
 if __name__ == "__main__":

@@ -315,6 +315,37 @@ class TheMutationHarnessIsInTheRepository(unittest.TestCase):
         self.assertIn("finally:", source)
         self.assertIn("path.write_text(source)", source)
 
+    def test_a_killed_run_still_restores(self):
+        """`finally` DOES NOT RUN ON SIGTERM. A run killed by a CI timeout or
+        by a shell that gave up waiting leaves the mutation applied -- which
+        happened on 2026-08-27 and poisoned the next two runs' baselines. The
+        signal is turned into an exception so the restore path executes."""
+        source = self._source()
+        self.assertIn("signal.signal(getattr(signal, name)", source)
+        self.assertIn("SIGTERM", source)
+
+    def test_a_dirty_tree_refuses_to_produce_a_baseline(self):
+        """THE SECOND HALF, and the one that matters more.
+
+        A poisoned baseline does not look like an error: every later mutant is
+        compared against a number that already contains somebody else's
+        mutation, so some read CAUGHT for the wrong reason and some read
+        MISSED for none. `--only` made it worse -- the per-mutant anchor check
+        covers only the SELECTED subset, so a filtered run never sees the
+        sabotage sitting in a file it did not touch."""
+        from audit.mutants import MUTANTS
+        from audit.mutate import verify_tree
+        self.assertEqual(verify_tree(MUTANTS), [],
+                         "the working tree does not match the mutant "
+                         "catalogue -- either the code moved or a killed run "
+                         "left a mutation behind")
+        fake = [("planted", "audit/mutate.py", "text that is not there", "x")]
+        self.assertEqual([label for label, _rel in verify_tree(fake)],
+                         ["planted"])
+        source = self._source()
+        self.assertIn("dirty = verify_tree(MUTANTS)", source)
+        self.assertIn("TREE NOT CLEAN", source)
+
     def test_a_stale_anchor_is_a_failure_not_a_pass(self):
         """A mutant whose anchor no longer matches is a guard that has quietly
         stopped testing anything -- the same silence in a different costume."""

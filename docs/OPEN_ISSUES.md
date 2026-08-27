@@ -48,6 +48,27 @@ Mitigated rather than solved: the catalog cache means a refusal costs nothing,
 and the two-strike breaker means we stop asking. Add each run's numbers from
 the ingest step's rate-limit table.
 
+**AMENDED 2026-08-27 (ADR-0062): the quota was not the binding constraint.**
+`ApiTcgAdapter.fetch` was making one `?code=` request **per card** — 3,494 on
+the current target list — for an `artist` field `/api/products` serves 100 at
+a time. A 3,494-call run against a source that refused at 16 was never going
+to finish. `index_by_code()` now sweeps the game once, `ceil(total/100)` calls
+(~35 for One Piece), and serves every target from the index. Unproven against
+the live service.
+
+Still open, and now the right questions to ask in that order:
+
+1. **Is `APITCG_KEY` actually set?** The plumbing is there — `key_env`,
+   `x-api-key` confirmed in the OpenAPI `securitySchemes`, `ingest.yml` passes
+   the secret. Whether the secret exists is not knowable from the sandbox. The
+   preflight table prints key presence, length and first four characters every
+   run; read it. An anonymous per-IP quota on a shared Actions runner egress
+   IP would explain 250-then-16 better than any window we have hypothesised.
+2. **Does a keyed sweep still get refused?** Only worth asking after 1 and the
+   sweep, because the question has changed from "can we afford 3,494 calls" to
+   "can we afford 35".
+3. **Is there a paid tier?** Only if 2 comes back badly. Unverifiable here.
+
 ## S1 — Model A cannot run at all: three assumptions are null
 
 Every tier on every route refuses with `ConfigIncomplete` on the same three:
@@ -377,9 +398,19 @@ and that turned out to be the wiring, not the resolver (ADR-0060).
 | resolved and usable | **0** | **7** |
 | precision, `field` | undefined | 1.0000, 95% LB **0.5493** |
 
-**The number is nearly worthless and the lower bound says so.** 0.5493 on n=5
-is compatible with a resolver that is wrong half the time. What changed is
-that it can now move.
+### THE HONEST HEADLINE IS 0.5493 ON n=5
+
+Not 1.0000. The point estimate sits on five resolutions and is compatible with
+a resolver that is wrong 45% of the time. **Quote the bound with its n,
+everywhere** — `audit/checks/catalog_precision.py:headline` prints it above
+any point estimate, `tests/test_resolver_gate.py:HONEST_HEADLINE` carries it
+into the gate's own message, and both are tested.
+
+It is also the first precision figure this project has ever produced that
+*could* have come back bad. The gated 1.0000 on 239/239 is a
+no-merge/no-collision check on self-records: the input is built from the
+labelled row and the expected uid is derived from the same fields, so it
+cannot fail. Four sessions read it as evidence.
 
 ### Getting the join right took three attempts, and two were wrong
 
@@ -1263,3 +1294,70 @@ attached rather than absent from the denominator.
 
 The fix is a transliteration or a JP-name column on the labelled rows, and it
 is worth more pairs than any refinement of the join.
+
+## FIXED — the publisher's id and the illustrator were read and thrown away
+
+`_catalog_row` fetched `find(hit, "id", "card_id")` to derive the variant and
+never stored it, so **all 10,867 rows in `targets.json` carry
+`external_id: ""`.** It also read `illustrator` into `artist`, which `_cn_row`
+then dropped.
+
+Both now reach `targets.json`, with `rarity` alongside. The illustrator is the
+strongest pairing oracle available: it has nothing to do with the number, the
+set or the name — and the number is what the catalog-in measurement measures,
+so the join cannot use it.
+
+`score()` feeds `rarity` to the resolver and **not** `external_id`: rarity is
+what production has, while `external_id` reaches the xref path and an xref
+table built from our own labelling would answer the question with the answer.
+
+Data lands on the next ingest run; the plumbing is committed. Fixed
+2026-08-27, ADR-0062.
+
+## FIXED — a refusal caught and turned into a verdict, twice
+
+The third defect species. `audit/defect_taxonomy.py` had INERT and ORPHANED
+and **both of their remedies pass this cleanly** — the check fires, something
+calls it, and the refusal dies in between.
+
+- `catalog_precision._numbers_agree` caught `CannotBridge` and returned
+  `str(a) == str(b)`, four lines below the docstring saying that exact
+  confusion is why the exception exists. 4 rows on the current catalog were
+  being counted as cards the catalog does not carry.
+- `TcgdexAdapter.filter_is_honoured` caught `RateLimited` and returned
+  `False`, which the caller reads as "fall back" — 8,313 single-card fetches,
+  started because the source had just said stop.
+
+`audit/checks/no_suppressed_refusal.py` is the audit, wired into
+`data-guard.yml` as a hard gate. The refusal vocabulary is discovered (14
+types), `can refuse` is a transitive closure over the call graph (1,229
+functions), and a bare `except Exception` is in scope only around a call that
+can refuse.
+
+**Known hole, stated rather than papered over:** `log(exc); return False`
+binds and uses the exception and still hands the caller a verdict. Tightening
+to "the returned value must carry the exception" false-positives on the
+correct `detail = str(exc); return {"detail": detail}` idiom, so the check is
+the weaker of the two rather than one with a growing exemption roster.
+
+## FIXED — a killed mutation run poisoned the next two runs' baselines
+
+`audit/mutate.py` edits source in place and restores in a `finally`, which
+**does not run on SIGTERM**. A run killed on 2026-08-27 left
+`interval_properties.battery`'s `check()` as a `pass`. The next two runs then
+measured `failures=11` instead of `failures=6` and reported two false MISSED
+results — the sabotage had been normalised into the baseline, so mutants that
+were caught looked identical to it.
+
+`--only` made it worse rather than better: `_run`'s per-mutant anchor check
+would have caught the missing anchor, but only for a mutant in the **selected
+subset**, and a filtered run never touches the file holding the sabotage.
+
+Two fixes: `verify_tree()` checks **every** catalogued anchor before a baseline
+is measured and refuses to run if any is missing, regardless of the filter; and
+SIGTERM/SIGHUP are turned into exceptions so the existing restore path
+executes. Both mutated.
+
+The docstring already said "that has happened once already." It had now
+happened twice, which is the same lesson as ADR-0058: a comment describing a
+failure mode is not a control against it.

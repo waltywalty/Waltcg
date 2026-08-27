@@ -262,6 +262,8 @@ class ApiTcgAdapter(Adapter):
 
     name = "apitcg"
     requires_targets = True
+    #: Targets the paged sweep did not contain. Counted, never silent.
+    uncovered_by_sweep = 0
     key_env = "APITCG_KEY"
     api_key_header = "x-api-key"          # confirmed: components.securitySchemes
     host = "api.apitcg.com"
@@ -312,25 +314,113 @@ class ApiTcgAdapter(Adapter):
         return (find(payload, "data") or [],
                 find(payload, "total") or 0)
 
+    #: How many cards the sweep may miss before the per-card fallback stops.
+    #: A fallback with no ceiling IS the old behaviour: 3,494 requests for a
+    #: field one paged sweep already carries. Misses past this are COUNTED, in
+    #: `uncovered_by_sweep`, and left for the next run.
+    MAX_PER_CARD_FALLBACK = 50
+
+    def _codes(self, hit) -> list:
+        """Every spelling of this card's code that a target might carry.
+
+        apitcg states the number in the dynamic `attributes` map for some
+        games and at the top level for others, and the catalog and the target
+        do not always agree on case. Indexing under all of them costs nothing;
+        a miss costs a request.
+        """
+        out = []
+        for value in (self._attr(hit, "Number"),
+                      find(hit, "cardNumber", "code"), find(hit, "id")):
+            text = str(value or "").strip()
+            if text:
+                out.extend([text, text.upper()])
+        return out
+
+    def index_by_code(self, game) -> dict:
+        """Every card for one game, paged 100 at a time, keyed by code.
+
+        THE QUOTA ARITHMETIC, which is the whole reason this exists. `fetch`
+        used to make ONE `?code=` request PER CARD -- 3,494 of them per run on
+        the current target list, for an `artist` field that `/api/products`
+        serves 100 at a time. apitcg publishes no quota and refused after 16
+        calls on 2026-08-18 -- the dated rate-limit record in `config/` has the
+        observations; this file deliberately does not name it, because
+        `tests/test_catalog_sources.py` asserts no adapter reads them as
+        limits. A 3,494-call run was never going to finish, and `optcg:EN`,
+        `optcg:JP` and `riftbound:EN` have had no catalog for several runs as
+        a result.
+
+        One sweep is `ceil(total / 100)` calls -- of the order of 35 for One
+        Piece. Two orders of magnitude, for the same data.
+        """
+        index, page, seen = {}, 1, 0
+        while True:
+            rows, total = self.products(game, page=page)
+            for hit in rows:
+                for key in self._codes(hit):
+                    index.setdefault(key, hit)
+            seen += len(rows)
+            if not rows or seen >= int(total or 0) or page > 100:
+                break
+            page += 1
+        return index
+
+    def _record(self, card, hit, observed) -> Record:
+        return Record(kind="card", source=self.name, as_of=observed,
+                      observed_at=observed,
+                      payload={"card_uid": card["card_uid"],
+                               "artist": self._attr(hit, "Artist",
+                                                    "Illustrator"),
+                               "rarity": self._attr(hit, "Rarity"),
+                               "name_en": find(hit, "name"),
+                               "image_url": find(hit, "images")})
+
     def fetch(self, since=None, cards=()) -> list[Record]:
         observed = self._now()
-        records = []
+        records, indexes, fallbacks = [], {}, 0
+        self.uncovered_by_sweep = 0
         for card in cards:
-            slug = self.SLUG.get(card["game"])
+            game = card["game"]
+            slug = self.SLUG.get(game)
             if slug is None:
                 continue
+            if game not in indexes:
+                # NO PER-CARD FALLBACK IF THE SWEEP ITSELF IS REFUSED. That
+                # would answer "not now" with thousands of requests, which is
+                # the same mistake as answering a rate limit with an 8,313
+                # card per-card enumeration. Let it propagate; the runner
+                # records the source as rate limited and moves on.
+                indexes[game] = self.index_by_code(game)
+                self.log.append(
+                    f"{self.name} swept {game}: {len(indexes[game])} codes "
+                    f"indexed, serving {sum(1 for c in cards if c['game'] == game)} "
+                    "targets without a per-card request each")
+            hit = None
+            for key in (str(card["number"]), str(card["number"]).upper()):
+                hit = indexes[game].get(key)
+                if hit is not None:
+                    break
+            if hit is not None:
+                records.append(self._record(card, hit, observed))
+                continue
+            # The sweep enumerated the game and this code was not in it, so
+            # our spelling and apitcg's disagree. One request may still find
+            # it -- server-side matching is looser than ours -- but only up to
+            # the ceiling, and the rest are counted rather than spent.
+            self.uncovered_by_sweep += 1
+            if fallbacks >= self.MAX_PER_CARD_FALLBACK:
+                continue
+            fallbacks += 1
             payload = self.get(
                 self.BY_CODE.format(tcg=slug, code=card["number"]),
                 label=f"product-{card['card_uid']}")
-            for hit in find(payload, "data") or []:
-                records.append(Record(
-                    kind="card", source=self.name, as_of=observed,
-                    observed_at=observed,
-                    payload={"card_uid": card["card_uid"],
-                             "artist": self._attr(hit, "Artist", "Illustrator"),
-                             "rarity": self._attr(hit, "Rarity"),
-                             "name_en": find(hit, "name"),
-                             "image_url": find(hit, "images")}))
+            for found in find(payload, "data") or []:
+                records.append(self._record(card, found, observed))
+        if self.uncovered_by_sweep:
+            self.log.append(
+                f"{self.name}: {self.uncovered_by_sweep} target(s) not in the "
+                f"swept index; {min(fallbacks, self.MAX_PER_CARD_FALLBACK)} "
+                "looked up individually, the rest counted and left")
         return records
 
 

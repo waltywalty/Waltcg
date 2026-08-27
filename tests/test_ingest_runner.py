@@ -894,3 +894,101 @@ class ACardNameWithASpaceDoesNotKillTheRun(unittest.TestCase):
         with self.assertRaises(http.client.InvalidURL):
             http.client.HTTPConnection(
                 "example.invalid")._validate_path("/v1/search?q=Rare Candy")
+
+
+class ApitcgSweepsInsteadOfAskingPerCard(unittest.TestCase):
+    """apitcg publishes no quota and refused after 16 calls on 2026-08-18.
+    `fetch` was making ONE request PER CARD -- 3,494 of them on the current
+    target list -- for an `artist` field `/api/products` serves 100 at a time.
+    That is why `optcg:EN`, `optcg:JP` and `riftbound:EN` have had no catalog
+    for several runs, and it is the single constraint on the catalog-in
+    measurement's ceiling.
+    """
+
+    @staticmethod
+    def _adapter(pages, by_code=None):
+        from ingest.adapters import ApiTcgAdapter
+
+        class Stub(ApiTcgAdapter):
+            def __init__(self):
+                super().__init__()
+                self.calls = []
+
+            def get(self, url, label=None, attempts=None):
+                self.calls.append(url)
+                if "code=" in url:
+                    return {"data": (by_code or {}).get(
+                        url.split("code=")[1], [])}
+                page = int(url.split("page=")[1])
+                return {"data": pages[page - 1] if page <= len(pages) else [],
+                        "total": sum(len(p) for p in pages)}
+        return Stub()
+
+    @staticmethod
+    def _hit(code, artist):
+        return {"code": code, "name": f"card {code}",
+                "attributes": {"Artist": artist, "Rarity": "SR"}}
+
+    @staticmethod
+    def _card(code):
+        return {"card_uid": f"optcg:OP01:{code}:base:EN", "game": "optcg",
+                "number": code}
+
+    def test_one_sweep_serves_every_card(self):
+        page = [self._hit(f"OP01-{i:03d}", "Someone") for i in range(1, 101)]
+        adapter = self._adapter([page])
+        cards = [self._card(f"OP01-{i:03d}") for i in range(1, 101)]
+        records = adapter.fetch(cards=cards)
+        self.assertEqual(len(records), 100)
+        self.assertEqual(len(adapter.calls), 1,
+                         f"100 cards cost {len(adapter.calls)} requests: "
+                         f"{adapter.calls[:3]}")
+        self.assertEqual(records[0].payload["artist"], "Someone")
+
+    def test_pages_until_the_total_is_covered(self):
+        pages = [[self._hit(f"OP01-{i:03d}", "A") for i in range(1, 101)],
+                 [self._hit(f"OP01-{i:03d}", "B") for i in range(101, 121)]]
+        adapter = self._adapter(pages)
+        records = adapter.fetch(cards=[self._card("OP01-110")])
+        self.assertEqual(len(adapter.calls), 2)
+        self.assertEqual(records[0].payload["artist"], "B")
+
+    def test_a_code_the_sweep_missed_is_counted_and_capped(self):
+        page = [self._hit("OP01-001", "A")]
+        adapter = self._adapter([page])
+        cards = [self._card(f"OP02-{i:03d}") for i in range(1, 81)]
+        adapter.fetch(cards=cards)
+        self.assertEqual(adapter.uncovered_by_sweep, 80)
+        per_card = [u for u in adapter.calls if "code=" in u]
+        self.assertEqual(len(per_card), adapter.MAX_PER_CARD_FALLBACK,
+                         "the per-card fallback has no ceiling, which is the "
+                         "behaviour this replaced")
+        self.assertTrue(any("counted and left" in line
+                            for line in adapter.log), adapter.log)
+
+    def test_a_refused_sweep_propagates_and_costs_nothing_more(self):
+        """Answering "not now" with thousands of requests is the 8,313-fetch
+        mistake in a different file."""
+        from ingest.adapters import ApiTcgAdapter
+        from ingest.base import RateLimited
+
+        class Refusing(ApiTcgAdapter):
+            def __init__(self):
+                super().__init__()
+                self.calls = 0
+
+            def get(self, url, label=None, attempts=None):
+                self.calls += 1
+                raise RateLimited("429")
+
+        adapter = Refusing()
+        with self.assertRaises(RateLimited):
+            adapter.fetch(cards=[self._card(f"OP01-{i:03d}")
+                                 for i in range(1, 200)])
+        self.assertEqual(adapter.calls, 1)
+
+    def test_the_index_is_built_once_per_game(self):
+        page = [self._hit("OP01-001", "A")]
+        adapter = self._adapter([page])
+        adapter.fetch(cards=[self._card("OP01-001")] * 25)
+        self.assertEqual(len(adapter.calls), 1)

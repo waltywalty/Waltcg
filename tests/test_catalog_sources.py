@@ -1172,7 +1172,11 @@ class TheEnglishFallbackIsNowThePrimaryRoute(unittest.TestCase):
             calls.append(1) or {"151C-170": {"rarity": "Illustration rare"}})
         rows = adapter.enumerate_combo("pkmn", "CN-S")
         self.assertEqual(calls, [1], "the English index was never built")
-        self.assertEqual(adapter.strategy, "graphql")
+        # `_filter_unmeasured` because this fixture serves no `/rarities`
+        # route, so the probe was never taken. The STRATEGY is the same as a
+        # measured miss; what it was chosen on is not, and the two used to be
+        # the same string. See ADR-0062.
+        self.assertEqual(adapter.strategy, "graphql_filter_unmeasured")
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["rarity_from"], "en_fallback")
         self.assertEqual(rows[0]["rarity"], "Illustration rare")

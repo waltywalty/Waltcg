@@ -15,10 +15,30 @@ TESTS, which is the only reason the distinction is worth drawing.
               REMEDY: prove something invokes it. A test at the DECISION
               POINT, not at the check.
 
+    SUPPRESSED the check fires, something calls it, and its REFUSAL is caught
+              and converted into a verdict.
+              REMEDY: prove the refusal PROPAGATES. A test that the CALLER
+              receives "cannot tell" and does not receive an answer.
+
 A test written for the wrong species passes and teaches nothing: exercising an
 orphaned check directly proves it works, which was never in doubt, and asserting
 that an inert check is reachable proves it is called, which was also never in
 doubt.
+
+The third species is the one both prior remedies pass cleanly, which is why it
+took eight instances of the first two to notice it. Given
+
+    try:
+        return numbers_denote_same_printing(a, b, set_total=total) is True
+    except CannotBridge:
+        return str(a) == str(b)
+
+the INERT remedy passes -- feed the bridge two numbers it cannot bridge and it
+raises, demonstrably. The ORPHANED remedy passes -- `_numbers_agree` is called
+at the decision point, demonstrably. And `CannotBridge`, whose entire purpose
+is to stop a caller mistaking "we could not tell" for "they are different
+cards", is four lines above a handler doing exactly that. Neither remedy looks
+at what happens to the refusal after it is raised, so neither can see this.
 
 Two shapes of inert are worth separating because their remedies differ:
 
@@ -60,6 +80,20 @@ SPECIES = {
         "test_shape": "A test AT THE DECISION POINT that the decision is "
                       "refused. Exercising the check directly proves it "
                       "works, which was never in doubt.",
+    },
+    "suppressed": {
+        "what": "The check fires, something calls it, and its REFUSAL is "
+                "caught and converted into a verdict.",
+        "reads_as": "A passing check, called from the right place, whose "
+                    "'cannot tell' reaches the caller as an answer.",
+        "remedy": "Prove the refusal PROPAGATES.",
+        "test_shape": "A test that the CALLER receives 'cannot tell' and "
+                      "does NOT receive a decision. Asserting the check "
+                      "raises proves it fires, which was never in doubt, and "
+                      "asserting the caller invokes it proves it is wired, "
+                      "which was also never in doubt. BOTH PRIOR REMEDIES "
+                      "PASS THIS DEFECT CLEANLY -- that is why it needed its "
+                      "own species.",
     },
 }
 
@@ -185,6 +219,55 @@ INSTANCES = [
                           "fails until it is wired.",
         "test": "tests/test_labelling.py::UpgradeIsWiredToTheStandard -- at "
                 "the decision point, not at the check.",
+    },
+    {
+        "name": "CannotBridge was caught and answered",
+        "species": "suppressed",
+        "shape": None,
+        "read_as": "A refusal type with a docstring explaining why it exists, "
+                   "raised correctly, caught correctly.",
+        "actually": "`catalog_precision._numbers_agree` wrapped the bridge in "
+                    "`except CannotBridge: return str(a) == str(b)`. "
+                    "`CannotBridge`'s own docstring says it is raised rather "
+                    "than returning False so a caller cannot mistake 'we "
+                    "could not tell' for 'they are different cards'. Four "
+                    "lines later the handler did exactly that, and every "
+                    "row whose number could not be bridged was reported as "
+                    "a card the catalog does not carry.",
+        "remedy_applied": "`_numbers_agree` returns THREE values and `pair()` "
+                          "reports COULD NOT TELL as its own bucket -- 4 rows "
+                          "on the current catalog that were being counted as "
+                          "non-matches. AND THE SPECIES IS NOW AUDITED: "
+                          "`audit/checks/no_suppressed_refusal.py` discovers "
+                          "every handler that catches a repo-defined "
+                          "exception, or a bare `except Exception` around a "
+                          "call that can refuse, and fails on any that throws "
+                          "the exception away and produces a verdict. It "
+                          "found a second one on its first run: a rate-limit "
+                          "refusal returning `False` from tcgdex's filter "
+                          "probe, which sent the caller to an 8,313-request "
+                          "per-card fallback because the source had just said "
+                          "stop.",
+        "test": "tests/test_suppressed_refusal.py::"
+                "TheCallerGetsCannotTellNotAVerdict -- at the CALLER, "
+                "asserting the refusal survives the handler.",
+    },
+    {
+        "name": "a rate limit was answered with a measurement",
+        "species": "suppressed",
+        "shape": None,
+        "read_as": "A probe that measures whether `?rarity=` filters, with a "
+                   "documented fallback when it does not.",
+        "actually": "`filter_is_honoured` caught `AdapterGaveUp` and "
+                    "`RateLimited` and returned False, which is the same "
+                    "value it returns for a filter it MEASURED and found "
+                    "ignored. The caller reads False as 'fall back', and the "
+                    "fallback is 8,313 single-card fetches -- started because "
+                    "the source had just told us to stop.",
+        "remedy_applied": "The refusal is logged and re-raised. The runner "
+                          "already knows how to skip a source that gave up.",
+        "test": "tests/test_suppressed_refusal.py::"
+                "ARateLimitIsNotAMeasurement",
     },
 ]
 

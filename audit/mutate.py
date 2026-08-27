@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import signal
 import subprocess
 import sys
 import pathlib
@@ -130,6 +131,18 @@ def main(argv=None) -> int:
             "Wait for it, or delete the lock if you are certain nothing is "
             "running.")
     LOCK.write_text("held by audit.mutate\n")
+    # SIGTERM DOES NOT UNWIND. Without this the `finally` in `_run` never
+    # runs when the harness is killed -- by a CI timeout, by a shell that
+    # gave up waiting -- and the mutation is left in the working tree. Turn
+    # the signal into an exception so the existing restore path executes.
+    def _restore_and_die(signum, _frame):
+        raise KeyboardInterrupt(f"signal {signum}")
+    for name in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, name):
+            try:
+                signal.signal(getattr(signal, name), _restore_and_die)
+            except ValueError:                            # not the main thread
+                pass
     try:
         return _run(wanted)
     finally:
@@ -137,7 +150,43 @@ def main(argv=None) -> int:
         clear_bytecode()
 
 
+def verify_tree(mutants) -> list:
+    """Every mutant's ORIGINAL text, present in its file, before anything runs.
+
+    THE BASELINE IS ONLY HONEST OVER A CLEAN TREE. This harness edits source
+    in place and restores in a `finally` -- which does not run on SIGTERM. A
+    killed run therefore leaves one mutation applied, and the NEXT run
+    measures a baseline that already contains it. Every subsequent mutant is
+    then compared against a poisoned number: some read CAUGHT for the wrong
+    reason and some read MISSED for no reason at all.
+
+    That is not hypothetical. A run killed on 2026-08-27 left
+    `interval_properties.battery`'s `check()` as a `pass`, and the next two
+    runs measured `failures=11` instead of `failures=6` and reported two
+    false MISSED results.
+
+    `--only` made it worse rather than better: the per-mutant anchor check in
+    `_run` would have caught it, but only for a mutant in the selected subset.
+    So this checks ALL of them, always, regardless of the filter, and refuses
+    to measure anything until the tree is what the catalogue says it is.
+    """
+    return [(label, relative) for label, relative, old, _new in mutants
+            if old not in (ROOT / relative).read_text()]
+
+
 def _run(wanted) -> int:
+    dirty = verify_tree(MUTANTS)
+    if dirty:
+        print("TREE NOT CLEAN -- refusing to measure a baseline. Every mutant "
+              "below would be compared against a number that already contains "
+              "somebody else's mutation.\n")
+        for label, relative in dirty:
+            print(f"  MISSING ANCHOR  {label}  [{relative}]")
+        print("\nEither the code moved and the catalogue is stale, or a "
+              "previous run was killed before its `finally` restored the "
+              "file. `git diff` says which.")
+        return 1
+
     clear_bytecode()
     baseline = run_suite()
     print(f"baseline (MEASURED, not assumed): {baseline}\n", flush=True)

@@ -187,3 +187,94 @@ class TheTotalsReachBothHalvesOfTheMeasurement(unittest.TestCase):
         total exists. What was dishonest was reaching that without trying."""
         self.assertTrue(C._numbers_agree("SV001", "SV001"))
         self.assertFalse(C._numbers_agree("SV001", "SV002"))
+
+
+class ThePointEstimateIsNeverQuotedAlone(unittest.TestCase):
+    """`1.0000` on five resolutions is not a measurement, and it reads exactly
+    like one. The headline is the BOUND and its n."""
+
+    def test_the_headline_carries_the_bound_and_the_denominator(self):
+        line = C.headline(C.measure())
+        self.assertIn("lower bound", line)
+        self.assertIn("n=", line)
+        self.assertIn("Quote THIS", line)
+
+    def test_the_headline_comes_before_any_point_estimate(self):
+        text = C.render(C.measure())
+        head = text.index("HEADLINE")
+        first_point = text.index("- **precision")
+        self.assertLess(head, first_point,
+                        "a reader meets the point estimate before the bound")
+
+    def test_an_empty_measurement_headlines_as_no_figure(self):
+        empty = {"scored_rows": 0, "catalog_entries": 0,
+                 "joins": {"field": {"used": 0, "right": 0, "paired": 0,
+                                     "precision": None, "lower_bound": None,
+                                     "refused": []}}}
+        self.assertIn("no precision figure", C.headline(empty))
+
+
+class TheProviderIdIsCarriedButNotFed(unittest.TestCase):
+    """`external_id` is on the ENTRY, for pairing, and out of the RECORD.
+
+    It reaches `Resolver.resolve`'s xref/override path, which short-circuits
+    every judgement the measurement is trying to observe. Nothing populates
+    those tables from our labelling today -- so this is a hazard, not a bug,
+    and the test is written at the decision rather than at the symptom.
+    """
+
+    ROW = {"card_uid": "pkmn:swsh7:095/203:base:EN", "game": "pkmn",
+           "language": "EN", "set_code": "swsh7", "number": "095/203",
+           "variant": "base", "name": "Umbreon"}
+    ENTRY = {"source": "tcgdex", "game": "pkmn", "language": "EN",
+             "set_code": "swsh7", "number": "95", "name": "Umbreon",
+             "rarity": "Ultra Rare", "external_id": "swsh7-95"}
+
+    def _record_seen_by_the_resolver(self):
+        seen = {}
+
+        class Spy:
+            def __init__(self, *_a, **_k):
+                pass
+
+            def resolve(_self, record):
+                seen.update(record)
+                from resolve.resolver import Resolution
+                return Resolution(None, 0.0, None, "spy")
+
+        original = C.Resolver
+        try:
+            C.Resolver = Spy
+            C.score([(self.ROW, self.ENTRY)], [self.ROW], {"EN": {"swsh7": 203}})
+        finally:
+            C.Resolver = original
+        return seen
+
+    def test_the_record_carries_rarity(self):
+        """What production has. `_fuzzy` derives a variant from it, and
+        withholding it measured a resolver working with less than it gets."""
+        self.assertEqual(self._record_seen_by_the_resolver().get("rarity"),
+                         "Ultra Rare")
+
+    def test_the_record_does_not_carry_external_id(self):
+        self.assertNotIn("external_id", self._record_seen_by_the_resolver())
+
+    def test_the_entry_still_carries_it_for_pairing(self):
+        by_key = {(e["game"], e["language"], e["set_code"], e["number"]): e
+                  for e in C.load_catalog()}
+        self.assertTrue(by_key, "no catalog entries at all")
+        sample = next(iter(by_key.values()))
+        for field in ("rarity", "artist", "external_id"):
+            self.assertIn(field, sample,
+                          f"{field} was dropped from the entry; it is one of "
+                          "the few fields independent of the number, which is "
+                          "what this measurement measures")
+
+    def test_an_xref_would_short_circuit_the_measurement(self):
+        """Why the asymmetry is load-bearing rather than fussy."""
+        from resolve.resolver import Resolver
+        resolver = Resolver([self.ROW],
+                            xrefs={("tcgdex", "swsh7-95"): "anything at all"})
+        answer = resolver.resolve(dict(self.ENTRY))
+        self.assertEqual(answer.card_uid, "anything at all")
+        self.assertEqual(answer.resolved_by, "exact")

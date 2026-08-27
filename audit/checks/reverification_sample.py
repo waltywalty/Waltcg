@@ -64,6 +64,9 @@ sys.path.insert(0, REPO)
 from resolve.identity import normalise_name  # noqa: E402
 from resolve.label_cli import LABELLED, SCORED  # noqa: E402
 
+# ONE IMPLEMENTATION, imported rather than repeated. See ADR-0061.
+from audit.interval import clopper_pearson_upper  # noqa: E402
+
 #: Pinned so the draw is reproducible and can be committed before any answer
 #: arrives. Changing it after seeing results is re-rolling the dice.
 SEED = 20260825
@@ -71,24 +74,6 @@ SEED = 20260825
 #: What the researcher is shown. The NAME is absent by construction -- it is
 #: the answer, and the field every known error lives in.
 BLINDED_FIELDS = ("game", "set_code", "number", "variant", "language")
-
-
-def clopper_pearson_upper(n, errors=0, alpha=0.05):
-    """Upper bound on the error rate. Bisection, pinned by a test -- the last
-    bisection in this repository was inverted and returned 0.0 for every
-    input, which passes `assertLess` silently."""
-    if n <= 0:
-        return 1.0
-    lo, hi = 0.0, 1.0
-    for _ in range(200):
-        mid = (lo + hi) / 2
-        tail = sum(math.comb(n, k) * mid ** k * (1 - mid) ** (n - k)
-                   for k in range(errors + 1))
-        if tail > alpha:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi) / 2
 
 
 def detectable(n, e, alpha=0.05):

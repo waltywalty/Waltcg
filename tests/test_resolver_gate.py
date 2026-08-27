@@ -29,6 +29,19 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from audit.interval import clopper_pearson_lower  # noqa: E402
+
+#: THE NUMBER THAT COULD HAVE BEEN BAD. The gated figure below is computed on
+#: self-records and CANNOT fail -- it is a no-merge check. The catalog-in
+#: measurement can, and its honest headline is a 95% lower bound of 0.5493 on
+#: n=5, not the point estimate of 1.0000 sitting on top of it. Pinned as a
+#: literal rather than computed, so quoting the self-record figure without it
+#: is a change somebody makes deliberately. Refresh it from
+#: `python -m audit.checks.catalog_precision` when coverage moves.
+HONEST_HEADLINE = (
+    "This figure CANNOT FAIL. The precision figure that can is the "
+    "catalog-in measurement: 95% lower bound 0.5493 on n=5 "
+    "(`python -m audit.checks.catalog_precision`).")
 from resolve.resolver import Resolver, SIGNAL_THRESHOLD  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -176,7 +189,19 @@ class ResolverQuality(unittest.TestCase):
             f"({_counts_note(self.data)}); wrong matches: {wrong}. NOTE: this "
             "is a no-merge/no-collision check, not a resolution check -- the "
             "input is built from the labelled row and the expected uid is "
-            "derived from the same fields. See `_self_records`.")
+            "derived from the same fields. See `_self_records`. "
+            + HONEST_HEADLINE)
+
+    def test_the_self_record_figure_is_never_quoted_alone(self):
+        """1.0000 on 239/239 is not evidence and reads exactly like evidence.
+
+        Wherever this number appears, the number that could have come back bad
+        has to appear beside it. `audit/checks/catalog_precision.py:headline`
+        is the one that quotes itself with its n; this asserts the gate points
+        at it rather than standing alone."""
+        self.assertIn("0.5493", HONEST_HEADLINE)
+        self.assertIn("n=5", HONEST_HEADLINE)
+        self.assertIn("cannot fail", HONEST_HEADLINE.lower())
 
     def test_recall_is_reported_even_when_precision_passes(self):
         precision, recall, _ = self._score(self._self_records())
@@ -660,45 +685,17 @@ class PrecisionIsReportedWithItsInterval(unittest.TestCase):
     def _lower_bound(n, errors=0):
         """One-sided 95% Clopper-Pearson lower bound on precision.
 
-        Zero errors collapses to `0.05 ** (1/n)`; one error needs the beta
-        quantile, and the difference between the two is the whole reason the
-        set is sized at 250 rather than at whatever clears the threshold
-        today.
+        AN ADAPTER, NOT AN IMPLEMENTATION. This method used to hold its own
+        bisection and shipped it inverted (`c333ec3`), returning 0.0 for every
+        input -- which passes `assertLess(bound, threshold)` silently. The
+        arithmetic now lives once in `audit/interval.py`; all this does is
+        turn the gate's error-count vocabulary into the shared function's
+        success-count one. See ADR-0061.
+
+        It is still covered by `audit/checks/interval_properties.py`, so if
+        anybody re-implements it here the battery says so.
         """
-        if n <= 0:
-            # An empty sample bounds nothing. Guarded at the call site here,
-            # but the function is shared property-tested by
-            # `audit/checks/interval_properties.py`, which found this as a
-            # ZeroDivisionError -- the two other estimators in the repository
-            # both answer 0 for an empty sample and this one crashed.
-            return 0.0
-        if errors == 0:
-            return 0.05 ** (1.0 / n)
-        try:
-            from statistics import NormalDist            # noqa: F401
-            import math
-            # Beta(n - errors, errors + 1) 5th percentile, by bisection --
-            # exact enough here and it avoids a scipy dependency.
-            def cdf(x):
-                total = 0.0
-                for k in range(n - errors, n + 1):
-                    total += (math.comb(n, k) * x ** k * (1 - x) ** (n - k))
-                return total
-            # `cdf` is P(X >= n-errors | p), which INCREASES with p. We want
-            # the p where it equals 0.05, so a value above the target means
-            # the answer is lower. Getting this backwards returns 0.0 for
-            # every input -- and 0.0 passes a `assertLess(bound, threshold)`
-            # check, so the test goes green while measuring nothing.
-            lo, hi = 0.0, 1.0
-            for _ in range(200):
-                mid = (lo + hi) / 2
-                if cdf(mid) > 0.05:
-                    hi = mid
-                else:
-                    lo = mid
-            return lo
-        except Exception:                                # noqa: BLE001
-            return 0.0
+        return clopper_pearson_lower(n, n - errors)
 
     def test_the_interval_arithmetic_matches_the_sizing_note(self):
         """A guard on the guard. ADR-0015 sized the set by computing that 250

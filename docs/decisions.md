@@ -4960,3 +4960,256 @@ index a card under more than one key. Broadening candidate generation —
 indexing `011/078` under `11` as well — would make retrieval loose and rely
 entirely on scoring to stay correct. That may be right eventually; it is a
 larger decision than this one and it is not needed to close the gap.
+
+---
+
+## ADR-0061 — Three copies of a function that has been inverted twice
+
+**Date:** 2026-08-27
+**Status:** Accepted. Completes ADR-0058, which made the duplication *checked*
+and left it standing.
+
+### Why not wait for the fourth copy
+
+ADR-0058 built one property battery over three separately-written
+Clopper-Pearson implementations and argued that consolidation could wait: the
+battery makes the duplication safe, the gate's helper reads as documentation
+of ADR-0015's sizing, and merging trades duplication for indirection.
+
+That argument is wrong, and the reason is arithmetic. Three copies of a
+function with a two-out-of-three inversion record is three chances to invert
+it. The battery proves each copy agrees with a pinned table; it never proves
+the copies are the same code, and it cannot stop a fourth being written next
+session and being wrong until somebody adds its contract.
+
+### The decision
+
+`audit/interval.py`. One solver, two views:
+
+    P(X >= at_least | n, p) = alpha
+
+is monotone increasing in `p`, so a single root-find answers both questions.
+`clopper_pearson_lower(n, successes)` takes `at_least = successes`.
+`clopper_pearson_upper(n, failures)` is `1 - lower(n, n - failures)` —
+Clopper-Pearson duality, **written once in code** instead of three times in
+comments.
+
+`catalog_precision` and `reverification_sample` import the names they used to
+define. `tests/test_resolver_gate.py:_lower_bound` survives as a two-line
+adapter from the gate's error-count vocabulary to the shared function's
+success-count one, and stays on the interval roster so that re-implementing it
+in place fails the battery.
+
+### What consolidation cost, and what it caught
+
+Three mutants collapse to one (`interval: the one shared bisection is
+inverted`), and three new ones take their place, including
+`interval: the duality is replaced by a second implementation`.
+
+`interval_properties` caught the move **in both directions on its first run**:
+three UNCOVERED violations for the new module and two STALE ones for the
+contracts that no longer resolved. That is the roster check working as
+designed — a consolidation is exactly the kind of change that silently
+orphans a guard.
+
+It also produced the first legitimate exemption. `binomial_tail` matches the
+roster pattern on `binom` and is a probability *mass*, not a bound: 1.0 on an
+empty sample where a lower bound is 0.0, and monotone the other way in its
+second argument. `EXPECTED_EXEMPTIONS` goes 0 → 1, the entry is pinned by name
+rather than by count, and a test asserts the exempt function genuinely fails
+the battery — an exemption that hides nothing should have been a contract.
+
+Fixing that also fixed a bug in the exemption scanner: it read a fixed
+three-line window above the `def` and missed a marker four lines up. It now
+walks the whole contiguous comment block. An exemption that silently fails to
+register reads as a violation somebody will "fix" by deleting the marker.
+
+---
+
+## ADR-0062 — The third species, and the quota that gates everything else
+
+**Date:** 2026-08-27
+**Status:** Accepted. Adds a species to ADR-0053's taxonomy, the audit for it,
+and the two coverage changes that come before any further instrument work.
+
+## 1. SUPPRESSED
+
+`audit/defect_taxonomy.py` had two species and **both of their remedies pass
+this defect cleanly.** Given
+
+    try:
+        return numbers_denote_same_printing(a, b, set_total=total) is True
+    except CannotBridge:
+        return str(a) == str(b)
+
+* the INERT remedy passes — feed the bridge two numbers it cannot bridge and
+  it raises, demonstrably;
+* the ORPHANED remedy passes — `_numbers_agree` is called at the decision
+  point, demonstrably;
+* and `CannotBridge`, whose docstring says it is raised *rather than returning
+  False so a caller cannot mistake "we could not tell" for "they are different
+  cards"*, is four lines above a handler doing exactly that.
+
+    SUPPRESSED  the check fires, something calls it, and its REFUSAL is caught
+                and converted into a verdict.
+                REMEDY: prove the refusal PROPAGATES, not that it fires.
+                TEST SHAPE: at the CALLER, asserting it receives "cannot tell"
+                and does NOT receive a decision.
+
+### The audit, discovered rather than listed
+
+`audit/checks/no_suppressed_refusal.py`.
+
+* **The refusal vocabulary is discovered**: every exception class defined in
+  this repository, found by base-class name and closed transitively. Fourteen
+  today. A hand-maintained `CannotBridge, NumberRequired, UnsupportedGame`
+  would go stale the first time somebody adds a fifteenth, which is the
+  ADR-0045 defect one level up.
+* **A bare `except Exception` is in scope only when the `try` body calls
+  something that can refuse** — "a bare except around a call that can refuse
+  is the signature". `can refuse` is itself discovered: functions that raise a
+  refusal type, closed over the call graph by name (1,229 of them),
+  over-approximating because a missing edge puts a handler silently out of
+  scope.
+* **A handler is acceptable four ways**: it re-raises; it increments a counter;
+  every value it produces is nothing-known (`None`, `{}`, `[]`, `()`, `""`, or
+  a module-level name bound once to one of those); or it BINDS the exception
+  and uses that name.
+
+`False` and `0` are deliberately not "nothing known". The specimen returned a
+bool, and calling that empty is the mistake.
+
+Rule 4 does the work, and it is worth being blunt about why: **the specimen
+does not bind the exception at all.** Neither did the second finding. A
+handler that throws the exception object away and returns a value computed
+from the original inputs has, structurally, decided something it was told
+could not be decided.
+
+The known hole is stated in the module: `log(exc); return False` binds and
+uses the exception and still hands the caller a verdict. Tightening to "the
+RETURNED value must carry the exception" was tried and false-positives on the
+correct and common `detail = str(exc); return {"detail": detail}` idiom, so
+the check is deliberately the weaker of the two rather than one with an
+exemption roster that grows.
+
+### Two findings on the first run
+
+**1. `CannotBridge` was caught and answered.** `_numbers_agree` now returns
+three things — `True`, `False`, `CANNOT_TELL` — and the string-equality case
+moved *above* the `try`, because two identical strings denote the same
+printing whether or not a total exists and that was never the refusal being
+overruled. `pair()` reports COULD NOT TELL as its own bucket: **4 rows on the
+current catalog that were being counted as cards the catalog does not carry**,
+in a measurement whose subject is coverage.
+
+**2. A rate limit was answered with a measurement.**
+`TcgdexAdapter.filter_is_honoured` caught `AdapterGaveUp` and `RateLimited`
+and returned `False` — the same value it returns for a filter it measured and
+found ignored. The caller reads `False` as "fall back", and the fallback is
+8,313 single-card fetches. Started because the source had just said stop.
+
+Split three ways: `RateLimited` propagates (answering "stop" with 8,313
+requests is not a judgement call); `AdapterGaveUp` returns `FILTER_UNMEASURED`
+and the caller still falls back — tcgdex serves no `/rarities` route for some
+languages and that is a fact about the source — but records the strategy as
+`graphql_filter_unmeasured` rather than `graphql`. A measured miss and an
+unmeasured one used to produce the same string.
+
+## 2. THE HONEST HEADLINE IS 0.5493 ON n=5
+
+Not 1.0000. The point estimate sits on five resolutions and is compatible with
+a resolver wrong 45% of the time. It is also **the first precision figure this
+project has produced that could ever have come back bad** — the gated 1.0000
+on 239/239 is a no-merge check on self-records and cannot fail.
+
+`catalog_precision.headline()` prints the bound and its `n` above any point
+estimate; `tests/test_resolver_gate.py:HONEST_HEADLINE` carries it into the
+gate's own assertion message so the self-record figure is never quoted alone.
+Both are tested, and both are mutated.
+
+## 3. COVERAGE BEFORE INSTRUMENT
+
+31 of 239 rows have any catalog presence; 109 have none because apitcg has
+been rate-limited for several runs. Every join refinement rearranges ten
+pairs.
+
+### The oracle fields were being read and dropped
+
+`_catalog_row` read the publisher's id two lines before building its row —
+to derive the variant — and never stored it. **All 10,867 rows in
+`targets.json` carry `external_id: ""`.** It also read `illustrator`, and
+`_cn_row` dropped that on the floor.
+
+Both now reach `targets.json`, along with `rarity`. The illustrator is the
+strongest pairing oracle available: it has nothing to do with the number, the
+set or the name, and the number is what the catalog-in measurement measures.
+
+`score()` feeds `rarity` to the resolver and **deliberately does not feed
+`external_id`**: rarity is what production has (`_fuzzy` derives a variant
+from it, and withholding it measured a resolver working with less than it
+really gets), while `external_id` reaches the xref path, and an xref table
+built from our own labelling would answer the question with the answer.
+
+`tests/test_labelling.py`'s target-shape allowlist was widened deliberately
+and stays closed, with an added assertion that no field name contains price,
+population, value or currency.
+
+### apitcg: the quota is not the constraint, the call count is
+
+`config/rate_limits.yaml` records the evidence: no published quota, 250 calls
+served on 2026-08-17, refused after 16 on 2026-08-18.
+
+**`ApiTcgAdapter.fetch` was making one `?code=` request PER CARD — 3,494 of
+them on the current target list — for an `artist` field that
+`/api/products` serves 100 at a time.** A 3,494-call run against a source that
+refused at 16 was never going to finish, which is why `optcg:EN`, `optcg:JP`
+and `riftbound:EN` have had no catalog for several runs.
+
+`index_by_code()` sweeps the game once, `ceil(total / 100)` calls — of the
+order of 35 for One Piece — and serves every target from the index. Two orders
+of magnitude for the same data. A code the sweep missed gets at most
+`MAX_PER_CARD_FALLBACK = 50` individual lookups and the rest are counted in
+`uncovered_by_sweep`; a fallback with no ceiling is the old behaviour wearing
+a hat. **A refused sweep propagates and costs nothing more** — the 8,313
+lesson, in a different file.
+
+On the three quota questions asked:
+
+* **Is there a key?** Yes, as plumbing: `key_env = "APITCG_KEY"`,
+  `api_key_header = "x-api-key"` confirmed against the OpenAPI
+  `components.securitySchemes`, and `ingest.yml` passes the secret. Whether
+  the secret is actually SET is not knowable from here and is not worth
+  guessing — the preflight table prints key presence, length and first four
+  characters every run, and the next run answers it.
+* **A slower schedule?** Not needed first. Going from 3,494 calls to ~35 is a
+  larger change than any spacing, and spacing a call count that cannot fit is
+  rearranging the failure.
+* **A paid tier?** Unknown, and unverifiable from the sandbox. Worth asking
+  only if a keyed sweep still gets refused, because the sweep changes the
+  question from "can we afford 3,494 calls" to "can we afford 35".
+
+Neither the sweep nor the two runner fixes before it have been proven against
+the live service. That is the standing caveat on all of it.
+
+### Postscript to ADR-0062 — the harness sabotaged itself while this was being written
+
+`audit/mutate.py`'s restore lives in a `finally`, and `finally` does not run
+on SIGTERM. A run killed mid-mutation while writing this ADR left
+`interval_properties.battery`'s `check()` as a bare `pass`; the next two
+mutation runs measured a baseline of `failures=11` rather than `failures=6`
+and reported two **false MISSED** results, because the sabotage had been
+absorbed into the number everything else is compared against.
+
+The per-mutant anchor check in `_run` would have caught it — for a mutant in
+the selected subset. `--only "apitcg:"` never touches
+`interval_properties.py`, so it never looked.
+
+`verify_tree()` now checks every catalogued anchor before any baseline is
+measured, whatever the filter says, and refuses rather than reporting. SIGTERM
+and SIGHUP are turned into exceptions so the restore path runs at all.
+
+Worth stating plainly because it is the same shape as everything else in this
+session: the harness's own docstring said *"a harness that times out
+mid-mutation leaves a sabotaged repository behind... That has happened."* It
+had happened once, was written down, and happened again. Recorded knowledge is
+not a control.

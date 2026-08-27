@@ -100,16 +100,19 @@ TEST_PREFIX = "test_"
 #: second_arg:  what the function's second parameter counts
 #: alpha_param: True if the function takes alpha and honours it
 CONTRACTS = {
-    "audit.checks.catalog_precision:clopper_pearson_lower": {
+    "audit.interval:clopper_pearson_lower": {
         "orientation": "lower_on_successes",
         "second_arg": "successes",
         "alpha_param": True,
     },
-    "audit.checks.reverification_sample:clopper_pearson_upper": {
+    "audit.interval:clopper_pearson_upper": {
         "orientation": "upper_on_errors",
         "second_arg": "errors",
         "alpha_param": True,
     },
+    # The gate's adapter. It holds no arithmetic any more (ADR-0061) and is
+    # kept on the roster anyway: if anybody re-implements it in place, the
+    # battery is what says so.
     "tests.test_resolver_gate:PrecisionIsReportedWithItsInterval._lower_bound": {
         "orientation": "lower_on_successes",
         "second_arg": "errors",
@@ -164,11 +167,15 @@ ALL_ERROR_MAX_N = 60
 _MARKER = re.compile(
     r"#\s*INTERVAL-EXEMPT\((?P<claim>[a-z-]+)\)\s*:\s*(?P<why>.+)")
 
-#: THE ROSTER SEAL, same instrument as `audit/mutant_seal.json`. Zero, and it
-#: is meant to stay zero: an exemption is a function declared not to be an
-#: estimator, and there is currently no such function. Raising this number is
-#: a decision somebody has to make in a diff.
-EXPECTED_EXEMPTIONS = 0
+#: THE ROSTER SEAL, same instrument as `audit/mutant_seal.json`. Raising it is
+#: a decision somebody has to make in a diff, because an exemption is a
+#: function declared NOT to be an estimator and that claim needs a reader.
+#:
+#: One today: `audit.interval:binomial_tail` matches on `binom` and is a
+#: probability mass, not a bound -- monotone the other way in its second
+#: argument, and 1.0 rather than 0.0 on an empty sample. Applying the battery
+#: to it would fail every property for the right reason.
+EXPECTED_EXEMPTIONS = 1
 
 
 def tracked_files(root=REPO):
@@ -228,10 +235,20 @@ def discover(root=REPO):
                     continue
                 key = f"{module_name(rel)}:{qual}"
                 found[key] = (rel, child.lineno)
-                for offset in range(max(0, child.lineno - 3), child.lineno):
-                    hit = _MARKER.search(lines[offset]) if offset < len(lines) else None
+                # Walk UP through the contiguous comment block above the
+                # def. A fixed three-line window missed a marker four lines
+                # up, and an exemption that silently fails to register reads
+                # as a violation somebody will fix by deleting the marker.
+                offset = child.lineno - 2          # 0-based, line above `def`
+                while offset >= 0 and offset < len(lines):
+                    text = lines[offset].strip()
+                    if not text.startswith("#"):
+                        break
+                    hit = _MARKER.search(lines[offset])
                     if hit:
                         exempt[key] = hit.group("why").strip()
+                        break
+                    offset -= 1
     return found, exempt
 
 

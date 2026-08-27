@@ -514,6 +514,13 @@ class CatalogBuilder:
                 "name": hit.get("name_jp") or hit.get("name_en") or "",
                 "rarity": hit.get("rarity"),
                 "rarity_from": hit.get("rarity_from"),
+                # THE ILLUSTRATOR. `_catalog_row` reads it and this dropped
+                # it, so it never reached `targets.json`. It is the one field
+                # a provider states about a card that has nothing to do with
+                # its number, its set or its name -- which makes it the only
+                # oracle available for pairing a catalog entry to a labelled
+                # row without using the field under measurement.
+                "artist": hit.get("artist"),
                 "external_id": str(hit.get("external_id") or ""),
                 "source": hit.get("source", "")}
 
@@ -828,6 +835,7 @@ class CatalogBuilder:
         return {"card_uid": uid, "game": game, "language": language,
                 "set_code": set_code, "number": number, "variant": variant,
                 "name": name, "rarity": rarity,
+                "artist": find(hit, "illustrator", "artist"),
                 "external_id": external_id,
                 "source": source}
 
@@ -992,6 +1000,15 @@ def to_targets(catalog, gaps, combo_status=None, endpoints=None,
             target = {"card_uid": card["card_uid"], "game": card["game"],
                       "language": card["language"], "name": card["name"],
                       "number": card["number"], "set_code": card["set_code"],
+                      # WHAT THE PROVIDER CALLS THE CARD'S RARITY, verbatim,
+                      # never our variant token. It is carried because it is
+                      # one of the few fields that is INDEPENDENT of the
+                      # number -- and the number is what the catalog-in
+                      # measurement measures, so a pairing oracle cannot use
+                      # it. `_unmapped_rarities` already commits these
+                      # strings; this is the same class of data, per card.
+                      "rarity": card.get("rarity"),
+                      "artist": card.get("artist"),
                       "external_id": card["external_id"],
                       "game_id": TCGAPI_GAME_ID.get((card["game"],
                                                      card["language"]))}

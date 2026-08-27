@@ -42,6 +42,11 @@ from .rarity import TRACKED_BANDS, band_of, resolve_rarity
 # would paper over that.
 
 
+#: The filter probe could not be taken. NOT `False`, which is what
+#: `filter_is_honoured` returns for a filter it measured and found ignored.
+FILTER_UNMEASURED = None
+
+
 class CatalogSource(Adapter):
     """A source of card identity. Emits `card` records, never `price`."""
 
@@ -196,7 +201,7 @@ class TcgdexAdapter(CatalogSource):
             + self.PAGE.format(page=1, size=self.PAGE_SIZE),
             label=f"cards-{code}-rarity", attempts=2)
 
-    def filter_is_honoured(self, language) -> bool:
+    def filter_is_honoured(self, language):
         """Does `?rarity=` actually filter, or is it being ignored?
 
         An ignored parameter returns everything, which reads as "every card in
@@ -204,6 +209,16 @@ class TcgdexAdapter(CatalogSource):
         far too much rather than one that did not run. The check is that a
         filtered list is SHORTER than an unfiltered one, and it decides whether
         the N+1 fallback is needed at all.
+
+        RETURNS THREE THINGS. `True` measured honoured, `False` measured
+        ignored, and `FILTER_UNMEASURED` when the probe could not be taken at
+        all. The third used to be `False`, which is the same value as "I
+        measured it and it does not work" -- and the caller reads that as
+        "fall back", where the fallback is 8,313 single-card fetches.
+        `audit/defect_taxonomy.py` calls that species SUPPRESSED.
+
+        A `RateLimited` is not even that: it PROPAGATES. Answering "stop" with
+        8,313 requests is not a judgement call.
         """
         code = self.LANG[language]
         try:
@@ -223,8 +238,23 @@ class TcgdexAdapter(CatalogSource):
                 + self.PAGE.format(page=1, size=self.PAGE_SIZE),
                 label=f"cards-{code}-unfiltered", attempts=2)
             filtered = self.cards_by_rarity(language, present[0])
-        except (AdapterGaveUp, RateLimited):
-            return False
+        except RateLimited as exc:
+            # PROPAGATE. The source has just said stop, and the value this
+            # used to return sends the caller to the per-card fallback --
+            # 8,313 single-card fetches, started because we were rate limited.
+            # The runner already knows how to skip a source that gave up.
+            self.log.append(f"{self.name} {code} filter probe rate limited: "
+                            f"{str(exc)[:120]}")
+            raise
+        except AdapterGaveUp as exc:
+            # NOT MEASURED, which is not the same as NOT HONOURED. tcgdex
+            # serves no `/rarities` route for some languages, and that is a
+            # fact about the source rather than a refusal to answer -- the
+            # caller still has to fall back. What changes is that it falls
+            # back knowing the probe was never taken.
+            self.log.append(f"{self.name} {code} filter probe refused: "
+                            f"{str(exc)[:120]}")
+            return FILTER_UNMEASURED
         whole = len(everything if isinstance(everything, list) else [])
         part = len(filtered if isinstance(filtered, list) else [])
         honoured = 0 < part < whole
@@ -340,12 +370,17 @@ class TcgdexAdapter(CatalogSource):
         if english_by_id is None and language in self.NEEDS_ENGLISH_RARITY:
             english_by_id = self.english_index_cached()
 
-        if self.filter_is_honoured(language):
+        honoured = self.filter_is_honoured(language)
+        if honoured is True:
             hits = self._by_rarity(language)
             self.strategy = "server_side_filter"
         else:
             hits = self._by_graphql(language)
             self.strategy = "graphql" if hits else "per_card"
+            if honoured is FILTER_UNMEASURED:
+                # RECORDED, not silently identical to a measured failure. The
+                # strategy is the same; what it was chosen ON is not.
+                self.strategy += "_filter_unmeasured"
             if not hits:
                 hits = self._per_card(language)
 
@@ -638,9 +673,16 @@ def _catalog_row(game, language, set_code, hit, source) -> Optional[dict]:
         uid = _uid(game, set_code, number, variant, language)
     except (ValueError, KeyError):
         return None
+    # THE PUBLISHER'S OWN ID WAS READ AND THROWN AWAY. It was fetched two
+    # lines up to derive the variant and then never stored, so every row from
+    # every open source reached `targets.json` with `external_id: ""` -- all
+    # 10,867 of them. That id is the resolver's EXACT-match key and, with the
+    # illustrator, the only field about a card that is independent of its
+    # number. Dropping it cost both.
     row = {"card_uid": uid, "game": game, "set_code": set_code,
            "number": number, "variant": variant, "language": language,
            "rarity": rarity, "artist": find(hit, "illustrator", "artist"),
+           "external_id": str(find(hit, "id", "card_id") or ""),
            "image_url": find(hit, "image", "image_url")}
     # Chinese printings carry the Chinese name; there is no name_en to claim.
     row["name_jp" if language in ("JP", "CN-S", "CN-T") else "name_en"] = name

@@ -50,6 +50,10 @@ from resolve.identity import (CannotBridge, canonical_set_code,  # noqa: E402
                               normalise_name, numbers_denote_same_printing)
 from resolve.resolver import Resolver  # noqa: E402
 
+# ONE IMPLEMENTATION, imported rather than repeated. This module used to hold
+# its own copy of the bisection and shipped it inverted; see ADR-0061.
+from audit.interval import clopper_pearson_lower  # noqa: E402
+
 LABELLED = os.path.join(REPO, "tests", "fixtures", "labelled_200.json")
 TARGETS = os.path.join(REPO, "ingest", "targets.json")
 CATALOG_SOURCES = ("tcgapi", "apitcg", "pokemonpricetracker", "manual")
@@ -87,35 +91,23 @@ JOINS = {
 }
 
 
-def clopper_pearson_lower(n, right, alpha=0.05):
-    """Lower bound on precision. Bisection, pinned by a test -- the last one
-    in this repository was inverted and returned 0.0 for every input."""
-    if n <= 0:
-        return 0.0
-    if right >= n:
-        return alpha ** (1.0 / n)
-    lo, hi = 0.0, 1.0
-    for _ in range(200):
-        mid = (lo + hi) / 2
-        tail = sum(math.comb(n, k) * mid ** k * (1 - mid) ** (n - k)
-                   for k in range(right, n + 1))
-        # P(X >= right) RISES with p, so a tail above alpha means the
-        # candidate is too HIGH. Written the other way round first, which
-        # returned 0.0 for every imperfect input while the perfect cases
-        # passed on the closed-form early return above -- the inverted
-        # bisection this docstring warns about, in the function warning about
-        # it. Caught only because the one-error case is pinned.
-        if tail > alpha:
-            hi = mid
-        else:
-            lo = mid
-    return (lo + hi) / 2
-
-
 def load_catalog(path=TARGETS):
-    """Provider-presented entries, de-duplicated. `card_uid` is OUR
-    derivation and is deliberately not read here -- feeding it back would
-    rebuild the circularity this module exists to escape."""
+    """Provider-presented entries, de-duplicated.
+
+    `card_uid` and `variant` are OUR derivations and are deliberately not read
+    here -- feeding either back would rebuild the circularity this module
+    exists to escape.
+
+    `rarity`, `artist` and `external_id` ARE read, and the distinction
+    matters. All three are the provider's own words about the card and NONE is
+    derived from the number, which is what this measurement measures. `artist`
+    is the strongest of them: the illustrator has nothing to do with the
+    number, the set or the name. That makes them the only
+    channels available for pairing a catalog entry to a labelled row WITHOUT
+    using the field under test -- see ADR-0062. They are carried on the ENTRY
+    for that purpose; what reaches the RESOLVER is a separate decision, made
+    in `score()`.
+    """
     with open(path, encoding="utf-8") as handle:
         payload = json.load(handle)
     seen, entries = set(), []
@@ -130,7 +122,10 @@ def load_catalog(path=TARGETS):
                             "language": card.get("language"),
                             "name": card.get("name"),
                             "number": card.get("number"),
-                            "set_code": card.get("set_code")})
+                            "set_code": card.get("set_code"),
+                            "rarity": card.get("rarity"),
+                            "artist": card.get("artist"),
+                            "external_id": card.get("external_id")})
     return entries
 
 
@@ -146,6 +141,10 @@ def _same_set(entry, row):
     return str(left).lower() == str(right).lower()
 
 
+#: The third answer. Not `False`: a non-match is a fact and this is not one.
+CANNOT_TELL = None
+
+
 def _numbers_agree(catalog_number, labelled_number, set_total=None):
     """Do these two numbers denote one printing?
 
@@ -157,16 +156,26 @@ def _numbers_agree(catalog_number, labelled_number, set_total=None):
     into "different card" silently: exactly the confusion `CannotBridge`
     exists to prevent.
 
-    On a genuine `CannotBridge` the fallback is still string equality, and
-    that is honest -- two identical strings denote the same printing whether
-    or not a total exists to derive one from the other. What is not honest is
-    reaching it without having tried.
+    RETURNS THREE THINGS, not two. `True`, `False`, and `CANNOT_TELL`. The
+    first version of this returned a bool and a `CannotBridge` became `False`
+    -- "we could not tell" silently becoming "different card", which is the
+    exact confusion `CannotBridge` was created to prevent, four lines from its
+    own docstring saying so. `audit/defect_taxonomy.py` calls that species
+    SUPPRESSED, and `audit/checks/no_suppressed_refusal.py` is the check that
+    found it here.
     """
+    if str(catalog_number) == str(labelled_number):
+        # DECIDABLE WITHOUT THE BRIDGE, so it is checked before the bridge is
+        # asked. Two identical strings denote the same printing whether or not
+        # a total exists to derive one from the other. Written as a fallback
+        # inside the handler it read as the refusal being overruled, which is
+        # a different thing and the wrong thing.
+        return True
     try:
         return numbers_denote_same_printing(catalog_number, labelled_number,
                                             set_total=set_total) is True
     except CannotBridge:
-        return str(catalog_number) == str(labelled_number)
+        return CANNOT_TELL
 
 
 def pair(rows, entries, how="set_and_name", set_totals=None):
@@ -196,19 +205,31 @@ def pair(rows, entries, how="set_and_name", set_totals=None):
     for row in rows:
         candidates = [e for e in by_combo.get(
             (row.get("game"), row.get("language")), ()) if _same_set(e, row)]
+        undecided = []
         if how == "set_and_name":
             matches = [e for e in candidates
                        if normalise_name(e["name"]) == normalise_name(
                            row.get("name"))]
         else:
-            matches = [e for e in candidates
-                       if _numbers_agree(
-                           e["number"], row.get("number"),
-                           (set_totals or {}).get(e.get("language"), {}).get(
-                               e.get("set_code")))]
+            verdicts = [(e, _numbers_agree(
+                e["number"], row.get("number"),
+                (set_totals or {}).get(e.get("language"), {}).get(
+                    e.get("set_code")))) for e in candidates]
+            matches = [e for e, agrees in verdicts if agrees is True]
+            undecided = [e for e, agrees in verdicts
+                         if agrees is CANNOT_TELL]
         key = (row.get("game"), row.get("language"),
                str(_canonical(row)).lower(), normalise_name(row.get("name")))
-        if not matches:
+        if not matches and how != "set_and_name" and undecided:
+            # THE REFUSAL, PROPAGATED. Reporting these as "no catalog entry
+            # with this number" would be the suppression one level up: the
+            # bridge said it could not tell, and the row would be counted as
+            # a card the catalog does not carry.
+            unpaired.append((row, f"COULD NOT TELL: {len(undecided)} catalog "
+                                  "entr(y|ies) in this set whose numbers "
+                                  "could not be bridged -- no set total, or "
+                                  "no readable index. Not a non-match."))
+        elif not matches:
             unpaired.append((row, "no catalog entry in this set with this "
                                   + ("name" if how == "set_and_name"
                                      else "number")))
@@ -242,9 +263,17 @@ def score(pairs, pool, set_totals=None):
     used = right = 0
     wrong, refused = [], []
     for row, entry in pairs:
+        # RARITY IS FED, external_id IS NOT, and the asymmetry is deliberate.
+        # Rarity is what production has: `Resolver._fuzzy` derives a variant
+        # from it, and withholding it measured a resolver working with less
+        # than it really gets. `external_id` reaches the xref/override path,
+        # and an xref table built from our own labelling would answer the
+        # question with the answer. It stays on the entry, for pairing, and
+        # out of the record.
         record = {"source": entry["source"], "game": entry["game"],
                   "language": entry["language"], "number": entry["number"],
-                  "set_code": entry["set_code"], "name": entry["name"]}
+                  "set_code": entry["set_code"], "name": entry["name"],
+                  "rarity": entry.get("rarity")}
         result = resolver.resolve(record)
         if not result.usable_in_signals:
             refused.append((row["card_uid"], entry))
@@ -287,6 +316,31 @@ def measure(labelled_path=LABELLED, targets_path=TARGETS):
     return out
 
 
+def headline(result):
+    """THE ONE NUMBER TO QUOTE, with its denominator attached.
+
+    A point estimate of 1.0000 on five resolutions is not a measurement of
+    anything, and quoting it without `n` is how the self-record figure came to
+    be read as evidence for four sessions. The honest headline is the LOWER
+    BOUND and the count that produced it -- and it is the first precision
+    figure in this project that could ever have come back bad.
+    """
+    best, chosen = None, None
+    for how, entry in result["joins"].items():
+        if entry["used"] and (best is None or entry["used"] > best):
+            best, chosen = entry["used"], (how, entry)
+    if chosen is None:
+        return ("**HEADLINE: no precision figure.** Nothing resolved, so "
+                "nothing was scored. Not 1.0, and not 0.0.")
+    how, entry = chosen
+    return (f"**HEADLINE: 95% lower bound {entry['lower_bound']:.4f} on "
+            f"n={entry['used']}** (`{how}` join, {entry['right']} right of "
+            f"{entry['used']}). Quote THIS, with the n. The point estimate is "
+            f"{entry['precision']:.4f} and on this denominator it is "
+            f"compatible with a resolver that is wrong "
+            f"{1 - entry['lower_bound']:.0%} of the time.")
+
+
 def render(result, verbose=False):
     total = result["scored_rows"]
     lines = ["### Precision, catalog entry in -> labelled uid out", "",
@@ -294,7 +348,7 @@ def render(result, verbose=False):
              "entries.** Unlike the gated self-record figure, this "
              "measurement CAN FAIL: the provider's presentation of a card is "
              "genuinely different from ours, and bridging it is the "
-             "resolver's job.", ""]
+             "resolver's job.", "", headline(result), ""]
 
     for how, entry in result["joins"].items():
         join = JOINS[how]
