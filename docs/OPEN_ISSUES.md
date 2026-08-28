@@ -1401,3 +1401,17 @@ never the key. A `key=NO` source is calling the provider **anonymously**, which
 on a shared runner egress IP shares a quota with everyone else on that host.
 
 **A limit you cannot see yourself approaching reads as somebody else's limit.**
+
+## FIXED — a cache-served run wrote an empty `_set_totals` over 550 recorded sets
+
+INC-003. Run #23 served every combination from cache, called no adapter, learned
+no card counts, and committed the emptiness. `_number_bridge` in the same file
+reported `bridged: 0, no_set_total: 2012` — the bridge shipped the day before,
+disabled by a cache hit, with no error anywhere.
+
+A card count is a property of the printing and does not go stale, so
+`merge_set_totals` carries the recorded ones forward with this run's answers
+winning per set, and `persistable()` refuses a file whose totals count has
+fallen against `git show HEAD:`. The 550 totals were restored from `4c5ef79`;
+only the input was restored, because hand-deriving the numbers the bridge would
+have produced is not recovery.

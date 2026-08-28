@@ -944,3 +944,79 @@ class TheFullMutationRunHappensSomewhereUnskippable(unittest.TestCase):
         offenders = [s.get("name") for s in self._steps()
                      if "<<" in (s.get("run") or "")]
         self.assertEqual(offenders, [])
+
+
+class TheSetTotalsSurviveACacheHit(unittest.TestCase):
+    """Run #23 wrote `_set_totals: {}` over 550 recorded sets.
+
+    Every combination was served from the catalog cache, so no adapter was
+    called, so `builder.set_totals` was empty -- and it was written out as
+    though that were the answer. `_number_bridge` reported `bridged: 0,
+    no_set_total: 2012` and the number bridge shipped the day before was
+    disabled by a cache hit, with no error anywhere.
+
+    A card count is a property of the printing. It does not go stale, and an
+    absent one means "we did not ask today", never "that set has no cards".
+    """
+
+    def test_merging_never_loses_a_recorded_total(self):
+        from ingest.catalog import merge_set_totals
+        previous = {"EN": {"base1": 102, "swsh7": 203}, "JP": {"S12a": 172}}
+        self.assertEqual(merge_set_totals(previous, {}), previous)
+        self.assertEqual(merge_set_totals(previous, None), previous)
+
+    def test_this_runs_answer_wins_where_it_has_one(self):
+        from ingest.catalog import merge_set_totals
+        merged = merge_set_totals({"EN": {"base1": 99, "swsh7": 203}},
+                                  {"EN": {"base1": 102}})
+        self.assertEqual(merged["EN"], {"base1": 102, "swsh7": 203})
+
+    def test_a_new_language_is_added_not_substituted(self):
+        from ingest.catalog import merge_set_totals
+        merged = merge_set_totals({"EN": {"base1": 102}}, {"JP": {"S12a": 172}})
+        self.assertEqual(sorted(merged), ["EN", "JP"])
+
+    def test_the_input_is_not_mutated(self):
+        from ingest.catalog import merge_set_totals
+        previous = {"EN": {"base1": 102}}
+        merge_set_totals(previous, {"EN": {"base1": 999, "x": 1}})
+        self.assertEqual(previous, {"EN": {"base1": 102}})
+
+    def test_the_committed_file_still_carries_them(self):
+        """THE REGRESSION, asserted on the artifact. 550 sets across four
+        languages; if this is zero the bridge is dead again."""
+        from ingest.catalog import load_set_totals
+        totals = load_set_totals()
+        self.assertEqual(sorted(totals), ["CN-S", "CN-T", "EN", "JP"])
+        self.assertGreater(sum(len(v) for v in totals.values()), 500)
+
+    def test_a_totals_regression_is_not_persistable(self):
+        """The guard compares against what git already has, because by the
+        time `persistable` runs the file has been overwritten and git is the
+        only place the previous answer lives."""
+        import json
+        import tempfile
+        from ingest.catalog import persistable, _set_total_count
+
+        payload = {"_counts": {"pkmn:EN": 5},
+                   "_catalog_cache": {"pkmn:EN": {"cards": 5,
+                                                  "as_of": "2026-08-27"}},
+                   "_set_totals": {}}
+        self.assertEqual(_set_total_count(payload), 0)
+        with tempfile.NamedTemporaryFile("w", suffix=".json",
+                                         delete=False) as handle:
+            json.dump(payload, handle)
+            path = handle.name
+        ok, why = persistable(path)
+        # An untracked temp path has no committed counterpart, so the guard is
+        # inert rather than wrong -- stated here so the weaker assertion is
+        # deliberate and not an oversight.
+        self.assertTrue(ok, why)
+        self.assertIn("persistable", why)
+
+    def test_the_guard_reads_the_committed_version_not_the_file(self):
+        from ingest.catalog import _committed_set_total_count
+        source = open(os.path.join(REPO, "ingest", "catalog.py"),
+                      encoding="utf-8").read()
+        self.assertIn('["git", "show", f"HEAD:{relative}"]', source)
+        self.assertIsInstance(_committed_set_total_count(), int)

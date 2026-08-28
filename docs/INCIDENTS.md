@@ -146,6 +146,67 @@ ask whether there is a paid tier.
 
 ---
 
+## INC-003 — A cache hit erased 550 recorded card counts, and the bridge went quiet
+
+**Opened:** 2026-08-27 · **Status:** fixed, data restored from history ·
+**Severity:** S2 — a committed field was overwritten with an empty default and
+a shipped feature stopped working without an error.
+
+### What happened
+
+Run #23 (2026-08-27 17:36 UTC) served **every** combination from the catalog
+cache: `pkmn:*` were `catalog_from_cache`, `optcg:*` and `riftbound:EN` were
+`rate_limited` with no cache to fall back to. A cache hit calls no adapter, so
+`CatalogBuilder.set_totals` stayed empty — and `to_targets` wrote it out as
+though empty were the answer.
+
+`_set_totals` went from **550 (language, set) card counts to zero.**
+
+The number bridge shipped the day before then reported, in the same file:
+
+```
+"pkmn:EN": { "bridged": 0, "no_set_total": 2012,
+             "sets_without_totals": ["bw1", "bw10", "bw11", ...] }
+```
+
+Every set. No error, no failed step, exit 0, committed by the bot.
+
+### Why it is worse than it looks
+
+A card count is a **property of the printing**. `sv03.5` has 165 cards and will
+have 165 cards forever. It is not like a price, which goes stale; it is a fact
+we either recorded or did not. So "we did not ask today" was written to disk as
+"that set has no card count", which is precisely the substitution CLAUDE.md's
+first working rule forbids — *absent field = UNKNOWN and TRACKED, never a
+default.*
+
+It also converted a cache hit, which is supposed to make a run cheaper, into a
+run that destroys information.
+
+### Fixes
+
+- `load_set_totals()` reads what the committed file already recorded, and
+  `merge_set_totals()` carries it forward with this run's answers winning per
+  set. **Never a replacement.**
+- `persistable()` refuses a file whose totals count has FALLEN, compared
+  against `git show HEAD:` — not against the file on disk, because by the time
+  the persist check runs `--write` has already overwritten it and git is the
+  only place the previous answer lives.
+- The 550 totals were restored into `ingest/targets.json` from `4c5ef79`.
+  **Only the input was restored.** The bare `number` fields the bridge failed
+  to convert were left alone for the next run to derive — restoring data is
+  recovery, hand-deriving a computed field is not.
+
+### What it says about the previous two entries
+
+INC-001 is about a report with no column for the load we generated. This is the
+same shape one layer down: a run wrote an empty default over a recorded fact,
+and every downstream signal — `bridged: 0`, `no_set_total: 2012` — read as a
+provider problem rather than as our own erasure. **Three incidents in one day,
+and all three were only visible from the inside.**
+
+---
+
 ## INC-002 — The mutation harness sabotaged its own baseline, twice
 
 **Opened:** 2026-08-27 · **Status:** fixed · **Severity:** S3 — no data lost;

@@ -28,6 +28,7 @@ import argparse
 import datetime as _dt
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -81,6 +82,47 @@ def _now():
 # asymmetric and cheap in one direction: a set that dropped mid-week is missed
 # until the refresh, and `--force` exists for the day a set drops.
 DEFAULT_MAX_AGE_DAYS = 7
+
+
+def load_set_totals(path=TARGETS) -> dict:
+    """The official card counts already recorded, out of the committed file.
+
+    SEPARATE FROM THE CATALOG CACHE, and it has to be. `load_cached_catalog`
+    reconstructs cards from the per-source lists; the totals are not derivable
+    from a card row and are only ever learned by ASKING AN ADAPTER. A run that
+    serves every combination from cache therefore calls no adapter, learns no
+    totals, and -- before this existed -- wrote `_set_totals: {}` over 550
+    sets it had recorded the day before.
+
+    That is exactly what run #23 did on 2026-08-27, and the cost was silent:
+    `_number_bridge` reported `bridged: 0, no_set_total: 2012`, so the number
+    bridge shipped the day before was disabled by a cache hit.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    totals = raw.get("_set_totals")
+    if not isinstance(totals, dict):
+        return {}
+    return {str(lang): dict(sets) for lang, sets in totals.items()
+            if isinstance(sets, dict)}
+
+
+def merge_set_totals(previous, learned) -> dict:
+    """Everything we have ever recorded, with this run's answers winning.
+
+    NEVER A REPLACEMENT. A set's official card count is a property of the
+    printing and does not change after release, so carrying one forward is not
+    the same as serving a stale price -- and an absent total is not "no cards
+    in that set", it is "we did not ask today". Merging keeps the second from
+    ever being written as the first.
+    """
+    merged = {lang: dict(sets) for lang, sets in (previous or {}).items()}
+    for lang, sets in (learned or {}).items():
+        merged.setdefault(str(lang), {}).update(sets or {})
+    return merged
 
 
 def load_cached_catalog(path=TARGETS) -> dict:
@@ -1508,6 +1550,31 @@ def preserve_from_cache(catalog, combo_status, previous) -> list:
     return restored
 
 
+def _set_total_count(raw) -> int:
+    """How many (language, set) card counts a targets payload records."""
+    return sum(len(v) for v in (raw.get("_set_totals") or {}).values()
+               if isinstance(v, dict))
+
+
+def _committed_set_total_count(path=TARGETS) -> int:
+    """The same count, from the version git already has.
+
+    Not from the file on disk: by the time `persistable` runs, `--write` has
+    already overwritten it. Git is the only place the previous answer lives.
+    A path git does not track, or no git at all, is zero -- which makes this
+    guard inert rather than wrong, and the first run has nothing to lose.
+    """
+    relative = os.path.relpath(os.path.abspath(path), REPO)
+    shown = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO,
+                           capture_output=True, text=True)
+    if shown.returncode != 0:
+        return 0
+    try:
+        return _set_total_count(json.loads(shown.stdout))
+    except ValueError:
+        return 0
+
+
 def persistable(path=TARGETS):
     """Is this targets file safe to commit as next run's catalog cache?
 
@@ -1537,6 +1604,23 @@ def persistable(path=TARGETS):
                        "Committing this would overwrite the cache with the "
                        "emptiness and make one bad day permanent -- the "
                        "previous catalog stays exactly where it is.")
+    # A TOTALS REGRESSION IS THE SAME FAILURE AS A ZERO-CARD FILE, and it is
+    # quieter. Run #23 wrote `_set_totals: {}` over 550 recorded sets because
+    # every combination came from cache, and the number bridge went silent --
+    # `bridged: 0, no_set_total: 2012` -- with no error anywhere.
+    #
+    # Compared against WHAT IS ALREADY COMMITTED rather than against this
+    # file, because by the time this runs the file has been overwritten. Only
+    # git still holds the previous answer.
+    was, now = _committed_set_total_count(path), _set_total_count(raw)
+    if was and now < was:
+        return False, (f"NOT PERSISTABLE: `_set_totals` fell from {was} sets "
+                       f"to {now}. Card counts are only learned by asking an "
+                       "adapter, so a cache-served run learns none -- and "
+                       "writing that over what we know disables the number "
+                       "bridge without an error. Carry them forward with "
+                       "`merge_set_totals`; a total is a property of the "
+                       "printing and does not go stale.")
     stamps = raw.get("_catalog_cache") or {}
     undated = sorted(c for c, e in stamps.items()
                      if (e or {}).get("cards") and not (e or {}).get("as_of"))
@@ -1643,7 +1727,11 @@ def main(argv=None):
                           for k, v in builder.unmapped_rarities.items()},
                          builder.unbandable_numbers, builder.stages,
                          builder.not_a_card, cache=previous,
-                         set_totals=builder.set_totals)
+                         # CARRIED FORWARD, NEVER REPLACED. A cache-served run
+                         # calls no adapter and learns no totals; writing what
+                         # it learned would erase what we know.
+                         set_totals=merge_set_totals(
+                             load_set_totals(args.out), builder.set_totals))
 
     total = sum(targets["_counts"].values())
     for combo, count in sorted(targets["_counts"].items()):
