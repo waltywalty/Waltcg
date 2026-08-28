@@ -46,6 +46,21 @@ providers:
       would not reset between two runs 24 hours apart and then refuse at 16.
       Retry-After, if it ever sends one, settles it. Until then the catalog
       cache is the mitigation, not a guessed limit.
+    inference_withdrawn: >-
+      2026-08-27, INC-001. THE INFERENCE ABOVE IS UNSUPPORTED AND IS KEPT AS
+      A RECORD OF THE ERROR RATHER THAN DELETED. Both observations count the
+      CATALOG STEP ONLY. Each workflow step is a separate process, and the
+      step that runs next -- `ingest.runner` -- was making ONE request PER
+      CARD against this provider: 3,494 on the current target list, over
+      5,000 at run #9. So "250 calls" excluded roughly 95% of the requests we
+      sent that day, and a daily cap is entirely consistent with the two
+      observations once the price step is counted. A third possibility the
+      numbers now permit: if APITCG_KEY is unset the calls are ANONYMOUS, and
+      an anonymous per-IP quota on a shared Actions runner egress IP is not a
+      function of our call count at all. The run report now carries `Cards`,
+      `Batched` and `Amplification` columns and the preflight prints
+      `key=yes/no/n/a`; the next clean run answers this properly. Do not add
+      a new inference until it has.
 
   tcgapi:
     published_limit: 100

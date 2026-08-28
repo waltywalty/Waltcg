@@ -992,3 +992,134 @@ class ApitcgSweepsInsteadOfAskingPerCard(unittest.TestCase):
         adapter = self._adapter([page])
         adapter.fetch(cards=[self._card("OP01-001")] * 25)
         self.assertEqual(len(adapter.calls), 1)
+
+
+class TheRunReportShowsWhoGeneratedTheLoad(unittest.TestCase):
+    """Both of this project's quota findings were CLIENT-SIDE -- apitcg asked
+    once per card for a field its own endpoint serves 100 at a time, and a
+    tcgdex rate limit was answered with a per-card fallback. Neither is visible
+    in a table that counts only calls: a call count with no denominator reads
+    as a provider ceiling.
+    """
+
+    @staticmethod
+    def _row(**kw):
+        base = {"source": "apitcg", "responses_seen": 1, "calls": 3494,
+                "targets": 3494, "cards_per_request": 100,
+                "rate_limit_hits": 2, "rate_limited": True, "rate_headers": {}}
+        base.update(kw)
+        return base
+
+    def _table(self, *rows):
+        from ingest.runner import render_rate_limits
+        return "\n".join(render_rate_limits(list(rows)))
+
+    def test_the_amplification_is_arithmetic_not_a_footnote(self):
+        table = self._table(self._row())
+        self.assertIn("| 3494 | 3494 | 35 | **100x**", table)
+        self.assertIn("We are the load", table)
+        self.assertIn("3494 calls where 35 would serve", table)
+
+    def test_a_source_asked_per_card_by_its_own_shape_is_not_flagged(self):
+        """tcgapi has no batched form. One call per card is the endpoint, not
+        an amplifier, and flagging it would make the column noise."""
+        table = self._table(self._row(source="tcgapi", calls=100, targets=100,
+                                      cards_per_request=1))
+        self.assertIn("| 100 | 100 | 100 | 1x", table)
+        self.assertNotIn("We are the load", table)
+
+    def test_a_source_with_no_targets_shows_no_ratio(self):
+        table = self._table(self._row(calls=12, targets=0))
+        self.assertIn("| 0 | 12 | -- | --", table)
+
+    def test_the_batch_size_is_declared_by_the_adapter(self):
+        from ingest.adapters import ApiTcgAdapter, TcgApiAdapter
+        from ingest.base import Adapter
+        self.assertEqual(Adapter.cards_per_request, 1)
+        self.assertEqual(TcgApiAdapter.cards_per_request, 1)
+        self.assertEqual(ApiTcgAdapter.cards_per_request, 100,
+                         "the batched form is what makes the column mean "
+                         "anything for this source")
+
+    def test_the_target_count_reaches_the_result(self):
+        from ingest.runner import _target_count
+        self.assertEqual(_target_count({"cards": [1, 2, 3]}), 3)
+        self.assertEqual(_target_count({"cards": [1], "pairs": [1, 2]}), 3)
+        self.assertEqual(_target_count({}), 0)
+        self.assertEqual(_target_count(None), 0)
+
+
+class ThePreflightAnswersTheKeyQuestionInOneWord(unittest.TestCase):
+    """"Is APITCG_KEY actually set?" is the first question in every quota
+    conversation this project has had, and the answer was buried inside a
+    sentence that only appears on the ready branch."""
+
+    def _report(self, adapters, expectations=None):
+        from ingest.runner import render_preflight
+        return render_preflight(expectations=expectations or {},
+                                adapters=adapters, broken={})
+
+    def test_a_missing_expected_key_reads_key_NO(self):
+        from ingest.base import Adapter
+
+        class Keyed(Adapter):
+            name, key_env = "keyed", "A_KEY_THAT_IS_NOT_SET_ANYWHERE"
+
+        report = self._report({"keyed": Keyed})
+        self.assertIn("key=NO", report)
+
+    def test_a_keyless_source_reads_key_na_not_key_no(self):
+        from ingest.base import Adapter
+
+        class NoKeyNeeded(Adapter):
+            name, key_env = "nokey", None
+
+        report = self._report({"nokey": NoKeyNeeded})
+        row = [l for l in report.splitlines() if l.startswith("nokey")]
+        self.assertEqual(len(row), 1)
+        self.assertIn("key=n/a", row[0])
+        self.assertNotIn("key=NO", row[0])
+
+    def test_an_unregistered_source_reads_key_unknown_not_key_no(self):
+        """"We did not ask" and "there is no key" are different facts. The
+        whole report exists to keep them apart."""
+        from ingest.base import Adapter
+
+        class NoKeyNeeded(Adapter):
+            name, key_env = "nokey", None
+
+        report = self._report({"nokey": NoKeyNeeded})
+        rows = [l for l in report.splitlines() if "not registered" in l]
+        self.assertTrue(rows)
+        for line in rows:
+            self.assertIn("key=?", line)
+
+    def test_the_report_says_what_no_key_means(self):
+        """An anonymous call on a shared runner egress IP shares a quota with
+        everyone else on it -- which explains 250-then-16 better than any
+        window we have hypothesised, and could not even be raised as a
+        hypothesis while the column was illegible."""
+        from ingest.base import Adapter
+
+        class Keyed(Adapter):
+            name, key_env = "keyed", "A_KEY_THAT_IS_NOT_SET_ANYWHERE"
+
+        report = self._report({"keyed": Keyed})
+        self.assertIn("ANONYMOUSLY", report)
+
+    def test_it_still_never_prints_a_key(self):
+        import os
+        from ingest.base import Adapter
+
+        class Keyed(Adapter):
+            name, key_env = "keyed", "WALTCG_TEST_PREFLIGHT_KEY"
+
+        os.environ["WALTCG_TEST_PREFLIGHT_KEY"] = "abcdefghijklmnop"
+        try:
+            report = self._report({"keyed": Keyed})
+        finally:
+            del os.environ["WALTCG_TEST_PREFLIGHT_KEY"]
+        self.assertIn("key=yes", report)
+        self.assertIn("16 chars", report)
+        self.assertIn("'abcd'", report)
+        self.assertNotIn("abcdefghijklmnop", report)

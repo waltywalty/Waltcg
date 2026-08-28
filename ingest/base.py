@@ -139,6 +139,21 @@ class Adapter:
     requires_targets = False
     base_delay = 1.0
 
+    # HOW MANY CARDS ONE REQUEST CAN COVER. 1 means this source is asked per
+    # card and there is no batched form; anything higher is a batch or paged
+    # endpoint that serves that many at once.
+    #
+    # WHY THIS IS ON THE ADAPTER AND IN THE RUN REPORT. apitcg's fetch made
+    # one request PER CARD -- 3,494 of them -- for a field `/api/products`
+    # serves 100 at a time, and the run report had no column that would have
+    # shown it. The rate-limit table counted CALLS, which looked like a
+    # provider ceiling rather than an amplifier of our own making, and the
+    # observation written into the dated rate-limit record was drawn from the
+    # catalog step's count alone -- a few hundred out of several thousand
+    # requests we sent that day. Both of this session's quota findings were
+    # client-side. A request-count column would have shown both.
+    cards_per_request = 1
+
     def __init__(self, *, raw_root: str = RAW_ROOT, sleep=time.sleep,
                  now=None, transport=None, monotonic=None):
         self.raw_root = raw_root

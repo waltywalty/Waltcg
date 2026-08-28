@@ -33,15 +33,23 @@ from audit.interval import clopper_pearson_lower  # noqa: E402
 
 #: THE NUMBER THAT COULD HAVE BEEN BAD. The gated figure below is computed on
 #: self-records and CANNOT fail -- it is a no-merge check. The catalog-in
-#: measurement can, and its honest headline is a 95% lower bound of 0.5493 on
-#: n=5, not the point estimate of 1.0000 sitting on top of it. Pinned as a
-#: literal rather than computed, so quoting the self-record figure without it
-#: is a change somebody makes deliberately. Refresh it from
-#: `python -m audit.checks.catalog_precision` when coverage moves.
+#: measurement can, and its honest headline is a 95% lower bound, not the
+#: point estimate sitting on top of it.
+#:
+#: PINNED AS A LITERAL, AND FAILING WHEN IT DRIFTS. A computed value here
+#: would make the gate's message silently follow coverage; a literal that
+#: nothing checks would go stale the first time it moved, which is this
+#: project's oldest defect shape. So it is a literal AND
+#: `TheHonestHeadlineIsPinnedToTheMeasurement` re-derives it and fails until
+#: somebody updates it. Coverage is expected to move on the next clean ingest
+#: run -- apitcg's per-card fetch and the tcgdex per-card fallback were both
+#: fixed -- and this failing is the reminder to report the new n and bound.
+HEADLINE_BOUND = 0.5493
+HEADLINE_N = 5
 HONEST_HEADLINE = (
-    "This figure CANNOT FAIL. The precision figure that can is the "
-    "catalog-in measurement: 95% lower bound 0.5493 on n=5 "
-    "(`python -m audit.checks.catalog_precision`).")
+    f"This figure CANNOT FAIL. The precision figure that can is the "
+    f"catalog-in measurement: 95% lower bound {HEADLINE_BOUND:.4f} on "
+    f"n={HEADLINE_N} (`python -m audit.checks.catalog_precision`).")
 from resolve.resolver import Resolver, SIGNAL_THRESHOLD  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -202,6 +210,32 @@ class ResolverQuality(unittest.TestCase):
         self.assertIn("0.5493", HONEST_HEADLINE)
         self.assertIn("n=5", HONEST_HEADLINE)
         self.assertIn("cannot fail", HONEST_HEADLINE.lower())
+
+    def test_the_pinned_headline_still_matches_the_measurement(self):
+        """WHEN COVERAGE MOVES, THIS FAILS, and that is its job.
+
+        The pinned bound is what the gate's own message quotes. apitcg's
+        per-card fetch (3,494 requests where ~35 serve the same cards) and
+        tcgdex's rate-limit-to-per-card-fallback were both fixed, so the next
+        clean ingest run is expected to enumerate `optcg:EN`, `optcg:JP` and
+        `riftbound:EN` for the first time in weeks and the pairable set should
+        grow. Update `HEADLINE_BOUND` and `HEADLINE_N`, and report the new
+        numbers -- do not delete the assertion."""
+        from audit.checks.catalog_precision import measure
+        joins = measure()["joins"]
+        best = max((e for e in joins.values() if e["used"]),
+                   key=lambda e: e["used"], default=None)
+        if best is None:
+            self.skipTest("nothing resolved; there is no headline to pin")
+        self.assertEqual(
+            best["used"], HEADLINE_N,
+            f"the catalog-in denominator moved from {HEADLINE_N} to "
+            f"{best['used']}. Update HEADLINE_N and HEADLINE_BOUND "
+            f"({best['lower_bound']:.4f}) and say so in OPEN_ISSUES.")
+        self.assertAlmostEqual(
+            best["lower_bound"], HEADLINE_BOUND, places=4,
+            msg=f"the bound moved to {best['lower_bound']:.4f} on the same n. "
+                "Update HEADLINE_BOUND.")
 
     def test_recall_is_reported_even_when_precision_passes(self):
         precision, recall, _ = self._score(self._self_records())

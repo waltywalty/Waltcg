@@ -5213,3 +5213,83 @@ session: the harness's own docstring said *"a harness that times out
 mid-mutation leaves a sabotaged repository behind... That has happened."* It
 had happened once, was written down, and happened again. Recorded knowledge is
 not a control.
+
+---
+
+## ADR-0063 — The load was ours, and the report had no column for it
+
+**Date:** 2026-08-27
+**Status:** Accepted. Escalates part of ADR-0062 to `docs/INCIDENTS.md`
+(INC-001) and withdraws an inference in `config/rate_limits.yaml`.
+
+### The correction to ADR-0062's own framing
+
+ADR-0062 described two defects together and let them read as one incident.
+They are not. `TcgdexAdapter.filter_is_honoured` answering a rate limit with
+`False` is a real hazard with an 8,313-request price tag — and **it cannot
+have caused the empty-catalog arc**, because tcgdex raises
+`AdapterGaveUp("a Pokemon-only database")` for One Piece and Riftbound and
+`_combo_status` records `tcgdex_does_not_serve_no_cards` for all three dark
+combos. There is no evidence in the repository that it ever fired.
+
+The arc is apitcg alone: one `?code=` request per card, 3,494 on the current
+target list, in the step that runs immediately after the catalog step, against
+a provider that is the **sole** catalog source for `optcg:EN`, `optcg:JP` and
+`riftbound:EN` since tcgapi was demoted to price-only at run #9.
+
+### The inference that was drawn from 5% of the evidence
+
+`config/rate_limits.yaml` reasoned from *250 calls on the 17th, refused after
+16 on the 18th* to *"more consistent with a per-minute or per-hour window than
+a daily one."*
+
+**Both numbers count the catalog step only.** Each workflow step is a separate
+process; the price step's several thousand requests were never recorded
+anywhere. A daily cap fits those two observations perfectly once the price step
+is counted, and so does an anonymous per-IP quota if `APITCG_KEY` is unset —
+which the workflow cannot tell us and the sandbox cannot check.
+
+The inference is **withdrawn and kept**, under `inference_withdrawn`, rather
+than deleted. A record of a wrong reading is worth more than a clean file: the
+next person to reason from a call count needs to know that this one was
+partial.
+
+### The column that would have shown both
+
+    | Source | Cards | Calls | Batched | Amplification | 429s |
+    | apitcg |  5582 |  5582 |      56 |     **100x**  |   2  |
+
+`cards_per_request` is declared on the adapter — 1 by default, 100 for
+apitcg's `/api/products` — so a source with no batched form reads `1x` and is
+not flagged. When any source exceeds its own batched equivalent the report says
+**"We are the load"** and names it.
+
+The preflight answers the key question in one word: `key=yes/no/NO/n/a`,
+presence only. `key=NO` means the provider is being called **anonymously**.
+
+### The order of operations, fixed
+
+1. Read the preflight `key=` column.
+2. Run the sweep.
+3. Only then ask whether a paid tier exists.
+
+Asking (3) first is what seven weeks of this looked like.
+
+### The generalisation
+
+**A limit you cannot see yourself approaching reads as somebody else's limit.**
+Every rate-limit conversation this project has had was conducted with a report
+that could count refusals and could not count requests-per-unit-of-work. Both
+findings were client-side. Neither was visible.
+
+### And the harness, again
+
+INC-002. `finally` does not run on SIGTERM; a killed run left a mutation
+applied and the next two runs measured a poisoned baseline and reported two
+false MISSED results. Fixed by removing every SUBSET exemption:
+`verify_tree()` checks all anchors regardless of `--only`, `check_seal()` is
+no longer skipped under `--only`, and SIGTERM becomes an exception.
+
+`check_seal` under `--only` was the same defect one level up and had been
+sitting there the whole time: a catalogue that silently halved read as a clean
+filtered run, and `--only` is how this harness is actually used.

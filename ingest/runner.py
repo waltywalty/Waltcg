@@ -117,6 +117,20 @@ WRITERS = {
 }
 
 
+def _target_count(targets) -> int:
+    """How many cards this source was handed.
+
+    The denominator the call count is meaningless without. A source asked for
+    3,494 cards that makes 3,494 calls and one that makes 35 look identical in
+    a table that only counts calls.
+    """
+    total = 0
+    for value in (targets or {}).values():
+        if isinstance(value, (list, tuple, set)):
+            total += len(value)
+    return total
+
+
 def _has_targets(targets) -> bool:
     """Did this source actually receive something to work on?"""
     if not targets:
@@ -298,6 +312,7 @@ def run_source(store: Store, name: str, adapter, targets,
     _finish(store, run_id, status, rows, gaps, adapter, adapter.quota.note())
     return {"source": name, "status": status, "expected": expected,
             "rows": rows, "gaps": gaps, "quota": adapter.quota.note(),
+            "targets": _target_count(targets),
             **rate_telemetry(adapter)}
 
 
@@ -312,6 +327,11 @@ def rate_telemetry(adapter) -> dict:
     return {
         "calls": getattr(adapter, "quota", None)
                  and adapter.quota.consumed_this_run or 0,
+        # HOW MANY CARDS ONE REQUEST COULD HAVE COVERED. Without this the
+        # table shows a call count with nothing to compare it against, and
+        # 3,494 calls looks the same whether the endpoint serves one card per
+        # request or a hundred.
+        "cards_per_request": getattr(adapter, "cards_per_request", 1),
         "rate_headers": dict(getattr(adapter, "rate_headers", {}) or {}),
         "rate_limit_hits": getattr(adapter, "rate_limit_hits", 0),
         "rate_limited": bool(getattr(adapter, "rate_limited", False)),
@@ -324,13 +344,24 @@ def render_rate_limits(results) -> list:
     """The observed-ceiling table. Always rendered, including when nothing
     published anything -- "this provider tells us nothing" is the finding that
     justifies measuring, and a section that disappears when it is true reads
-    as though the question was never asked."""
+    as though the question was never asked.
+
+    CARDS AND BATCHED ARE THE COLUMNS THAT WERE MISSING. Both of this
+    project's quota findings turned out to be client-side -- apitcg asked once
+    per card for a field its own endpoint serves 100 at a time, and a tcgdex
+    rate limit was answered with a per-card fallback -- and neither is visible
+    in a table that counts only calls. A call count with no denominator reads
+    as a provider ceiling. With `Cards` beside it, an amplification factor is
+    arithmetic."""
     seen = [r for r in results if r.get("responses_seen")]
     if not seen:
         return []
-    lines = ["", "**Rate limits, as the providers actually reported them.**",
-             "", "| Source | Calls | 429s | Stopped | Headers sent |",
-             "|---|---:|---:|---|---|"]
+    lines = ["", "**Rate limits, as the providers actually reported them --"
+             " and what we asked for.**", "",
+             "| Source | Cards | Calls | Batched | Amplification | 429s "
+             "| Stopped | Headers sent |",
+             "|---|---:|---:|---:|---:|---:|---|---|"]
+    amplified = []
     for r in sorted(seen, key=lambda r: r["source"]):
         headers = r.get("rate_headers") or {}
         # VERBATIM. Names as sent, values as sent -- we are trying to discover
@@ -339,8 +370,25 @@ def render_rate_limits(results) -> list:
         shown = ("; ".join(f"`{k}: {v}`" for k, v in sorted(headers.items()))
                  if headers else "_none_")
         stopped = "yes" if r.get("rate_limited") else "--"
-        lines.append(f"| `{r['source']}` | {r.get('calls', 0)} "
-                     f"| {r.get('rate_limit_hits', 0)} | {stopped} | {shown} |")
+        calls, cards = r.get("calls", 0), r.get("targets", 0)
+        per = max(1, int(r.get("cards_per_request", 1) or 1))
+        batched = -(-cards // per) if cards else 0
+        if batched and calls > batched:
+            ratio = f"**{calls / batched:.0f}x**"
+            amplified.append((r["source"], calls, batched))
+        elif batched:
+            ratio = "1x"
+        else:
+            ratio = "--"
+        lines.append(f"| `{r['source']}` | {cards} | {calls} | {batched or '--'} "
+                     f"| {ratio} | {r.get('rate_limit_hits', 0)} | {stopped} "
+                     f"| {shown} |")
+    if amplified:
+        lines += ["", "**We are the load.** These sources were asked for more "
+                  "requests than the same data needs at their own batch size. "
+                  "A refusal here is not necessarily a provider ceiling:", ""]
+        lines += [f"- `{name}` made {calls} calls where {batched} would serve "
+                  f"the same cards" for name, calls, batched in amplified]
     silent = [r["source"] for r in seen if not (r.get("rate_headers") or {})]
     if silent:
         lines += ["", "Publishing nothing is itself the measurement: "
@@ -387,6 +435,16 @@ def render_preflight(expectations=None, adapters=None, broken=None) -> str:
     for name in names:
         expectation = expectations.get(name, {})
         expected = expectation.get("expected", True)
+        # KEY: yes / no / n/a, ANSWERED FIRST AND IN ONE WORD.
+        #
+        # "Is APITCG_KEY actually set?" is the first question in every quota
+        # conversation this project has had, and the answer was buried inside
+        # a sentence that only appears on the ready branch. An anonymous
+        # per-IP quota on a shared Actions runner egress IP would explain
+        # 250-then-16 better than any window we have hypothesised -- and that
+        # hypothesis cannot even be raised until this column is legible.
+        # Presence, length and first four characters only. Never the key.
+        key = "?"
         if name in broken:
             state = f"CODE DID NOT IMPORT -- {broken[name]['error']}"
         elif name not in adapters:
@@ -398,19 +456,27 @@ def render_preflight(expectations=None, adapters=None, broken=None) -> str:
                 state = f"preflight raised -- {type(exc).__name__}: {exc}"
             else:
                 if not info["key_required"]:
-                    state = "ready (no key required)"
+                    key, state = "n/a", "ready (no key required)"
                 elif info["ready"]:
+                    key = "yes"
                     state = (f"ready (key {info['key_length']} chars, "
                              f"starts {info['key_prefix']!r})")
                 elif expected:
+                    key = "NO"
                     state = (f"NO KEY and expected -- {info['env']} unset, "
                              "run will fail")
                 else:
+                    key = "no"
                     state = (f"no key, deferred by choice -- {info['env']} "
                              "unset")
         if expectation.get("unverified"):
             state += "  [unverified: a failure here is a gap, not a failed run]"
-        lines.append(f"{name:22} {state}")
+        lines.append(f"{name:22} key={key:4} {state}")
+    lines += ["",
+              "`key=` is presence only -- length and first four characters "
+              "appear in the state, never the key itself. A source with "
+              "`key=NO` is calling the provider ANONYMOUSLY, which on a shared "
+              "runner egress IP shares a quota with everyone else on it."]
     return "\n".join(lines) + "\n"
 
 

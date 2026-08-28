@@ -112,10 +112,16 @@ def main(argv=None) -> int:
 
     wanted = [m for m in MUTANTS
               if not args.only or args.only.lower() in m[0].lower()]
-    if not args.only and not check_seal(len(MUTANTS)):
-        # A FULL RUN THAT IS QUIETLY SHORT IS THE FAILURE THIS GUARDS. Every
-        # mutant reported CAUGHT and half the catalogue never loaded reads
-        # exactly like a clean run.
+    # THE SEAL IS CHECKED ON EVERY RUN, FILTERED OR NOT. It used to be
+    # `if not args.only`, and that exemption is the same defect as the
+    # per-mutant anchor check: a SUBSET check cannot see a problem in the part
+    # it did not select. A catalogue that silently halved reads as a clean
+    # `--only` run, and `--only` is how this harness is actually used.
+    #
+    # A FULL RUN THAT IS QUIETLY SHORT IS THE FAILURE THIS GUARDS. Every
+    # mutant reported CAUGHT and half the catalogue never loaded reads
+    # exactly like a clean run.
+    if not check_seal(len(MUTANTS)):
         return 1
     if args.list:
         for label, path, _old, _new in wanted:
@@ -175,7 +181,13 @@ def verify_tree(mutants) -> list:
 
 
 def _run(wanted) -> int:
+    # ALL of them, never `wanted`. The subset check is what let two false
+    # MISSED results through on 2026-08-27: `--only "apitcg:"` does not touch
+    # `interval_properties.py`, so it never noticed the mutation sitting there
+    # from a killed run.
     dirty = verify_tree(MUTANTS)
+    print(f"tree verified: {len(MUTANTS)} anchors present, "
+          f"{len(wanted)} selected to run")
     if dirty:
         print("TREE NOT CLEAN -- refusing to measure a baseline. Every mutant "
               "below would be compared against a number that already contains "

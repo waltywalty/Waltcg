@@ -275,6 +275,10 @@ class ApiTcgAdapter(Adapter):
     BY_CODE = BASE + "/api/products?type=card&tcg={tcg}&code={code}"
     SETS = BASE + "/api/{tcg}/sets"
     PAGE_SIZE = 100
+    # `/api/products` serves 100 cards per request; `index_by_code` uses it.
+    # This is what makes the run report's amplification column non-trivial for
+    # this source, and it was 100x for as long as `fetch` asked per card.
+    cards_per_request = PAGE_SIZE
 
     # apitcg's own slugs. `one-piece` here is correct and is NOT the same as
     # tcgapi.dev's `one-piece-card-game` -- two providers, two vocabularies,

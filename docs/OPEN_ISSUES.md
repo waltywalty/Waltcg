@@ -48,6 +48,19 @@ Mitigated rather than solved: the catalog cache means a refusal costs nothing,
 and the two-strike breaker means we stop asking. Add each run's numbers from
 the ingest step's rate-limit table.
 
+**ESCALATED 2026-08-27 to INC-001** (`docs/INCIDENTS.md`) — three of eight
+combinations dark for ~7 weeks and 109 of 239 labelled rows unmeasurable is a
+production incident, not a measurement finding. The incident entry carries the
+timeline, the mechanism, and an explicit split between what is established from
+committed artifacts and what is inferred.
+
+**The inference in `config/rate_limits.yaml` is withdrawn.** Both observations
+count the CATALOG step only; each workflow step is a separate process and the
+next one was sending thousands of per-card requests to the same provider. "250
+calls" excluded roughly 95% of what we sent that day. A daily cap fits the two
+observations perfectly once the price step is counted — and so does an
+anonymous per-IP quota if `APITCG_KEY` is unset.
+
 **AMENDED 2026-08-27 (ADR-0062): the quota was not the binding constraint.**
 `ApiTcgAdapter.fetch` was making one `?code=` request **per card** — 3,494 on
 the current target list — for an `artist` field `/api/products` serves 100 at
@@ -1342,6 +1355,8 @@ the weaker of the two rather than one with a growing exemption roster.
 
 ## FIXED — a killed mutation run poisoned the next two runs' baselines
 
+Written up as INC-002 in `docs/INCIDENTS.md`.
+
 `audit/mutate.py` edits source in place and restores in a `finally`, which
 **does not run on SIGTERM**. A run killed on 2026-08-27 left
 `interval_properties.battery`'s `check()` as a `pass`. The next two runs then
@@ -1361,3 +1376,28 @@ executes. Both mutated.
 The docstring already said "that has happened once already." It had now
 happened twice, which is the same lesson as ADR-0058: a comment describing a
 failure mode is not a control against it.
+
+## FIXED — the run report could not show that we were the load
+
+Both quota findings this project has produced were **client-side**, and for
+seven weeks the diagnosis pointed at the provider. The rate-limit table counted
+CALLS and 429s with no denominator, so 3,494 requests for 3,494 cards looked
+exactly like 35 requests for 3,494 cards.
+
+Three columns added, and the arithmetic does the rest:
+
+| Source | Cards | Calls | Batched | Amplification | 429s |
+|---|---:|---:|---:|---:|---:|
+| `apitcg` | 5582 | 5582 | 56 | **100x** | 2 |
+
+`cards_per_request` is declared on the adapter (1 by default, 100 for apitcg's
+`/api/products`), so a source with no batched form reads `1x` rather than being
+flagged as noise. When any source exceeds its own batched equivalent the report
+says **"We are the load"** and names it.
+
+The preflight now answers the first question in every quota conversation in one
+word: `key=yes` / `key=no` / `key=NO` / `key=n/a` per source, presence only,
+never the key. A `key=NO` source is calling the provider **anonymously**, which
+on a shared runner egress IP shares a quota with everyone else on that host.
+
+**A limit you cannot see yourself approaching reads as somebody else's limit.**
